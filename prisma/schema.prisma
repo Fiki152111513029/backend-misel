@@ -1,0 +1,368 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                        String                     @id @default(uuid())
+  username                  String                     @unique
+  email                     String                     @unique
+  password                  String
+  fullName                  String
+  roleId                    String
+  isActive                  Boolean                    @default(true)
+  priority                  Int                        @default(6)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  role                      Role                       @relation(fields: [roleId], references: [id])
+  refreshTokens             RefreshToken[]
+  warehouseOperatorLocation WarehouseOperatorLocation?
+  productionLines           ProductionLine[]
+  tasks                     Task[]
+  warehouseCartTasks        WarehouseCartTask[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  name        String
+  description String?
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id                  String   @id @default(uuid())
+  userId              String
+  tokenHash           String   @unique
+  revoked             Boolean  @default(false)
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  replacedByTokenHash String?
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model BoxType {
+  id               String     @id @default(uuid())
+  name             String     @unique
+  ordering         Int
+  colorCode        String
+  modelProcessCode String     @default("")
+  fromSystem       FromSystem @default(MES)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+
+  requestBoxes RequestBox[]
+  tasks        Task[]
+
+  @@map("box_types")
+}
+
+enum FromSystem {
+  MES
+  WMS
+}
+
+model ModelCodeProcess {
+  id         String      @id @default(uuid())
+  name       String      @unique
+  fromSystem FromSystem  @default(MES)
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  warehouseLineLocations WarehouseLineLocation[]
+  warehouseCartTasks     WarehouseCartTask[]
+
+  @@map("model_code_processes")
+}
+
+model QuarantineLine {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+  quarantineAreas QuarantineArea[]
+  productionLines ProductionLine[]
+
+  @@map("quarantine_lines")
+}
+
+model QuarantineArea {
+  id                  String         @id @default(uuid())
+  name                String
+  iRaypleLocationCode String         @unique
+  quarantineLineId    String
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  deletedAt           DateTime?
+  quarantineLine      QuarantineLine @relation(fields: [quarantineLineId], references: [id])
+  tasks               Task[]
+
+  @@index([quarantineLineId])
+  @@map("quarantine_areas")
+}
+
+model EximLocation {
+  id                  String    @id @default(uuid())
+  name                String    @unique
+  iRaypleLocationCode String    @unique
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  productionLineAreas ProductionLineArea[]
+
+  @@map("exim_locations")
+}
+
+model EmptyPalletLocation {
+  id                  String    @id @default(uuid())
+  name                String    @unique
+  iRaypleLocationCode String    @unique
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  productionLineAreas ProductionLineArea[]
+
+  @@map("empty_pallet_locations")
+}
+
+model WarehouseLineLocation {
+  id                   String    @id @default(uuid())
+  name                 String    @unique
+  droppingLocationCode String    @unique
+  pickingLocationCode  String    @unique
+  modelCodeProcessId   String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  modelCodeProcess   ModelCodeProcess?   @relation(fields: [modelCodeProcessId], references: [id])
+  warehouseCartTasks WarehouseCartTask[]
+
+  @@index([modelCodeProcessId])
+  @@map("warehouse_line_locations")
+}
+
+model WarehouseOperatorLocation {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  locationCode String    @unique
+  operatorId   String    @unique
+  operator     User      @relation(fields: [operatorId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@map("warehouse_operator_locations")
+}
+
+enum WarehouseCartTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model WarehouseCartTask {
+  id                      String                  @id @default(uuid())
+  taskId                  String                  @unique
+  taskPath                String
+  status                  WarehouseCartTaskStatus @default(PENDING)
+  warehouseLineLocationId String
+  modelCodeProcessId      String
+  robotId                 String?
+  operatorId              String
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  deletedAt               DateTime?
+  warehouseLineLocation   WarehouseLineLocation   @relation(fields: [warehouseLineLocationId], references: [id])
+  modelCodeProcess        ModelCodeProcess        @relation(fields: [modelCodeProcessId], references: [id])
+  robot                   Robot?                  @relation(fields: [robotId], references: [id])
+  operator                User                    @relation(fields: [operatorId], references: [id])
+
+  @@index([warehouseLineLocationId])
+  @@index([modelCodeProcessId])
+  @@index([robotId])
+  @@index([operatorId])
+  @@map("warehouse_cart_tasks")
+}
+
+model ProductionLine {
+  id                 String               @id @default(uuid())
+  name               String               @unique
+  quarantineLineId   String
+  operatorId         String
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
+  quarantineLine     QuarantineLine       @relation(fields: [quarantineLineId], references: [id])
+  operator           User                 @relation(fields: [operatorId], references: [id])
+  productionLineAreas ProductionLineArea[]
+  requestBoxes        RequestBox[]
+  tasks               Task[]
+
+  @@index([quarantineLineId])
+  @@index([operatorId])
+  @@map("production_lines")
+}
+
+enum ProductionLineAreaType {
+  PRODUCTION
+  STOCK
+}
+
+model ProductionLineArea {
+  id                    String                 @id @default(uuid())
+  name                  String
+  type                  ProductionLineAreaType
+  iRaypleLocationCode   String                 @unique
+  productionLineId      String
+  eximLocationId        String
+  emptyPalletLocationId String
+  order                 Int
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  productionLine        ProductionLine         @relation(fields: [productionLineId], references: [id])
+  eximLocation          EximLocation           @relation(fields: [eximLocationId], references: [id])
+  emptyPalletLocation   EmptyPalletLocation    @relation(fields: [emptyPalletLocationId], references: [id])
+  tasks                 Task[]
+
+  @@index([productionLineId])
+  @@index([eximLocationId])
+  @@index([emptyPalletLocationId])
+  @@map("production_line_areas")
+}
+
+model RequestBox {
+  id               String    @id @default(uuid())
+  productionLineId String
+  boxTypeId        String
+  qty              Int
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+  productionLine   ProductionLine @relation(fields: [productionLineId], references: [id])
+  boxType          BoxType        @relation(fields: [boxTypeId], references: [id])
+
+  @@index([productionLineId])
+  @@index([boxTypeId])
+  @@map("request_boxes")
+}
+
+enum RobotState {
+  IDLE
+  INITIALIZING
+  IN_TASK
+  FAULT
+  OFFLINE
+  CHARGING
+  UPGRADING
+}
+
+model Robot {
+  id                String     @id @default(uuid())
+  name              String     @unique
+  amrDeviceSerialNo String     @unique
+  amrDeviceNo       String     @unique
+  areaId            Int
+  speed             Float      @default(0)
+  battery           Int        @default(0)
+  state             RobotState @default(OFFLINE)
+  lastUpdate        DateTime   @default(now())
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+  tasks             Task[]
+  warehouseCartTasks WarehouseCartTask[]
+
+  @@map("robots")
+}
+
+enum TaskAction {
+  AMBIL_FG
+  NOT_STANDARD
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model Task {
+  id                   String              @id @default(uuid())
+  taskId               String              @unique
+  taskAction           TaskAction
+  taskPath             String
+  status               TaskStatus          @default(PENDING)
+  productionLineId     String
+  productionLineAreaId String?
+  quarantineAreaId     String?
+  boxTypeId            String
+  robotId              String?
+  operatorId           String
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  deletedAt            DateTime?
+  productionLine       ProductionLine      @relation(fields: [productionLineId], references: [id])
+  productionLineArea   ProductionLineArea? @relation(fields: [productionLineAreaId], references: [id])
+  quarantineArea       QuarantineArea?     @relation(fields: [quarantineAreaId], references: [id])
+  boxType              BoxType             @relation(fields: [boxTypeId], references: [id])
+  robot                Robot?              @relation(fields: [robotId], references: [id])
+  operator             User                @relation(fields: [operatorId], references: [id])
+
+  @@index([productionLineId])
+  @@index([productionLineAreaId])
+  @@index([quarantineAreaId])
+  @@index([boxTypeId])
+  @@index([robotId])
+  @@index([operatorId])
+  @@map("tasks")
+}
