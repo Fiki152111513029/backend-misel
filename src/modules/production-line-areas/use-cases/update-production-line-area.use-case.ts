@@ -71,6 +71,19 @@ export class UpdateProductionLineAreaUseCase {
       }
     }
 
+    if (
+      dto.modelCodeProcessId &&
+      dto.modelCodeProcessId !== existing.modelCodeProcessId
+    ) {
+      const modelCodeProcessExists =
+        await this.productionLineAreasRepository.existsActiveModelCodeProcessById(
+          dto.modelCodeProcessId,
+        );
+      if (!modelCodeProcessExists) {
+        throw new BadRequestException('Model Code Process not found');
+      }
+    }
+
     return this.productionLineAreasRepository.update(id, dto);
   }
 }

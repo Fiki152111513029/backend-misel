@@ -3,11 +3,24 @@ import { QuarantineLine } from '@prisma/client';
 export interface CreateQuarantineLineData {
   name: string;
   isActive?: boolean;
+  modelCodeProcessId?: string;
 }
 
 export interface UpdateQuarantineLineData {
   name?: string;
   isActive?: boolean;
+  modelCodeProcessId?: string;
+}
+
+export interface ModelCodeProcessRefForQuarantineLine {
+  id: string;
+  name: string;
+  fromSystem: string;
+  isActive: boolean;
+}
+
+export interface QuarantineLineWithRelations extends QuarantineLine {
+  modelCodeProcess: ModelCodeProcessRefForQuarantineLine | null;
 }
 
 export type QuarantineLineSortBy = 'name' | 'createdAt';
@@ -22,7 +35,7 @@ export interface FindAllQuarantineLinesParams {
 }
 
 export interface FindAllQuarantineLinesResult {
-  items: QuarantineLine[];
+  items: QuarantineLineWithRelations[];
   total: number;
 }
 
@@ -32,8 +45,9 @@ export interface IQuarantineLinesRepository {
   findAll(
     params: FindAllQuarantineLinesParams,
   ): Promise<FindAllQuarantineLinesResult>;
-  findById(id: string): Promise<QuarantineLine | null>;
+  findById(id: string): Promise<QuarantineLineWithRelations | null>;
   existsByName(name: string, excludeId?: string): Promise<boolean>;
+  existsActiveModelCodeProcessById(modelCodeProcessId: string): Promise<boolean>;
   hasActiveAreas(id: string): Promise<boolean>;
   hasActiveProductionLines(id: string): Promise<boolean>;
   create(data: CreateQuarantineLineData): Promise<QuarantineLine>;

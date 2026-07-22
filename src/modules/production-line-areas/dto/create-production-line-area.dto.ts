@@ -1,9 +1,10 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductionLineAreaType } from '@prisma/client';
 import {
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUUID,
   MaxLength,
@@ -41,6 +42,14 @@ export class CreateProductionLineAreaDto {
   @ApiProperty({ example: 'b3f1c2e4-...' })
   @IsUUID()
   emptyPalletLocationId!: string;
+
+  @ApiPropertyOptional({
+    description: 'Model Code Process used as this area\'s task template when releasing tasks',
+    example: 'b3f1c2e4-...',
+  })
+  @IsOptional()
+  @IsUUID()
+  modelCodeProcessId?: string;
 
   @ApiProperty({ example: 1, minimum: 0 })
   @IsInt()

@@ -99,30 +99,43 @@ enum FromSystem {
 }
 
 model ModelCodeProcess {
-  id         String      @id @default(uuid())
-  name       String      @unique
-  fromSystem FromSystem  @default(MES)
-  isActive   Boolean     @default(true)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  deletedAt  DateTime?
+  id             String      @id @default(uuid())
+  name           String      @unique
+  fromSystem     FromSystem  @default(MES)
+  isActive       Boolean     @default(true)
+  statusComment1 String      @default("")
+  statusComment2 String      @default("")
+  statusComment3 String      @default("")
+  statusComment4 String      @default("")
+  statusComment5 String      @default("")
+  statusComment6 String      @default("")
+  statusComment7 String      @default("")
+  statusComment8 String      @default("")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
 
   warehouseLineLocations WarehouseLineLocation[]
   warehouseCartTasks     WarehouseCartTask[]
+  productionLineAreas    ProductionLineArea[]
+  quarantineLines        QuarantineLine[]
 
   @@map("model_code_processes")
 }
 
 model QuarantineLine {
-  id              String           @id @default(uuid())
-  name            String           @unique
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  deletedAt       DateTime?
-  quarantineAreas QuarantineArea[]
-  productionLines ProductionLine[]
+  id                 String           @id @default(uuid())
+  name               String           @unique
+  isActive           Boolean          @default(true)
+  modelCodeProcessId String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+  modelCodeProcess   ModelCodeProcess? @relation(fields: [modelCodeProcessId], references: [id])
+  quarantineAreas    QuarantineArea[]
+  productionLines    ProductionLine[]
 
+  @@index([modelCodeProcessId])
   @@map("quarantine_lines")
 }
 
@@ -263,6 +276,7 @@ model ProductionLineArea {
   productionLineId      String
   eximLocationId        String
   emptyPalletLocationId String
+  modelCodeProcessId    String?
   order                 Int
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
@@ -270,11 +284,13 @@ model ProductionLineArea {
   productionLine        ProductionLine         @relation(fields: [productionLineId], references: [id])
   eximLocation          EximLocation           @relation(fields: [eximLocationId], references: [id])
   emptyPalletLocation   EmptyPalletLocation    @relation(fields: [emptyPalletLocationId], references: [id])
+  modelCodeProcess      ModelCodeProcess?      @relation(fields: [modelCodeProcessId], references: [id])
   tasks                 Task[]
 
   @@index([productionLineId])
   @@index([eximLocationId])
   @@index([emptyPalletLocationId])
+  @@index([modelCodeProcessId])
   @@map("production_line_areas")
 }
 

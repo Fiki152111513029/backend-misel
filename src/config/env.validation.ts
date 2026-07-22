@@ -55,6 +55,10 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   TASK_ORDER_AREA_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  ICS_LOGS_DEVELOPER_PASSWORD?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

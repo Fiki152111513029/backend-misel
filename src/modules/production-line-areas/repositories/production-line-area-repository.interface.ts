@@ -4,6 +4,7 @@ export interface ProductionLineAreaWithRelations extends ProductionLineArea {
   productionLine: { id: string; name: string };
   eximLocation: { id: string; name: string };
   emptyPalletLocation: { id: string; name: string };
+  modelCodeProcess: { id: string; name: string } | null;
 }
 
 export interface CreateProductionLineAreaData {
@@ -13,6 +14,7 @@ export interface CreateProductionLineAreaData {
   productionLineId: string;
   eximLocationId: string;
   emptyPalletLocationId: string;
+  modelCodeProcessId?: string;
   order: number;
 }
 
@@ -23,6 +25,7 @@ export interface UpdateProductionLineAreaData {
   productionLineId?: string;
   eximLocationId?: string;
   emptyPalletLocationId?: string;
+  modelCodeProcessId?: string;
   order?: number;
 }
 
@@ -56,6 +59,7 @@ export interface IProductionLineAreasRepository {
   existsActiveEmptyPalletLocationById(
     emptyPalletLocationId: string,
   ): Promise<boolean>;
+  existsActiveModelCodeProcessById(modelCodeProcessId: string): Promise<boolean>;
   create(data: CreateProductionLineAreaData): Promise<ProductionLineArea>;
   update(
     id: string,

@@ -18,6 +18,16 @@ export class CreateQuarantineLineUseCase {
       throw new BadRequestException('Quarantine Line name already in use');
     }
 
+    if (dto.modelCodeProcessId) {
+      const modelCodeProcessExists =
+        await this.quarantineLinesRepository.existsActiveModelCodeProcessById(
+          dto.modelCodeProcessId,
+        );
+      if (!modelCodeProcessExists) {
+        throw new BadRequestException('Model Code Process not found');
+      }
+    }
+
     return this.quarantineLinesRepository.create(dto);
   }
 }

@@ -43,6 +43,16 @@ export class CreateProductionLineAreaUseCase {
       throw new BadRequestException('Empty Pallet Location not found');
     }
 
+    if (dto.modelCodeProcessId) {
+      const modelCodeProcessExists =
+        await this.productionLineAreasRepository.existsActiveModelCodeProcessById(
+          dto.modelCodeProcessId,
+        );
+      if (!modelCodeProcessExists) {
+        throw new BadRequestException('Model Code Process not found');
+      }
+    }
+
     return this.productionLineAreasRepository.create(dto);
   }
 }

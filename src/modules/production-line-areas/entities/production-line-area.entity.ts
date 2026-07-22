@@ -40,6 +40,12 @@ export class ProductionLineAreaEntity {
   @ApiProperty({ type: NamedRefEntity })
   emptyPalletLocation!: NamedRefEntity;
 
+  @ApiProperty({ nullable: true })
+  modelCodeProcessId!: string | null;
+
+  @ApiProperty({ type: NamedRefEntity, nullable: true })
+  modelCodeProcess!: NamedRefEntity | null;
+
   @ApiProperty()
   order!: number;
 

@@ -15,6 +15,7 @@ const RELATIONS_INCLUDE = {
   productionLine: { select: { id: true, name: true } },
   eximLocation: { select: { id: true, name: true } },
   emptyPalletLocation: { select: { id: true, name: true } },
+  modelCodeProcess: { select: { id: true, name: true } },
 } as const;
 
 @Injectable()
@@ -87,6 +88,15 @@ export class ProductionLineAreaRepository implements IProductionLineAreasReposit
   ): Promise<boolean> {
     const count = await this.prisma.emptyPalletLocation.count({
       where: { id: emptyPalletLocationId, deletedAt: null },
+    });
+    return count > 0;
+  }
+
+  async existsActiveModelCodeProcessById(
+    modelCodeProcessId: string,
+  ): Promise<boolean> {
+    const count = await this.prisma.modelCodeProcess.count({
+      where: { id: modelCodeProcessId, deletedAt: null, isActive: true },
     });
     return count > 0;
   }

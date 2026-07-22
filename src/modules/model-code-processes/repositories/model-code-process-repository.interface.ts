@@ -4,12 +4,28 @@ export interface CreateModelCodeProcessData {
   name: string;
   fromSystem: FromSystem;
   isActive?: boolean;
+  statusComment1?: string;
+  statusComment2?: string;
+  statusComment3?: string;
+  statusComment4?: string;
+  statusComment5?: string;
+  statusComment6?: string;
+  statusComment7?: string;
+  statusComment8?: string;
 }
 
 export interface UpdateModelCodeProcessData {
   name?: string;
   fromSystem?: FromSystem;
   isActive?: boolean;
+  statusComment1?: string;
+  statusComment2?: string;
+  statusComment3?: string;
+  statusComment4?: string;
+  statusComment5?: string;
+  statusComment6?: string;
+  statusComment7?: string;
+  statusComment8?: string;
 }
 
 export type ModelCodeProcessSortBy = 'name' | 'createdAt';

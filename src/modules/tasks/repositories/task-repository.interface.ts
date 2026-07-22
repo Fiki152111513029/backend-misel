@@ -1,4 +1,4 @@
-import { Task, TaskAction } from '@prisma/client';
+import { Task, TaskAction, TaskStatus } from '@prisma/client';
 
 export interface ProductionLineAreaForTask {
   id: string;
@@ -51,6 +51,12 @@ export interface FindAllTasksParams {
   limit: number;
   sortBy: TaskSortBy;
   sortOrder: SortOrder;
+  dateFrom?: string;
+  dateTo?: string;
+  operatorId?: string;
+  status?: TaskStatus;
+  taskAction?: TaskAction;
+  activeOnly?: boolean;
 }
 
 export interface FindAllTasksResult {
@@ -58,11 +64,18 @@ export interface FindAllTasksResult {
   total: number;
 }
 
+export interface TaskOperatorOption {
+  id: string;
+  username: string;
+  fullName: string;
+}
+
 export const TASKS_REPOSITORY = 'TASKS_REPOSITORY';
 
 export interface ITasksRepository {
   findAll(params: FindAllTasksParams): Promise<FindAllTasksResult>;
   findById(id: string): Promise<TaskWithRelations | null>;
+  findDistinctOperators(): Promise<TaskOperatorOption[]>;
   findProductionLineAreaWithRelations(
     id: string,
   ): Promise<ProductionLineAreaForTask | null>;
@@ -71,4 +84,5 @@ export interface ITasksRepository {
     quarantineLineId: string,
   ): Promise<QuarantineAreaForTask | null>;
   create(data: CreateTaskData): Promise<Task>;
+  updateStatus(id: string, status: TaskStatus): Promise<Task>;
 }

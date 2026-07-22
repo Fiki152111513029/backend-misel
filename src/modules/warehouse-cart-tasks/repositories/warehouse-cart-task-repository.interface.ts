@@ -1,4 +1,4 @@
-import { WarehouseCartTask } from '@prisma/client';
+import { WarehouseCartTask, WarehouseCartTaskStatus } from '@prisma/client';
 
 export interface CreateWarehouseCartTaskData {
   taskId: string;
@@ -23,11 +23,21 @@ export interface FindAllWarehouseCartTasksParams {
   limit: number;
   sortBy: WarehouseCartTaskSortBy;
   sortOrder: SortOrder;
+  dateFrom?: string;
+  dateTo?: string;
+  operatorId?: string;
+  status?: WarehouseCartTaskStatus;
 }
 
 export interface FindAllWarehouseCartTasksResult {
   items: WarehouseCartTaskWithRelations[];
   total: number;
+}
+
+export interface WarehouseCartTaskOperatorOption {
+  id: string;
+  username: string;
+  fullName: string;
 }
 
 export const WAREHOUSE_CART_TASKS_REPOSITORY = 'WAREHOUSE_CART_TASKS_REPOSITORY';
@@ -36,5 +46,6 @@ export interface IWarehouseCartTasksRepository {
   findAll(
     params: FindAllWarehouseCartTasksParams,
   ): Promise<FindAllWarehouseCartTasksResult>;
+  findDistinctOperators(): Promise<WarehouseCartTaskOperatorOption[]>;
   create(data: CreateWarehouseCartTaskData): Promise<WarehouseCartTask>;
 }

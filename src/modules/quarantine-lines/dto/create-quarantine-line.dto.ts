@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 
@@ -18,4 +19,12 @@ export class CreateQuarantineLineDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Model Code Process used as this quarantine line\'s task template',
+    example: 'b3f1c2e4-...',
+  })
+  @IsOptional()
+  @IsUUID()
+  modelCodeProcessId?: string;
 }

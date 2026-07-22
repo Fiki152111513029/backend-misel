@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { WarehouseCartTaskStatus } from '@prisma/client';
+import { IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
 import type {
   SortOrder,
   WarehouseCartTaskSortBy,
@@ -30,4 +31,24 @@ export class WarehouseCartTaskQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder: SortOrder = 'desc';
+
+  @ApiPropertyOptional({ description: 'ISO datetime — createdAt lower bound' })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ description: 'ISO datetime — createdAt upper bound' })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by the operator who released the cart task' })
+  @IsOptional()
+  @IsUUID()
+  operatorId?: string;
+
+  @ApiPropertyOptional({ enum: WarehouseCartTaskStatus })
+  @IsOptional()
+  @IsEnum(WarehouseCartTaskStatus)
+  status?: WarehouseCartTaskStatus;
 }

@@ -5,6 +5,7 @@ import type { AuthRequestUser } from '../../auth/types/auth-request-user.type';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { ReleaseWarehouseCartTaskDto } from '../dto/release-warehouse-cart-task.dto';
 import { WarehouseCartTaskQueryDto } from '../dto/warehouse-cart-task-query.dto';
+import { GetWarehouseCartTaskOperatorsUseCase } from '../use-cases/get-warehouse-cart-task-operators.use-case';
 import { GetWarehouseCartTasksUseCase } from '../use-cases/get-warehouse-cart-tasks.use-case';
 import { ReleaseWarehouseCartTaskUseCase } from '../use-cases/release-warehouse-cart-task.use-case';
 
@@ -15,6 +16,7 @@ export class WarehouseCartTaskController {
   constructor(
     private readonly releaseWarehouseCartTaskUseCase: ReleaseWarehouseCartTaskUseCase,
     private readonly getWarehouseCartTasksUseCase: GetWarehouseCartTasksUseCase,
+    private readonly getWarehouseCartTaskOperatorsUseCase: GetWarehouseCartTaskOperatorsUseCase,
   ) {}
 
   @Post('release')
@@ -40,12 +42,26 @@ export class WarehouseCartTaskController {
 
   @Get()
   @Permissions('warehouse-cart-task.read')
-  @ApiOperation({ summary: 'List warehouse cart tasks (pagination, sorting)' })
+  @ApiOperation({ summary: 'List warehouse cart tasks (pagination, sorting, filtering)' })
   async findAll(@Query() query: WarehouseCartTaskQueryDto) {
     const data = await this.getWarehouseCartTasksUseCase.execute(query);
     return {
       success: true,
       message: 'Warehouse cart tasks retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('operators')
+  @Permissions('warehouse-cart-task.read')
+  @ApiOperation({
+    summary: 'List distinct operators who have released a warehouse cart task, for filter dropdowns',
+  })
+  async findOperators() {
+    const data = await this.getWarehouseCartTaskOperatorsUseCase.execute();
+    return {
+      success: true,
+      message: 'Warehouse cart task operators retrieved successfully',
       data,
     };
   }

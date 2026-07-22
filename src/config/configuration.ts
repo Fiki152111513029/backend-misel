@@ -18,6 +18,9 @@ export default () => ({
     fullName: process.env.SEED_SUPER_ADMIN_FULLNAME ?? 'Super Administrator',
     password: process.env.SEED_SUPER_ADMIN_PASSWORD ?? 'ChangeMe123!',
   },
+  icsLogsAccess: {
+    password: process.env.ICS_LOGS_DEVELOPER_PASSWORD,
+  },
   robotTelemetry: {
     url:
       process.env.ROBOT_TELEMETRY_URL ??

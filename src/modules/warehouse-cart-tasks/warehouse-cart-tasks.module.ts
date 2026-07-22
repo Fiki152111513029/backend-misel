@@ -5,6 +5,7 @@ import { WarehouseOperatorLocationsModule } from '../warehouse-operator-location
 import { WarehouseCartTaskController } from './controllers/warehouse-cart-task.controller';
 import { WAREHOUSE_CART_TASKS_REPOSITORY } from './repositories/warehouse-cart-task-repository.interface';
 import { WarehouseCartTaskRepository } from './repositories/warehouse-cart-task.repository';
+import { GetWarehouseCartTaskOperatorsUseCase } from './use-cases/get-warehouse-cart-task-operators.use-case';
 import { GetWarehouseCartTasksUseCase } from './use-cases/get-warehouse-cart-tasks.use-case';
 import { ReleaseWarehouseCartTaskUseCase } from './use-cases/release-warehouse-cart-task.use-case';
 
@@ -22,6 +23,7 @@ import { ReleaseWarehouseCartTaskUseCase } from './use-cases/release-warehouse-c
     },
     ReleaseWarehouseCartTaskUseCase,
     GetWarehouseCartTasksUseCase,
+    GetWarehouseCartTaskOperatorsUseCase,
   ],
   exports: [WAREHOUSE_CART_TASKS_REPOSITORY],
 })

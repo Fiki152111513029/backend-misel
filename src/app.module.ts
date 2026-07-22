@@ -23,6 +23,7 @@ import { RequestBoxesModule } from './modules/request-boxes/request-boxes.module
 import { RobotsModule } from './modules/robots/robots.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { WarehouseCartTasksModule } from './modules/warehouse-cart-tasks/warehouse-cart-tasks.module';
+import { IcsLogsAccessModule } from './modules/ics-logs-access/ics-logs-access.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WarehouseCartTasksModule } from './modules/warehouse-cart-tasks/warehou
     RobotsModule,
     TasksModule,
     WarehouseCartTasksModule,
+    IcsLogsAccessModule,
   ],
   controllers: [AppController],
   providers: [AppService],

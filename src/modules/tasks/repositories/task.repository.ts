@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   BoxTypeForTask,
@@ -9,6 +9,7 @@ import {
   ITasksRepository,
   ProductionLineAreaForTask,
   QuarantineAreaForTask,
+  TaskOperatorOption,
   TaskWithRelations,
 } from './task-repository.interface';
 
@@ -33,7 +34,23 @@ export class TaskRepository implements ITasksRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(params: FindAllTasksParams): Promise<FindAllTasksResult> {
-    const where: Prisma.TaskWhereInput = { ...NOT_DELETED };
+    const where: Prisma.TaskWhereInput = {
+      ...NOT_DELETED,
+      ...(params.operatorId ? { operatorId: params.operatorId } : {}),
+      ...(params.activeOnly
+        ? { status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] } }
+        : {}),
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.taskAction ? { taskAction: params.taskAction } : {}),
+      ...(params.dateFrom || params.dateTo
+        ? {
+            createdAt: {
+              ...(params.dateFrom ? { gte: new Date(params.dateFrom) } : {}),
+              ...(params.dateTo ? { lte: new Date(params.dateTo) } : {}),
+            },
+          }
+        : {}),
+    };
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.task.findMany({
@@ -54,6 +71,16 @@ export class TaskRepository implements ITasksRepository {
       where: { id, ...NOT_DELETED },
       include: RELATIONS_INCLUDE,
     }) as Promise<TaskWithRelations | null>;
+  }
+
+  async findDistinctOperators(): Promise<TaskOperatorOption[]> {
+    const rows = await this.prisma.task.findMany({
+      where: NOT_DELETED,
+      distinct: ['operatorId'],
+      select: { operator: { select: { id: true, username: true, fullName: true } } },
+      orderBy: { operatorId: 'asc' },
+    });
+    return rows.map((row) => row.operator);
   }
 
   findProductionLineAreaWithRelations(
@@ -92,5 +119,9 @@ export class TaskRepository implements ITasksRepository {
 
   create(data: CreateTaskData) {
     return this.prisma.task.create({ data });
+  }
+
+  updateStatus(id: string, status: TaskStatus) {
+    return this.prisma.task.update({ where: { id }, data: { status } });
   }
 }
