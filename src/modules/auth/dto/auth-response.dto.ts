@@ -7,8 +7,8 @@ class AuthUserDto {
   @ApiProperty()
   username!: string;
 
-  @ApiProperty()
-  email!: string;
+  @ApiProperty({ nullable: true })
+  email!: string | null;
 
   @ApiProperty()
   fullName!: string;

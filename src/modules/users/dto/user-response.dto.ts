@@ -12,8 +12,8 @@ export class UserResponseDto {
   username!: string;
 
   @Expose()
-  @ApiProperty()
-  email!: string;
+  @ApiProperty({ nullable: true })
+  email!: string | null;
 
   @Expose()
   @ApiProperty()

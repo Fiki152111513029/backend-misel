@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UpdateUserDto } from '../dto/update-user.dto';
@@ -17,6 +22,16 @@ export class UpdateUserUseCase {
     const existing = await this.usersRepository.findById(id);
     if (!existing) {
       throw new NotFoundException('User not found');
+    }
+
+    if (dto.email && dto.email !== existing.email) {
+      const emailTaken = await this.usersRepository.existsByEmail(
+        dto.email,
+        id,
+      );
+      if (emailTaken) {
+        throw new BadRequestException('Email already in use');
+      }
     }
 
     const saltRounds = this.configService.get<number>('bcrypt.saltRounds', 10);

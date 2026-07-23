@@ -16,9 +16,10 @@ export class CreateUserDto {
   @IsNotEmpty()
   username!: string;
 
-  @ApiProperty({ example: 'jdoe@example.com' })
+  @ApiPropertyOptional({ example: 'jdoe@example.com' })
+  @IsOptional()
   @IsEmail()
-  email!: string;
+  email?: string;
 
   @ApiProperty({ example: 'StrongP@ssw0rd', minLength: 8 })
   @IsString()

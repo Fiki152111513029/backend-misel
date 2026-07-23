@@ -38,10 +38,20 @@ export class UsersRepository implements IUsersRepository {
 
   async existsByUsernameOrEmail(
     username: string,
-    email: string,
+    email?: string,
   ): Promise<boolean> {
     const count = await this.prisma.user.count({
-      where: { OR: [{ username }, { email }] },
+      where: { OR: email ? [{ username }, { email }] : [{ username }] },
+    });
+    return count > 0;
+  }
+
+  async existsByEmail(email: string, excludeId?: string): Promise<boolean> {
+    const count = await this.prisma.user.count({
+      where: {
+        email,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
     });
     return count > 0;
   }

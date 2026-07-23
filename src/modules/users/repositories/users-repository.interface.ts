@@ -8,7 +8,7 @@ export type UserWithRole = Prisma.UserGetPayload<{
 
 export interface CreateUserData {
   username: string;
-  email: string;
+  email?: string;
   password: string;
   fullName: string;
   roleId: string;
@@ -17,7 +17,7 @@ export interface CreateUserData {
 }
 
 export interface UpdateUserData {
-  email?: string;
+  email?: string | null;
   password?: string;
   fullName?: string;
   roleId?: string;
@@ -31,7 +31,8 @@ export interface IUsersRepository {
   findByIdentifier(identifier: string): Promise<UserWithRole | null>;
   findById(id: string): Promise<UserWithRole | null>;
   findAll(): Promise<UserWithRole[]>;
-  existsByUsernameOrEmail(username: string, email: string): Promise<boolean>;
+  existsByUsernameOrEmail(username: string, email?: string): Promise<boolean>;
+  existsByEmail(email: string, excludeId?: string): Promise<boolean>;
   create(data: CreateUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
   remove(id: string): Promise<void>;
