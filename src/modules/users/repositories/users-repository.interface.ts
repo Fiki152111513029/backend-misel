@@ -17,6 +17,7 @@ export interface CreateUserData {
 }
 
 export interface UpdateUserData {
+  username?: string;
   email?: string | null;
   password?: string;
   fullName?: string;
@@ -33,6 +34,7 @@ export interface IUsersRepository {
   findAll(): Promise<UserWithRole[]>;
   existsByUsernameOrEmail(username: string, email?: string): Promise<boolean>;
   existsByEmail(email: string, excludeId?: string): Promise<boolean>;
+  existsByUsername(username: string, excludeId?: string): Promise<boolean>;
   create(data: CreateUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
   remove(id: string): Promise<void>;

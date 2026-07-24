@@ -29,7 +29,8 @@ export class CreateUserUseCase {
       username: dto.username,
       email: dto.email,
       password: hashedPassword,
-      fullName: dto.fullName,
+      // Full Name isn't required on the form — leave it blank if not given.
+      fullName: dto.fullName?.trim() ?? '',
       roleId: dto.roleId,
       isActive: dto.isActive,
       priority: dto.priority,

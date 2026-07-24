@@ -24,6 +24,16 @@ export class UpdateUserUseCase {
       throw new NotFoundException('User not found');
     }
 
+    if (dto.username && dto.username !== existing.username) {
+      const usernameTaken = await this.usersRepository.existsByUsername(
+        dto.username,
+        id,
+      );
+      if (usernameTaken) {
+        throw new BadRequestException('Username already in use');
+      }
+    }
+
     if (dto.email && dto.email !== existing.email) {
       const emailTaken = await this.usersRepository.existsByEmail(
         dto.email,
@@ -40,9 +50,11 @@ export class UpdateUserUseCase {
       : undefined;
 
     return this.usersRepository.update(id, {
+      username: dto.username,
       email: dto.email,
       password,
-      fullName: dto.fullName,
+      // Full Name isn't required on the form — leave it blank if cleared.
+      fullName: dto.fullName !== undefined ? dto.fullName.trim() : undefined,
       roleId: dto.roleId,
       isActive: dto.isActive,
       priority: dto.priority,

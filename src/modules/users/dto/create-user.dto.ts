@@ -26,10 +26,10 @@ export class CreateUserDto {
   @MinLength(8)
   password!: string;
 
-  @ApiProperty({ example: 'John Doe' })
+  @ApiPropertyOptional({ example: 'John Doe', description: 'Optional — can be left blank' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  fullName!: string;
+  fullName?: string;
 
   @ApiProperty({ example: 'b3f1c2e4-...' })
   @IsUUID()
