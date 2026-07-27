@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateRobotDto } from '../dto/create-robot.dto';
 import { ROBOTS_REPOSITORY } from '../repositories/robot-repository.interface';
 import type { IRobotsRepository } from '../repositories/robot-repository.interface';
@@ -30,6 +31,15 @@ export class CreateRobotUseCase {
       throw new BadRequestException('AMR Device No already in use');
     }
 
-    return this.robotsRepository.create(dto);
+    try {
+      return await this.robotsRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException(
+          'A Robot with this name or device code is already in use',
+        );
+      }
+      throw error;
+    }
   }
 }

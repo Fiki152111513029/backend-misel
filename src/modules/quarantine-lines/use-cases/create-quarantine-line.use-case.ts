@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateQuarantineLineDto } from '../dto/create-quarantine-line.dto';
 import { QUARANTINE_LINES_REPOSITORY } from '../repositories/quarantine-line-repository.interface';
 import type { IQuarantineLinesRepository } from '../repositories/quarantine-line-repository.interface';
@@ -28,6 +29,13 @@ export class CreateQuarantineLineUseCase {
       }
     }
 
-    return this.quarantineLinesRepository.create(dto);
+    try {
+      return await this.quarantineLinesRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('Quarantine Line name already in use');
+      }
+      throw error;
+    }
   }
 }

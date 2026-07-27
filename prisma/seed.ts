@@ -406,11 +406,20 @@ async function main() {
 
   console.log('Seeding box types...');
   for (const boxType of BOX_TYPE_SEEDS) {
-    await prisma.boxType.upsert({
-      where: { name: boxType.name },
-      update: { ordering: boxType.ordering, colorCode: boxType.colorCode },
-      create: boxType,
+    // `name` is no longer a DB-level unique key (only unique among
+    // non-soft-deleted rows via a partial index) so it can't be used as a
+    // Prisma `where` for upsert anymore — look it up manually instead.
+    const existing = await prisma.boxType.findFirst({
+      where: { name: boxType.name, deletedAt: null },
     });
+    if (existing) {
+      await prisma.boxType.update({
+        where: { id: existing.id },
+        data: { ordering: boxType.ordering, colorCode: boxType.colorCode },
+      });
+    } else {
+      await prisma.boxType.create({ data: boxType });
+    }
   }
 
   console.log('Seed complete.');

@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { UpdateProductionLineDto } from '../dto/update-production-line.dto';
 import { PRODUCTION_LINES_REPOSITORY } from '../repositories/production-line-repository.interface';
 import type { IProductionLinesRepository } from '../repositories/production-line-repository.interface';
@@ -54,6 +55,13 @@ export class UpdateProductionLineUseCase {
       }
     }
 
-    return this.productionLinesRepository.update(id, dto);
+    try {
+      return await this.productionLinesRepository.update(id, dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('Production Line name already in use');
+      }
+      throw error;
+    }
   }
 }

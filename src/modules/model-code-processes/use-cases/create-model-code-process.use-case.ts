@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateModelCodeProcessDto } from '../dto/create-model-code-process.dto';
 import { MODEL_CODE_PROCESSES_REPOSITORY } from '../repositories/model-code-process-repository.interface';
 import type { IModelCodeProcessesRepository } from '../repositories/model-code-process-repository.interface';
@@ -18,6 +19,15 @@ export class CreateModelCodeProcessUseCase {
       throw new BadRequestException('Model Code Process name already in use');
     }
 
-    return this.modelCodeProcessesRepository.create(dto);
+    try {
+      return await this.modelCodeProcessesRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException(
+          'Model Code Process name already in use',
+        );
+      }
+      throw error;
+    }
   }
 }

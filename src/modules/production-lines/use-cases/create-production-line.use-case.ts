@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateProductionLineDto } from '../dto/create-production-line.dto';
 import { PRODUCTION_LINES_REPOSITORY } from '../repositories/production-line-repository.interface';
 import type { IProductionLinesRepository } from '../repositories/production-line-repository.interface';
@@ -32,6 +33,13 @@ export class CreateProductionLineUseCase {
       throw new BadRequestException('Operator must be an active user');
     }
 
-    return this.productionLinesRepository.create(dto);
+    try {
+      return await this.productionLinesRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('Production Line name already in use');
+      }
+      throw error;
+    }
   }
 }

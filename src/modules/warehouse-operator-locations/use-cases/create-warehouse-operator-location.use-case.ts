@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateWarehouseOperatorLocationDto } from '../dto/create-warehouse-operator-location.dto';
 import { WAREHOUSE_OPERATOR_LOCATIONS_REPOSITORY } from '../repositories/warehouse-operator-location-repository.interface';
 import type { IWarehouseOperatorLocationsRepository } from '../repositories/warehouse-operator-location-repository.interface';
@@ -47,6 +48,15 @@ export class CreateWarehouseOperatorLocationUseCase {
       );
     }
 
-    return this.warehouseOperatorLocationsRepository.create(dto);
+    try {
+      return await this.warehouseOperatorLocationsRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException(
+          'A Warehouse Operator Location with this name or code is already in use',
+        );
+      }
+      throw error;
+    }
   }
 }

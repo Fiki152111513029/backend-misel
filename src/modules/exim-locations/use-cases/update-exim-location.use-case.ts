@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { UpdateEximLocationDto } from '../dto/update-exim-location.dto';
 import { EXIM_LOCATIONS_REPOSITORY } from '../repositories/exim-location-repository.interface';
 import type { IEximLocationsRepository } from '../repositories/exim-location-repository.interface';
@@ -44,6 +45,15 @@ export class UpdateEximLocationUseCase {
       }
     }
 
-    return this.eximLocationsRepository.update(id, dto);
+    try {
+      return await this.eximLocationsRepository.update(id, dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException(
+          'An EXIM Location with this name or code is already in use',
+        );
+      }
+      throw error;
+    }
   }
 }

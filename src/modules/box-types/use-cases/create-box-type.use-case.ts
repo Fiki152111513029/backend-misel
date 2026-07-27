@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateBoxTypeDto } from '../dto/create-box-type.dto';
 import { BOX_TYPES_REPOSITORY } from '../repositories/box-type-repository.interface';
 import type { IBoxTypesRepository } from '../repositories/box-type-repository.interface';
@@ -23,6 +24,13 @@ export class CreateBoxTypeUseCase {
       throw new BadRequestException('Box Type ordering already in use');
     }
 
-    return this.boxTypesRepository.create(dto);
+    try {
+      return await this.boxTypesRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('Box Type name already in use');
+      }
+      throw error;
+    }
   }
 }

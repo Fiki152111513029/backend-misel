@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { UpdateBoxTypeDto } from '../dto/update-box-type.dto';
 import { BOX_TYPES_REPOSITORY } from '../repositories/box-type-repository.interface';
 import type { IBoxTypesRepository } from '../repositories/box-type-repository.interface';
@@ -41,6 +42,13 @@ export class UpdateBoxTypeUseCase {
       }
     }
 
-    return this.boxTypesRepository.update(id, dto);
+    try {
+      return await this.boxTypesRepository.update(id, dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('Box Type name already in use');
+      }
+      throw error;
+    }
   }
 }

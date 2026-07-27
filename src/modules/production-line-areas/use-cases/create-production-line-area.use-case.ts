@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateProductionLineAreaDto } from '../dto/create-production-line-area.dto';
 import { PRODUCTION_LINE_AREAS_REPOSITORY } from '../repositories/production-line-area-repository.interface';
 import type { IProductionLineAreasRepository } from '../repositories/production-line-area-repository.interface';
@@ -53,6 +54,15 @@ export class CreateProductionLineAreaUseCase {
       }
     }
 
-    return this.productionLineAreasRepository.create(dto);
+    try {
+      return await this.productionLineAreasRepository.create(dto);
+    } catch (error) {
+      // Safety net for a rare concurrent-create race — the pre-check above
+      // already covers the common case.
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('iRayple Location Code already in use');
+      }
+      throw error;
+    }
   }
 }

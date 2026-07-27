@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateEximLocationDto } from '../dto/create-exim-location.dto';
 import { EXIM_LOCATIONS_REPOSITORY } from '../repositories/exim-location-repository.interface';
 import type { IEximLocationsRepository } from '../repositories/exim-location-repository.interface';
@@ -23,6 +24,15 @@ export class CreateEximLocationUseCase {
       throw new BadRequestException('iRayple Location Code already in use');
     }
 
-    return this.eximLocationsRepository.create(dto);
+    try {
+      return await this.eximLocationsRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException(
+          'An EXIM Location with this name or code is already in use',
+        );
+      }
+      throw error;
+    }
   }
 }

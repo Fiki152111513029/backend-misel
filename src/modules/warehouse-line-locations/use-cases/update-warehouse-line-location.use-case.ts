@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { UpdateWarehouseLineLocationDto } from '../dto/update-warehouse-line-location.dto';
 import { WAREHOUSE_LINE_LOCATIONS_REPOSITORY } from '../repositories/warehouse-line-location-repository.interface';
 import type { IWarehouseLineLocationsRepository } from '../repositories/warehouse-line-location-repository.interface';
@@ -75,6 +76,15 @@ export class UpdateWarehouseLineLocationUseCase {
       }
     }
 
-    return this.warehouseLineLocationsRepository.update(id, dto);
+    try {
+      return await this.warehouseLineLocationsRepository.update(id, dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException(
+          'A Warehouse Line Location with this name or code is already in use',
+        );
+      }
+      throw error;
+    }
   }
 }

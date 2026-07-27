@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { CreateQuarantineAreaDto } from '../dto/create-quarantine-area.dto';
 import { QUARANTINE_AREAS_REPOSITORY } from '../repositories/quarantine-area-repository.interface';
 import type { IQuarantineAreasRepository } from '../repositories/quarantine-area-repository.interface';
@@ -26,6 +27,13 @@ export class CreateQuarantineAreaUseCase {
       throw new BadRequestException('Quarantine Line not found');
     }
 
-    return this.quarantineAreasRepository.create(dto);
+    try {
+      return await this.quarantineAreasRepository.create(dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('iRayple Location Code already in use');
+      }
+      throw error;
+    }
   }
 }

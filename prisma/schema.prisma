@@ -18,6 +18,12 @@ model User {
   priority                  Int                        @default(6)
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
+  // "Deleting" a user soft-deletes them (like every other entity in this
+  // app) instead of a hard DB delete — Task/WarehouseCartTask/ProductionLine/
+  // WarehouseOperatorLocation keep a required, non-nullable operatorId FK to
+  // preserve full audit history, so the referenced User row must keep
+  // existing. Related records for that user are cascaded to deletedAt too.
+  deletedAt                 DateTime?
   role                      Role                       @relation(fields: [roleId], references: [id])
   refreshTokens             RefreshToken[]
   warehouseOperatorLocation WarehouseOperatorLocation?
@@ -78,7 +84,7 @@ model RefreshToken {
 
 model BoxType {
   id               String     @id @default(uuid())
-  name             String     @unique
+  name             String
   ordering         Int
   colorCode        String
   modelProcessCode String     @default("")
@@ -90,6 +96,9 @@ model BoxType {
   requestBoxes RequestBox[]
   tasks        Task[]
 
+  // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
+  // IS NULL, see migration) so a soft-deleted row's name can be reused.
+  @@index([name])
   @@map("box_types")
 }
 
@@ -100,7 +109,7 @@ enum FromSystem {
 
 model ModelCodeProcess {
   id             String      @id @default(uuid())
-  name           String      @unique
+  name           String
   fromSystem     FromSystem  @default(MES)
   isActive       Boolean     @default(true)
   statusComment1 String      @default("")
@@ -120,12 +129,15 @@ model ModelCodeProcess {
   productionLineAreas    ProductionLineArea[]
   quarantineLines        QuarantineLine[]
 
+  // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
+  // IS NULL, see migration) so a soft-deleted row's name can be reused.
+  @@index([name])
   @@map("model_code_processes")
 }
 
 model QuarantineLine {
   id                 String           @id @default(uuid())
-  name               String           @unique
+  name               String
   isActive           Boolean          @default(true)
   modelCodeProcessId String?
   createdAt          DateTime         @default(now())
@@ -135,6 +147,9 @@ model QuarantineLine {
   quarantineAreas    QuarantineArea[]
   productionLines    ProductionLine[]
 
+  // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
+  // IS NULL, see migration) so a soft-deleted row's name can be reused.
+  @@index([name])
   @@index([modelCodeProcessId])
   @@map("quarantine_lines")
 }
@@ -142,7 +157,7 @@ model QuarantineLine {
 model QuarantineArea {
   id                  String         @id @default(uuid())
   name                String
-  iRaypleLocationCode String         @unique
+  iRaypleLocationCode String
   quarantineLineId    String
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
@@ -150,14 +165,18 @@ model QuarantineArea {
   quarantineLine      QuarantineLine @relation(fields: [quarantineLineId], references: [id])
   tasks               Task[]
 
+  // `iRaypleLocationCode` uniqueness is enforced by a partial unique index
+  // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's code
+  // can be reused.
+  @@index([iRaypleLocationCode])
   @@index([quarantineLineId])
   @@map("quarantine_areas")
 }
 
 model EximLocation {
   id                  String    @id @default(uuid())
-  name                String    @unique
-  iRaypleLocationCode String    @unique
+  name                String
+  iRaypleLocationCode String
   isActive            Boolean   @default(true)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -165,13 +184,18 @@ model EximLocation {
 
   productionLineAreas ProductionLineArea[]
 
+  // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
+  // indexes (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted
+  // row's name/code can be reused.
+  @@index([name])
+  @@index([iRaypleLocationCode])
   @@map("exim_locations")
 }
 
 model EmptyPalletLocation {
   id                  String    @id @default(uuid())
-  name                String    @unique
-  iRaypleLocationCode String    @unique
+  name                String
+  iRaypleLocationCode String
   isActive            Boolean   @default(true)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -179,14 +203,19 @@ model EmptyPalletLocation {
 
   productionLineAreas ProductionLineArea[]
 
+  // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
+  // indexes (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted
+  // row's name/code can be reused.
+  @@index([name])
+  @@index([iRaypleLocationCode])
   @@map("empty_pallet_locations")
 }
 
 model WarehouseLineLocation {
   id                   String    @id @default(uuid())
-  name                 String    @unique
-  droppingLocationCode String    @unique
-  pickingLocationCode  String    @unique
+  name                 String
+  droppingLocationCode String
+  pickingLocationCode  String
   modelCodeProcessId   String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -195,20 +224,32 @@ model WarehouseLineLocation {
   modelCodeProcess   ModelCodeProcess?   @relation(fields: [modelCodeProcessId], references: [id])
   warehouseCartTasks WarehouseCartTask[]
 
+  // `name`/`droppingLocationCode`/`pickingLocationCode` uniqueness is enforced
+  // by partial unique indexes (WHERE "deletedAt" IS NULL, see migration) so a
+  // soft-deleted row's name/code can be reused.
+  @@index([name])
+  @@index([droppingLocationCode])
+  @@index([pickingLocationCode])
   @@index([modelCodeProcessId])
   @@map("warehouse_line_locations")
 }
 
 model WarehouseOperatorLocation {
   id           String    @id @default(uuid())
-  name         String    @unique
-  locationCode String    @unique
+  name         String
+  locationCode String
   operatorId   String    @unique
   operator     User      @relation(fields: [operatorId], references: [id])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
+  // `name`/`locationCode` uniqueness is enforced by partial unique indexes
+  // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's
+  // name/code can be reused. `operatorId` stays fully unique since the
+  // User 1:1 relation depends on it.
+  @@index([name])
+  @@index([locationCode])
   @@map("warehouse_operator_locations")
 }
 
@@ -245,7 +286,7 @@ model WarehouseCartTask {
 
 model ProductionLine {
   id                 String               @id @default(uuid())
-  name               String               @unique
+  name               String
   quarantineLineId   String
   operatorId         String
   isActive           Boolean              @default(true)
@@ -258,6 +299,9 @@ model ProductionLine {
   requestBoxes        RequestBox[]
   tasks               Task[]
 
+  // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
+  // IS NULL, see migration) so a soft-deleted row's name can be reused.
+  @@index([name])
   @@index([quarantineLineId])
   @@index([operatorId])
   @@map("production_lines")
@@ -272,7 +316,7 @@ model ProductionLineArea {
   id                    String                 @id @default(uuid())
   name                  String
   type                  ProductionLineAreaType
-  iRaypleLocationCode   String                 @unique
+  iRaypleLocationCode   String
   productionLineId      String
   eximLocationId        String
   emptyPalletLocationId String
@@ -287,6 +331,10 @@ model ProductionLineArea {
   modelCodeProcess      ModelCodeProcess?      @relation(fields: [modelCodeProcessId], references: [id])
   tasks                 Task[]
 
+  // `iRaypleLocationCode` uniqueness is enforced by a partial unique index
+  // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's code
+  // can be reused — this is the exact bug this migration fixes.
+  @@index([iRaypleLocationCode])
   @@index([productionLineId])
   @@index([eximLocationId])
   @@index([emptyPalletLocationId])
@@ -322,9 +370,9 @@ enum RobotState {
 
 model Robot {
   id                String     @id @default(uuid())
-  name              String     @unique
-  amrDeviceSerialNo String     @unique
-  amrDeviceNo       String     @unique
+  name              String
+  amrDeviceSerialNo String
+  amrDeviceNo       String
   areaId            Int
   speed             Float      @default(0)
   battery           Int        @default(0)
@@ -337,6 +385,12 @@ model Robot {
   tasks             Task[]
   warehouseCartTasks WarehouseCartTask[]
 
+  // `name`/`amrDeviceSerialNo`/`amrDeviceNo` uniqueness is enforced by
+  // partial unique indexes (WHERE "deletedAt" IS NULL, see migration) so a
+  // soft-deleted row's name/code can be reused.
+  @@index([name])
+  @@index([amrDeviceSerialNo])
+  @@index([amrDeviceNo])
   @@map("robots")
 }
 

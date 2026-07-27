@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { UpdateQuarantineAreaDto } from '../dto/update-quarantine-area.dto';
 import { QUARANTINE_AREAS_REPOSITORY } from '../repositories/quarantine-area-repository.interface';
 import type { IQuarantineAreasRepository } from '../repositories/quarantine-area-repository.interface';
@@ -48,6 +49,13 @@ export class UpdateQuarantineAreaUseCase {
       }
     }
 
-    return this.quarantineAreasRepository.update(id, dto);
+    try {
+      return await this.quarantineAreasRepository.update(id, dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('iRayple Location Code already in use');
+      }
+      throw error;
+    }
   }
 }

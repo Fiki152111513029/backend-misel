@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors';
 import { UpdateProductionLineAreaDto } from '../dto/update-production-line-area.dto';
 import { PRODUCTION_LINE_AREAS_REPOSITORY } from '../repositories/production-line-area-repository.interface';
 import type { IProductionLineAreasRepository } from '../repositories/production-line-area-repository.interface';
@@ -84,6 +85,13 @@ export class UpdateProductionLineAreaUseCase {
       }
     }
 
-    return this.productionLineAreasRepository.update(id, dto);
+    try {
+      return await this.productionLineAreasRepository.update(id, dto);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new BadRequestException('iRayple Location Code already in use');
+      }
+      throw error;
+    }
   }
 }
