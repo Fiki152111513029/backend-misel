@@ -8,7 +8,7 @@ import { TaskAction } from '@prisma/client';
 import { USERS_REPOSITORY } from '../../users/repositories/users-repository.interface';
 import type { IUsersRepository } from '../../users/repositories/users-repository.interface';
 import { ReleaseTaskDto } from '../dto/release-task.dto';
-import { TaskOrderService } from '../services/task-order.service';
+import { TaskOrderService, TaskOrderPayload } from '../services/task-order.service';
 import { TASKS_REPOSITORY } from '../repositories/task-repository.interface';
 import type { ITasksRepository } from '../repositories/task-repository.interface';
 
@@ -94,15 +94,17 @@ export class ReleaseTaskUseCase {
 
     const orderId = generateOrderId();
 
-    await this.taskOrderService.addTask({
+    const rcsRequest: TaskOrderPayload = {
       modelProcessCode: boxType.modelProcessCode,
       priority: user.priority,
       fromSystem: boxType.fromSystem,
       orderId,
       taskOrderDetail: [{ taskPath }],
-    });
+    };
 
-    return this.tasksRepository.create({
+    const rcsResponse = await this.taskOrderService.addTask(rcsRequest);
+
+    const task = await this.tasksRepository.create({
       taskId: orderId,
       taskAction: dto.taskAction,
       taskPath,
@@ -112,5 +114,7 @@ export class ReleaseTaskUseCase {
       boxTypeId: boxType.id,
       operatorId: userId,
     });
+
+    return { task, rcsRequest, rcsResponse };
   }
 }
