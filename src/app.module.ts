@@ -24,6 +24,7 @@ import { RobotsModule } from './modules/robots/robots.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { WarehouseCartTasksModule } from './modules/warehouse-cart-tasks/warehouse-cart-tasks.module';
 import { IcsLogsAccessModule } from './modules/ics-logs-access/ics-logs-access.module';
+import { WebhookLogsModule } from './modules/webhook-logs/webhook-logs.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { IcsLogsAccessModule } from './modules/ics-logs-access/ics-logs-access.m
     TasksModule,
     WarehouseCartTasksModule,
     IcsLogsAccessModule,
+    WebhookLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

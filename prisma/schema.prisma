@@ -436,3 +436,19 @@ model Task {
   @@index([operatorId])
   @@map("tasks")
 }
+
+// Raw log of every inbound call to our ICS webhook receiver (RCS actively
+// reporting task status — see docs/apiwebhook.md), regardless of whether we
+// could match it to one of our own tasks. Kept for the "Webhook Logs" page
+// and as an audit trail independent of our own Task/WarehouseCartTask state.
+model WebhookLog {
+  id              String   @id @default(uuid())
+  method          String
+  endpoint        String
+  requestPayload  Json
+  responsePayload Json
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("webhook_logs")
+}
