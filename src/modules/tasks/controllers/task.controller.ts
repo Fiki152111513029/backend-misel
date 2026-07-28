@@ -9,6 +9,7 @@ import { CancelTaskUseCase } from '../use-cases/cancel-task.use-case';
 import { GetTaskOperatorsUseCase } from '../use-cases/get-task-operators.use-case';
 import { GetTasksUseCase } from '../use-cases/get-tasks.use-case';
 import { ReleaseTaskUseCase } from '../use-cases/release-task.use-case';
+import { ReleaseQuarantineTaskUseCase } from '../use-cases/release-quarantine-task.use-case';
 
 @ApiTags('Tasks')
 @ApiBearerAuth('access-token')
@@ -16,6 +17,7 @@ import { ReleaseTaskUseCase } from '../use-cases/release-task.use-case';
 export class TaskController {
   constructor(
     private readonly releaseTaskUseCase: ReleaseTaskUseCase,
+    private readonly releaseQuarantineTaskUseCase: ReleaseQuarantineTaskUseCase,
     private readonly getTasksUseCase: GetTasksUseCase,
     private readonly getTaskOperatorsUseCase: GetTaskOperatorsUseCase,
     private readonly cancelTaskUseCase: CancelTaskUseCase,
@@ -38,6 +40,23 @@ export class TaskController {
     return {
       success: true,
       message: 'Task released successfully',
+      data,
+    };
+  }
+
+  @Post(':id/release-quarantine')
+  @Permissions('task.create')
+  @ApiOperation({
+    summary: 'Forward a completed quarantine task onward to FG (Finished Goods)',
+  })
+  async releaseQuarantine(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthRequestUser,
+  ) {
+    const data = await this.releaseQuarantineTaskUseCase.execute(id, user.userId);
+    return {
+      success: true,
+      message: 'Quarantine task released successfully',
       data,
     };
   }

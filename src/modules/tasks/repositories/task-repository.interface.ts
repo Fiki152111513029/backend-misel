@@ -19,6 +19,19 @@ export interface QuarantineAreaForTask {
   iRaypleLocationCode: string;
 }
 
+export interface TaskForQuarantineRelease {
+  id: string;
+  taskId: string;
+  quarantineArea: { iRaypleLocationCode: string } | null;
+  productionLineArea: {
+    eximLocation: { iRaypleLocationCode: string };
+  } | null;
+  productionLine: {
+    quarantineLine: { modelCodeProcess: { name: string } | null };
+  };
+  boxType: { fromSystem: string };
+}
+
 export interface CreateTaskData {
   taskId: string;
   taskAction: TaskAction;
@@ -75,6 +88,9 @@ export const TASKS_REPOSITORY = 'TASKS_REPOSITORY';
 export interface ITasksRepository {
   findAll(params: FindAllTasksParams): Promise<FindAllTasksResult>;
   findById(id: string): Promise<TaskWithRelations | null>;
+  findByIdForQuarantineRelease(
+    id: string,
+  ): Promise<TaskForQuarantineRelease | null>;
   findDistinctOperators(): Promise<TaskOperatorOption[]>;
   findProductionLineAreaWithRelations(
     id: string,

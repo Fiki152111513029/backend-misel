@@ -9,6 +9,7 @@ import {
   ITasksRepository,
   ProductionLineAreaForTask,
   QuarantineAreaForTask,
+  TaskForQuarantineRelease,
   TaskOperatorOption,
   TaskWithRelations,
 } from './task-repository.interface';
@@ -71,6 +72,32 @@ export class TaskRepository implements ITasksRepository {
       where: { id, ...NOT_DELETED },
       include: RELATIONS_INCLUDE,
     }) as Promise<TaskWithRelations | null>;
+  }
+
+  findByIdForQuarantineRelease(
+    id: string,
+  ): Promise<TaskForQuarantineRelease | null> {
+    return this.prisma.task.findFirst({
+      where: { id, ...NOT_DELETED },
+      select: {
+        id: true,
+        taskId: true,
+        quarantineArea: { select: { iRaypleLocationCode: true } },
+        productionLineArea: {
+          select: {
+            eximLocation: { select: { iRaypleLocationCode: true } },
+          },
+        },
+        productionLine: {
+          select: {
+            quarantineLine: {
+              select: { modelCodeProcess: { select: { name: true } } },
+            },
+          },
+        },
+        boxType: { select: { fromSystem: true } },
+      },
+    });
   }
 
   async findDistinctOperators(): Promise<TaskOperatorOption[]> {
