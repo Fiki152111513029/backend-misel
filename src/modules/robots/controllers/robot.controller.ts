@@ -15,11 +15,13 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CreateRobotDto } from '../dto/create-robot.dto';
 import { DeviceInfoQueryDto } from '../dto/device-info-query.dto';
+import { RobotActivityQueryDto } from '../dto/robot-activity-query.dto';
 import { RobotQueryDto } from '../dto/robot-query.dto';
 import { UpdateRobotDto } from '../dto/update-robot.dto';
 import { RobotTelemetryService } from '../services/robot-telemetry.service';
 import { CreateRobotUseCase } from '../use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from '../use-cases/delete-robot.use-case';
+import { GetRobotActivityUseCase } from '../use-cases/get-robot-activity.use-case';
 import { GetRobotUseCase } from '../use-cases/get-robot.use-case';
 import { GetRobotsUseCase } from '../use-cases/get-robots.use-case';
 import { UpdateRobotUseCase } from '../use-cases/update-robot.use-case';
@@ -35,6 +37,7 @@ export class RobotController {
     private readonly updateRobotUseCase: UpdateRobotUseCase,
     private readonly deleteRobotUseCase: DeleteRobotUseCase,
     private readonly robotTelemetryService: RobotTelemetryService,
+    private readonly getRobotActivityUseCase: GetRobotActivityUseCase,
   ) {}
 
   @Post()
@@ -89,6 +92,24 @@ export class RobotController {
     return {
       success: true,
       message: 'Robot retrieved successfully',
+      data,
+    };
+  }
+
+  @Get(':id/activity')
+  @Permissions('robot.read')
+  @ApiOperation({
+    summary:
+      "This robot's telemetry history (Date/Time, Device Code, Device Name, Speed, Battery, Status, State, Position, Payload, Orientation) — recorded as a side effect of the Robots list poll, filterable by date range",
+  })
+  async activity(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: RobotActivityQueryDto,
+  ) {
+    const data = await this.getRobotActivityUseCase.execute(id, query);
+    return {
+      success: true,
+      message: 'Robot activity retrieved successfully',
       data,
     };
   }

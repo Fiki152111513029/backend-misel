@@ -384,6 +384,7 @@ model Robot {
   deletedAt         DateTime?
   tasks             Task[]
   warehouseCartTasks WarehouseCartTask[]
+  activityLogs      RobotActivityLog[]
 
   // `name`/`amrDeviceSerialNo`/`amrDeviceNo` uniqueness is enforced by
   // partial unique indexes (WHERE "deletedAt" IS NULL, see migration) so a
@@ -392,6 +393,30 @@ model Robot {
   @@index([amrDeviceSerialNo])
   @@index([amrDeviceNo])
   @@map("robots")
+}
+
+// A snapshot of a robot's live telemetry (from ROBOT_TELEMETRY_URL, the same
+// device-info API already polled for the Robots list) — recorded as a side
+// effect each time that telemetry is fetched, so viewing/refreshing the
+// Robots page is what builds up this history over time.
+model RobotActivityLog {
+  id          String   @id @default(uuid())
+  robotId     String?
+  deviceCode  String
+  deviceName  String
+  speed       Float?
+  battery     Int?
+  status      Int?
+  state       String?
+  position    String?
+  payload     String?
+  orientation Float?
+  recordedAt  DateTime @default(now())
+  robot       Robot?   @relation(fields: [robotId], references: [id])
+
+  @@index([robotId])
+  @@index([recordedAt])
+  @@map("robot_activity_logs")
 }
 
 enum TaskAction {

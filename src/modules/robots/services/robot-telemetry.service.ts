@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  Inject,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -8,6 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'url';
+import { ROBOT_ACTIVITY_LOG_REPOSITORY } from '../repositories/robot-activity-log-repository.interface';
+import type { IRobotActivityLogRepository } from '../repositories/robot-activity-log-repository.interface';
 
 export interface ExternalDeviceInfo {
   deviceCode?: string;
@@ -17,6 +20,13 @@ export interface ExternalDeviceInfo {
   status?: string;
   state?: string;
   last_update?: string;
+  // Confirmed against the live API (2026-07-29) — devicePosition is the same
+  // location-code vocabulary used throughout the app (e.g. "L3CPA", "QU3").
+  // Note the API's own typo: "oritation", not "orientation".
+  deviceStatus?: string | number;
+  devicePosition?: string;
+  payLoad?: string | number;
+  oritation?: string | number;
 }
 
 export interface RobotTelemetry {
@@ -24,9 +34,14 @@ export interface RobotTelemetry {
   battery: number | null;
   state: string | null;
   lastUpdate: string | null;
+  statusCode: number | null;
+  position: string | null;
+  payload: string | null;
+  orientation: number | null;
 }
 
 interface RobotForMatching {
+  id: string;
   areaId: number;
   amrDeviceSerialNo: string;
   amrDeviceNo: string;
@@ -37,6 +52,10 @@ const NO_TELEMETRY: RobotTelemetry = {
   battery: null,
   state: null,
   lastUpdate: null,
+  statusCode: null,
+  position: null,
+  payload: null,
+  orientation: null,
 };
 
 function isDeviceLike(item: unknown): item is ExternalDeviceInfo {
@@ -133,7 +152,11 @@ function postJson(
 export class RobotTelemetryService {
   private readonly logger = new Logger(RobotTelemetryService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(ROBOT_ACTIVITY_LOG_REPOSITORY)
+    private readonly robotActivityLogRepository: IRobotActivityLogRepository,
+  ) {}
 
   /**
    * Raw POST to the external device-info endpoint (same call shape as the
@@ -208,6 +231,8 @@ export class RobotTelemetryService {
   private toTelemetry(device: ExternalDeviceInfo): RobotTelemetry {
     const speed = Number(device.speed);
     const battery = Number(device.battery);
+    const statusCode = Number(device.deviceStatus);
+    const orientation = Number(device.oritation);
     return {
       speed: Number.isFinite(speed) ? speed : null,
       battery: Number.isFinite(battery) ? battery : null,
@@ -216,6 +241,10 @@ export class RobotTelemetryService {
       // moment we successfully matched this device as a stand-in, since the
       // data is fetched live on every poll anyway.
       lastUpdate: device.last_update ?? new Date().toISOString(),
+      statusCode: Number.isFinite(statusCode) ? statusCode : null,
+      position: device.devicePosition ?? null,
+      payload: device.payLoad != null ? String(device.payLoad) : null,
+      orientation: Number.isFinite(orientation) ? orientation : null,
     };
   }
 
@@ -241,7 +270,31 @@ export class RobotTelemetryService {
           String(device.deviceCode ?? '').trim() === serialNo &&
           String(device.deviceName ?? '').trim() === deviceNo,
       );
-      return { ...robot, ...(match ? this.toTelemetry(match) : NO_TELEMETRY) };
+      const telemetry = match ? this.toTelemetry(match) : NO_TELEMETRY;
+
+      // Fire-and-forget: build up Robot Activity history as a side effect of
+      // this poll (the Robots page already polls every 5s), without slowing
+      // down or failing this response if logging hiccups.
+      if (match) {
+        this.robotActivityLogRepository
+          .createLog({
+            robotId: robot.id,
+            deviceCode: String(match.deviceCode ?? serialNo),
+            deviceName: String(match.deviceName ?? deviceNo),
+            speed: telemetry.speed,
+            battery: telemetry.battery,
+            status: telemetry.statusCode,
+            state: telemetry.state,
+            position: telemetry.position,
+            payload: telemetry.payload,
+            orientation: telemetry.orientation,
+          })
+          .catch((error) =>
+            this.logger.warn(`Failed to record activity log: ${error}`),
+          );
+      }
+
+      return { ...robot, ...telemetry };
     });
   }
 }
