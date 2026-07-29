@@ -27,6 +27,10 @@ export default () => ({
       'http://172.18.101.10:7000/ics/out/device/list/deviceInfo',
     deviceType: process.env.ROBOT_TELEMETRY_DEVICE_TYPE ?? '0',
   },
+  robotControl: {
+    url:
+      process.env.ROBOT_CONTROL_URL ?? 'http://172.18.101.10:7000/ics/out/controlDevice',
+  },
   taskOrder: {
     url:
       process.env.TASK_ORDER_URL ??

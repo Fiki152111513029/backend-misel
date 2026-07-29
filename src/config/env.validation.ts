@@ -46,6 +46,10 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  ROBOT_CONTROL_URL?: string;
+
+  @IsOptional()
+  @IsString()
   TASK_ORDER_URL?: string;
 
   @IsOptional()

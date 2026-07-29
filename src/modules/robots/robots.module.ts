@@ -4,6 +4,7 @@ import { ROBOT_ACTIVITY_LOG_REPOSITORY } from './repositories/robot-activity-log
 import { RobotActivityLogRepository } from './repositories/robot-activity-log.repository';
 import { ROBOTS_REPOSITORY } from './repositories/robot-repository.interface';
 import { RobotRepository } from './repositories/robot.repository';
+import { ControlRobotUseCase } from './use-cases/control-robot.use-case';
 import { CreateRobotUseCase } from './use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from './use-cases/delete-robot.use-case';
 import { GetRobotActivityUseCase } from './use-cases/get-robot-activity.use-case';
@@ -24,6 +25,7 @@ import { RobotTelemetryService } from './services/robot-telemetry.service';
     GetRobotActivityUseCase,
     UpdateRobotUseCase,
     DeleteRobotUseCase,
+    ControlRobotUseCase,
   ],
   exports: [ROBOTS_REPOSITORY],
 })

@@ -196,6 +196,61 @@ export class RobotTelemetryService {
     }
   }
 
+  /**
+   * Raw POST to the external controlDevice endpoint: { areaId, deviceNumber,
+   * controlWay } where controlWay is 0 (Suspend) or 1 (Restore). Throws on
+   * failure so the caller can surface a real error to the operator.
+   */
+  async controlDevice(
+    areaId: number,
+    deviceNumber: string,
+    controlWay: 0 | 1,
+  ): Promise<unknown> {
+    const url = this.configService.get<string>('robotControl.url');
+    if (!url) {
+      throw new ServiceUnavailableException(
+        'Robot control URL is not configured',
+      );
+    }
+
+    let raw: string;
+    try {
+      raw = await postJson(url, { areaId, deviceNumber, controlWay }, 5000);
+    } catch (error) {
+      throw new BadGatewayException(
+        `Failed to reach robot control endpoint: ${error}`,
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      throw new BadGatewayException(
+        `Robot control endpoint returned invalid JSON: ${error}`,
+      );
+    }
+
+    // Same RCS convention as the task-order endpoint: HTTP 200 can still carry
+    // a failure body. Its success code is 1000, not 0.
+    const RCS_SUCCESS_CODE = 1000;
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'code' in parsed &&
+      typeof (parsed as { code: unknown }).code === 'number' &&
+      (parsed as { code: number }).code !== RCS_SUCCESS_CODE
+    ) {
+      const desc =
+        'desc' in parsed ? String((parsed as { desc: unknown }).desc) : '';
+      throw new BadGatewayException(
+        `Robot control endpoint rejected the request (code ${(parsed as { code: number }).code}): ${desc}`,
+      );
+    }
+
+    return parsed;
+  }
+
   private async fetchDevicesForArea(
     areaId: number,
   ): Promise<ExternalDeviceInfo[]> {

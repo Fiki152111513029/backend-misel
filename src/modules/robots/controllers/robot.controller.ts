@@ -13,12 +13,14 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { ControlRobotDto } from '../dto/control-robot.dto';
 import { CreateRobotDto } from '../dto/create-robot.dto';
 import { DeviceInfoQueryDto } from '../dto/device-info-query.dto';
 import { RobotActivityQueryDto } from '../dto/robot-activity-query.dto';
 import { RobotQueryDto } from '../dto/robot-query.dto';
 import { UpdateRobotDto } from '../dto/update-robot.dto';
 import { RobotTelemetryService } from '../services/robot-telemetry.service';
+import { ControlRobotUseCase } from '../use-cases/control-robot.use-case';
 import { CreateRobotUseCase } from '../use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from '../use-cases/delete-robot.use-case';
 import { GetRobotActivityUseCase } from '../use-cases/get-robot-activity.use-case';
@@ -38,6 +40,7 @@ export class RobotController {
     private readonly deleteRobotUseCase: DeleteRobotUseCase,
     private readonly robotTelemetryService: RobotTelemetryService,
     private readonly getRobotActivityUseCase: GetRobotActivityUseCase,
+    private readonly controlRobotUseCase: ControlRobotUseCase,
   ) {}
 
   @Post()
@@ -110,6 +113,27 @@ export class RobotController {
     return {
       success: true,
       message: 'Robot activity retrieved successfully',
+      data,
+    };
+  }
+
+  @Post(':id/control')
+  @Permissions('robot.update')
+  @ApiOperation({
+    summary:
+      'Suspend (controlWay 0) or Restore (controlWay 1) this robot via the external AMR fleet API',
+  })
+  async control(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ControlRobotDto,
+  ) {
+    const data = await this.controlRobotUseCase.execute(id, dto.controlWay);
+    return {
+      success: true,
+      message:
+        dto.controlWay === 0
+          ? 'Robot suspended successfully'
+          : 'Robot restored successfully',
       data,
     };
   }
