@@ -7,6 +7,7 @@ import { ReleaseTaskDto } from '../dto/release-task.dto';
 import { TaskQueryDto } from '../dto/task-query.dto';
 import { CancelTaskUseCase } from '../use-cases/cancel-task.use-case';
 import { GetTaskOperatorsUseCase } from '../use-cases/get-task-operators.use-case';
+import { GetTaskSequenceUseCase } from '../use-cases/get-task-sequence.use-case';
 import { GetTasksUseCase } from '../use-cases/get-tasks.use-case';
 import { ReleaseTaskUseCase } from '../use-cases/release-task.use-case';
 import { ReleaseQuarantineTaskUseCase } from '../use-cases/release-quarantine-task.use-case';
@@ -20,6 +21,7 @@ export class TaskController {
     private readonly releaseQuarantineTaskUseCase: ReleaseQuarantineTaskUseCase,
     private readonly getTasksUseCase: GetTasksUseCase,
     private readonly getTaskOperatorsUseCase: GetTaskOperatorsUseCase,
+    private readonly getTaskSequenceUseCase: GetTaskSequenceUseCase,
     private readonly cancelTaskUseCase: CancelTaskUseCase,
   ) {}
 
@@ -81,6 +83,21 @@ export class TaskController {
     return {
       success: true,
       message: 'Task operators retrieved successfully',
+      data,
+    };
+  }
+
+  @Get(':id/sequence')
+  @Permissions('task.read')
+  @ApiOperation({
+    summary:
+      "This task's position ('No urut') among everything its operator has ever released, computed live so it survives a page refresh",
+  })
+  async sequence(@Param('id') id: string) {
+    const data = await this.getTaskSequenceUseCase.execute(id);
+    return {
+      success: true,
+      message: 'Task sequence retrieved successfully',
       data,
     };
   }

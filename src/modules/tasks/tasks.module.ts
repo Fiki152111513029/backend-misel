@@ -6,6 +6,7 @@ import { TaskRepository } from './repositories/task.repository';
 import { TaskOrderService } from './services/task-order.service';
 import { CancelTaskUseCase } from './use-cases/cancel-task.use-case';
 import { GetTaskOperatorsUseCase } from './use-cases/get-task-operators.use-case';
+import { GetTaskSequenceUseCase } from './use-cases/get-task-sequence.use-case';
 import { GetTasksUseCase } from './use-cases/get-tasks.use-case';
 import { ReleaseTaskUseCase } from './use-cases/release-task.use-case';
 import { ReleaseQuarantineTaskUseCase } from './use-cases/release-quarantine-task.use-case';
@@ -20,6 +21,7 @@ import { ReleaseQuarantineTaskUseCase } from './use-cases/release-quarantine-tas
     ReleaseQuarantineTaskUseCase,
     GetTasksUseCase,
     GetTaskOperatorsUseCase,
+    GetTaskSequenceUseCase,
     CancelTaskUseCase,
   ],
   exports: [TASKS_REPOSITORY, TaskOrderService],

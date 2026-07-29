@@ -101,4 +101,10 @@ export interface ITasksRepository {
   ): Promise<QuarantineAreaForTask | null>;
   create(data: CreateTaskData): Promise<Task>;
   updateStatus(id: string, status: TaskStatus): Promise<Task>;
+  /**
+   * How many tasks this operator has ever created up to (and including) the
+   * given time — used as a stable "No urut" queue position that survives a
+   * page refresh, instead of a client-side counter that resets to zero.
+   */
+  countByOperatorUpTo(operatorId: string, createdAt: Date): Promise<number>;
 }

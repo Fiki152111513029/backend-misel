@@ -151,4 +151,10 @@ export class TaskRepository implements ITasksRepository {
   updateStatus(id: string, status: TaskStatus) {
     return this.prisma.task.update({ where: { id }, data: { status } });
   }
+
+  countByOperatorUpTo(operatorId: string, createdAt: Date): Promise<number> {
+    return this.prisma.task.count({
+      where: { operatorId, createdAt: { lte: createdAt }, ...NOT_DELETED },
+    });
+  }
 }
