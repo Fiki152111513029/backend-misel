@@ -16,7 +16,6 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { ControlRobotDto } from '../dto/control-robot.dto';
 import { CreateRobotDto } from '../dto/create-robot.dto';
 import { DeviceInfoQueryDto } from '../dto/device-info-query.dto';
-import { FactoryMapQueryDto } from '../dto/factory-map-query.dto';
 import { RobotActivityQueryDto } from '../dto/robot-activity-query.dto';
 import { RobotQueryDto } from '../dto/robot-query.dto';
 import { UpdateRobotDto } from '../dto/update-robot.dto';
@@ -24,7 +23,6 @@ import { RobotTelemetryService } from '../services/robot-telemetry.service';
 import { ControlRobotUseCase } from '../use-cases/control-robot.use-case';
 import { CreateRobotUseCase } from '../use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from '../use-cases/delete-robot.use-case';
-import { GetFactoryMapUseCase } from '../use-cases/get-factory-map.use-case';
 import { GetRobotActivityUseCase } from '../use-cases/get-robot-activity.use-case';
 import { GetRobotSystemStatusUseCase } from '../use-cases/get-robot-system-status.use-case';
 import { GetRobotUseCase } from '../use-cases/get-robot.use-case';
@@ -45,7 +43,6 @@ export class RobotController {
     private readonly getRobotActivityUseCase: GetRobotActivityUseCase,
     private readonly controlRobotUseCase: ControlRobotUseCase,
     private readonly getRobotSystemStatusUseCase: GetRobotSystemStatusUseCase,
-    private readonly getFactoryMapUseCase: GetFactoryMapUseCase,
   ) {}
 
   @Post()
@@ -103,21 +100,6 @@ export class RobotController {
     return {
       success: true,
       message: 'Robot system status retrieved successfully',
-      data,
-    };
-  }
-
-  @Get('factory-map')
-  @Permissions('robot.read')
-  @ApiOperation({
-    summary:
-      'Factory floor topology (travel paths + charging stations) for the Dashboard\'s Factory Map card, proxied from the external AMR fleet API',
-  })
-  async factoryMap(@Query() query: FactoryMapQueryDto) {
-    const data = await this.getFactoryMapUseCase.execute(query.areaId);
-    return {
-      success: true,
-      message: 'Factory map retrieved successfully',
       data,
     };
   }
