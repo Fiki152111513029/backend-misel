@@ -24,6 +24,7 @@ import { ControlRobotUseCase } from '../use-cases/control-robot.use-case';
 import { CreateRobotUseCase } from '../use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from '../use-cases/delete-robot.use-case';
 import { GetRobotActivityUseCase } from '../use-cases/get-robot-activity.use-case';
+import { GetRobotSystemStatusUseCase } from '../use-cases/get-robot-system-status.use-case';
 import { GetRobotUseCase } from '../use-cases/get-robot.use-case';
 import { GetRobotsUseCase } from '../use-cases/get-robots.use-case';
 import { UpdateRobotUseCase } from '../use-cases/update-robot.use-case';
@@ -41,6 +42,7 @@ export class RobotController {
     private readonly robotTelemetryService: RobotTelemetryService,
     private readonly getRobotActivityUseCase: GetRobotActivityUseCase,
     private readonly controlRobotUseCase: ControlRobotUseCase,
+    private readonly getRobotSystemStatusUseCase: GetRobotSystemStatusUseCase,
   ) {}
 
   @Post()
@@ -83,6 +85,21 @@ export class RobotController {
     return {
       success: true,
       message: 'Device info retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('system-status')
+  @Permissions('robot.read')
+  @ApiOperation({
+    summary:
+      'Overall AMR fleet connectivity: online if the telemetry endpoint is reachable and at least one robot is reporting a non-Offline state',
+  })
+  async systemStatus() {
+    const data = await this.getRobotSystemStatusUseCase.execute();
+    return {
+      success: true,
+      message: 'Robot system status retrieved successfully',
       data,
     };
   }

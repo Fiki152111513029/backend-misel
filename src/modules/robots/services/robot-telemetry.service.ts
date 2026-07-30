@@ -197,6 +197,22 @@ export class RobotTelemetryService {
   }
 
   /**
+   * Same call as fetchRawDeviceInfo, but never throws — used by the System
+   * Status widget, which needs to tell "endpoint unreachable" apart from
+   * "reachable but empty" without an exception aborting the whole check.
+   */
+  async checkAreaReachable(
+    areaId: number,
+  ): Promise<{ reachable: boolean; devices: ExternalDeviceInfo[] }> {
+    try {
+      const data = await this.fetchRawDeviceInfo(areaId);
+      return { reachable: true, devices: extractDeviceList(data) };
+    } catch {
+      return { reachable: false, devices: [] };
+    }
+  }
+
+  /**
    * Raw POST to the external controlDevice endpoint: { areaId, deviceNumber,
    * controlWay } where controlWay is 0 (Suspend) or 1 (Restore). Throws on
    * failure so the caller can surface a real error to the operator.
