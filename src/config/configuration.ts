@@ -31,6 +31,10 @@ export default () => ({
     url:
       process.env.ROBOT_CONTROL_URL ?? 'http://172.18.101.10:7000/ics/out/controlDevice',
   },
+  robotTopology: {
+    url:
+      process.env.ROBOT_TOPOLOGY_URL ?? 'http://172.18.101.10:7000/ics/out/topologyList',
+  },
   taskOrder: {
     url:
       process.env.TASK_ORDER_URL ??
