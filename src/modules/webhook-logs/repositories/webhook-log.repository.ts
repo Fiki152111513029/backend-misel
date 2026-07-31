@@ -92,6 +92,39 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     return modelCodeProcess[key] || null;
   }
 
+  async findActiveTaskIdByRobotId(robotId: string): Promise<string | null> {
+    const ACTIVE_TASK_STATUSES: TaskStatus[] = [
+      TaskStatus.PENDING,
+      TaskStatus.IN_PROGRESS,
+    ];
+    const ACTIVE_CART_TASK_STATUSES: WarehouseCartTaskStatus[] = [
+      WarehouseCartTaskStatus.PENDING,
+      WarehouseCartTaskStatus.IN_PROGRESS,
+    ];
+
+    const [task, cartTask] = await Promise.all([
+      this.prisma.task.findFirst({
+        where: { robotId, status: { in: ACTIVE_TASK_STATUSES }, deletedAt: null },
+        orderBy: { updatedAt: 'desc' },
+        select: { taskId: true, updatedAt: true },
+      }),
+      this.prisma.warehouseCartTask.findFirst({
+        where: {
+          robotId,
+          status: { in: ACTIVE_CART_TASK_STATUSES },
+          deletedAt: null,
+        },
+        orderBy: { updatedAt: 'desc' },
+        select: { taskId: true, updatedAt: true },
+      }),
+    ]);
+
+    if (task && cartTask) {
+      return task.updatedAt > cartTask.updatedAt ? task.taskId : cartTask.taskId;
+    }
+    return task?.taskId ?? cartTask?.taskId ?? null;
+  }
+
   async findRobotIdByDeviceCode(deviceCode: string): Promise<string | null> {
     const robot = await this.prisma.robot.findFirst({
       where: {

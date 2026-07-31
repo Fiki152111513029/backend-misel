@@ -14,5 +14,6 @@ import { ReceiveTaskStatusWebhookUseCase } from './use-cases/receive-task-status
     GetWebhookLogsUseCase,
     GetLatestWebhookStatusUseCase,
   ],
+  exports: [WEBHOOK_LOGS_REPOSITORY],
 })
 export class WebhookLogsModule {}

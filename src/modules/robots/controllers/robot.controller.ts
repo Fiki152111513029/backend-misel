@@ -23,6 +23,7 @@ import { RobotTelemetryService } from '../services/robot-telemetry.service';
 import { ControlRobotUseCase } from '../use-cases/control-robot.use-case';
 import { CreateRobotUseCase } from '../use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from '../use-cases/delete-robot.use-case';
+import { GetFleetStatusUseCase } from '../use-cases/get-fleet-status.use-case';
 import { GetRobotActivityUseCase } from '../use-cases/get-robot-activity.use-case';
 import { GetRobotSystemStatusUseCase } from '../use-cases/get-robot-system-status.use-case';
 import { GetRobotUseCase } from '../use-cases/get-robot.use-case';
@@ -43,6 +44,7 @@ export class RobotController {
     private readonly getRobotActivityUseCase: GetRobotActivityUseCase,
     private readonly controlRobotUseCase: ControlRobotUseCase,
     private readonly getRobotSystemStatusUseCase: GetRobotSystemStatusUseCase,
+    private readonly getFleetStatusUseCase: GetFleetStatusUseCase,
   ) {}
 
   @Post()
@@ -100,6 +102,21 @@ export class RobotController {
     return {
       success: true,
       message: 'Robot system status retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('fleet-status')
+  @Permissions('robot.read')
+  @ApiOperation({
+    summary:
+      "AMR Fleet Real-time Status for the Dashboard: each robot's live state, current mission (resolved from its active task's subTaskSeq via the Model Code Process), payload, and battery",
+  })
+  async fleetStatus() {
+    const data = await this.getFleetStatusUseCase.execute();
+    return {
+      success: true,
+      message: 'Fleet status retrieved successfully',
       data,
     };
   }

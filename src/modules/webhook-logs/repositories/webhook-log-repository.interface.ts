@@ -39,6 +39,12 @@ export interface IWebhookLogsRepository {
   findLatestByOrderId(orderId: string): Promise<WebhookLogRecord | null>;
   findRobotIdByDeviceCode(deviceCode: string): Promise<string | null>;
   /**
+   * The taskId of this robot's currently active (PENDING/IN_PROGRESS) Task
+   * or WarehouseCartTask, if any — the most recently updated one when both
+   * exist. Null means the robot has no assigned mission right now.
+   */
+  findActiveTaskIdByRobotId(robotId: string): Promise<string | null>;
+  /**
    * The Model Code Process actually used to create the task behind this
    * orderId (via its Box Type for Task, or directly for WarehouseCartTask).
    */
