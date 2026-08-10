@@ -296,6 +296,48 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Read Warehouse Cart Task',
     description: 'View warehouse cart tasks',
   },
+  // Factory Map
+  {
+    code: 'factory-map.create',
+    name: 'Create Factory Map',
+    description: 'Upload new factory maps',
+  },
+  {
+    code: 'factory-map.read',
+    name: 'Read Factory Map',
+    description: 'View factory maps',
+  },
+  {
+    code: 'factory-map.update',
+    name: 'Update Factory Map',
+    description: 'Update factory maps',
+  },
+  {
+    code: 'factory-map.delete',
+    name: 'Delete Factory Map',
+    description: 'Delete factory maps',
+  },
+  // Charger Area
+  {
+    code: 'charger-area.create',
+    name: 'Create Charger Area',
+    description: 'Create new charger areas',
+  },
+  {
+    code: 'charger-area.read',
+    name: 'Read Charger Area',
+    description: 'View charger areas',
+  },
+  {
+    code: 'charger-area.update',
+    name: 'Update Charger Area',
+    description: 'Update charger areas',
+  },
+  {
+    code: 'charger-area.delete',
+    name: 'Delete Charger Area',
+    description: 'Delete charger areas',
+  },
 ];
 
 interface BoxTypeSeed {

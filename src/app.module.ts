@@ -25,6 +25,8 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { WarehouseCartTasksModule } from './modules/warehouse-cart-tasks/warehouse-cart-tasks.module';
 import { IcsLogsAccessModule } from './modules/ics-logs-access/ics-logs-access.module';
 import { WebhookLogsModule } from './modules/webhook-logs/webhook-logs.module';
+import { FactoryMapsModule } from './modules/factory-maps/factory-maps.module';
+import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { WebhookLogsModule } from './modules/webhook-logs/webhook-logs.module';
     WarehouseCartTasksModule,
     IcsLogsAccessModule,
     WebhookLogsModule,
+    FactoryMapsModule,
+    ChargerAreasModule,
   ],
   controllers: [AppController],
   providers: [AppService],

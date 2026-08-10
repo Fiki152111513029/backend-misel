@@ -419,6 +419,49 @@ model RobotActivityLog {
   @@map("robot_activity_logs")
 }
 
+model FactoryMap {
+  id         String @id @default(uuid())
+  name       String
+  // Manually assigned by whoever creates the map (starts at 1) — this is
+  // the areaId Robots use to talk to the AMR fleet API, so it must be
+  // unique. Nullable only because existing maps predate this field; new
+  // maps are required to set it (see CreateFactoryMapDto).
+  areaNumber Int?
+  // Server-relative URLs under /uploads — the actual files live on disk,
+  // not in the DB. imagePath is optional — some maps only have topology
+  // data with no floor-plan raster to show behind it.
+  imagePath    String?
+  topologyPath String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  // `name`/`areaNumber` uniqueness is enforced by partial unique indexes
+  // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's
+  // values can be reused, matching the rest of the app's soft-delete
+  // convention. Multiple NULL areaNumbers are allowed under that index.
+  @@index([name])
+  @@index([areaNumber])
+  @@map("factory_maps")
+}
+
+model ChargerArea {
+  id                  String    @id @default(uuid())
+  name                String
+  iRaypleLocationCode String
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
+  // indexes (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted
+  // row's name/code can be reused.
+  @@index([name])
+  @@index([iRaypleLocationCode])
+  @@map("charger_areas")
+}
+
 enum TaskAction {
   AMBIL_FG
   NOT_STANDARD

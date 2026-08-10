@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# Uploaded files (Factory Map images/topology, etc.)
+/uploads
+
 # Logs
 logs
 *.log

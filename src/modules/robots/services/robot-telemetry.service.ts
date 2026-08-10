@@ -22,11 +22,15 @@ export interface ExternalDeviceInfo {
   last_update?: string;
   // Confirmed against the live API (2026-07-29) — devicePosition is the same
   // location-code vocabulary used throughout the app (e.g. "L3CPA", "QU3").
-  // Note the API's own typo: "oritation", not "orientation".
+  // Note the API's own typos: "oritation" (not "orientation") and
+  // "devicePostionRec" (not "devicePositionRec") — [x, y] in the same
+  // coordinate space as the Factory Map's topology data, used to plot the
+  // robot's live position on the map.
   deviceStatus?: string | number;
   devicePosition?: string;
   payLoad?: string | number;
   oritation?: string | number;
+  devicePostionRec?: number[];
 }
 
 export interface RobotTelemetry {
@@ -38,6 +42,8 @@ export interface RobotTelemetry {
   position: string | null;
   payload: string | null;
   orientation: number | null;
+  positionX: number | null;
+  positionY: number | null;
 }
 
 interface RobotForMatching {
@@ -56,6 +62,8 @@ const NO_TELEMETRY: RobotTelemetry = {
   position: null,
   payload: null,
   orientation: null,
+  positionX: null,
+  positionY: null,
 };
 
 function isDeviceLike(item: unknown): item is ExternalDeviceInfo {
@@ -304,6 +312,7 @@ export class RobotTelemetryService {
     const battery = Number(device.battery);
     const statusCode = Number(device.deviceStatus);
     const orientation = Number(device.oritation);
+    const [positionX, positionY] = device.devicePostionRec ?? [];
     return {
       speed: Number.isFinite(speed) ? speed : null,
       battery: Number.isFinite(battery) ? battery : null,
@@ -316,6 +325,8 @@ export class RobotTelemetryService {
       position: device.devicePosition ?? null,
       payload: device.payLoad != null ? String(device.payLoad) : null,
       orientation: Number.isFinite(orientation) ? orientation : null,
+      positionX: Number.isFinite(positionX) ? positionX : null,
+      positionY: Number.isFinite(positionY) ? positionY : null,
     };
   }
 

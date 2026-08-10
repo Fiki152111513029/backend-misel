@@ -16,6 +16,10 @@ class EnvironmentVariables {
   @Max(65535)
   PORT?: number;
 
+  @IsOptional()
+  @IsString()
+  APP_PUBLIC_URL?: string;
+
   @IsString()
   @IsNotEmpty()
   DATABASE_URL!: string;

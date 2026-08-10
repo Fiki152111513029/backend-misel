@@ -1,5 +1,14 @@
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
+  // Externally-reachable base URL for this backend, used to build absolute
+  // links to uploaded files (e.g. Factory Map images) served from /uploads —
+  // must be set in production, since the browser fetches them directly, not
+  // through the frontend's proxied API client.
+  app: {
+    publicUrl:
+      process.env.APP_PUBLIC_URL ??
+      `http://localhost:${process.env.PORT ?? '3000'}`,
+  },
   database: {
     url: process.env.DATABASE_URL,
   },
