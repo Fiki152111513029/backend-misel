@@ -1,15 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
-// The set of real, named locations in the system — the Factory Map only
-// marks topology nodes whose content matches one of these codes, instead of
-// every alphanumeric-looking node in the raw export (which also includes
-// internal ids like "BASE0000" that aren't meaningful locations).
+export interface LocationCodesResult {
+  // All real, named locations in the system — the Factory Map only marks
+  // topology nodes whose content matches one of these codes, instead of
+  // every alphanumeric-looking node in the raw export (which also includes
+  // internal ids like "BASE0000" that aren't meaningful locations).
+  codes: string[];
+  // Subset of `codes` that belong to a Charger Area specifically, so the
+  // Factory Map can render a distinct charger icon for those nodes instead
+  // of the generic location icon.
+  chargerCodes: string[];
+}
+
 @Injectable()
 export class GetLocationCodesUseCase {
   constructor(private readonly prisma: PrismaService) {}
 
-  async execute(): Promise<string[]> {
+  async execute(): Promise<LocationCodesResult> {
     const [
       quarantineAreas,
       eximLocations,
@@ -47,6 +55,11 @@ export class GetLocationCodesUseCase {
       ...chargerAreas,
     ].map((row) => row.iRaypleLocationCode);
 
-    return [...new Set(codes)];
+    const chargerCodes = chargerAreas.map((row) => row.iRaypleLocationCode);
+
+    return {
+      codes: [...new Set(codes)],
+      chargerCodes: [...new Set(chargerCodes)],
+    };
   }
 }

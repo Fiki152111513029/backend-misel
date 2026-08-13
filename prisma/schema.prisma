@@ -462,6 +462,28 @@ model ChargerArea {
   @@map("charger_areas")
 }
 
+enum TrolleyStatus {
+  FULL
+  EMPTY
+}
+
+model Trolley {
+  id        String        @id @default(uuid())
+  name      String
+  code      String
+  status    TrolleyStatus @default(EMPTY)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  // `name`/`code` uniqueness is enforced by partial unique indexes
+  // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's
+  // name/code can be reused.
+  @@index([name])
+  @@index([code])
+  @@map("trolleys")
+}
+
 enum TaskAction {
   AMBIL_FG
   NOT_STANDARD

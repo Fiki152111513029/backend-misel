@@ -135,7 +135,7 @@ export class FactoryMapController {
   @Permissions('factory-map.read')
   @ApiOperation({
     summary:
-      'Real location codes (iRaypleLocationCode) across Quarantine Areas, EXIM Locations, Empty Pallet Locations, and Production Line Areas — used to filter which topology nodes get a marker on the Factory Map',
+      'Real location codes (iRaypleLocationCode) across Quarantine Areas, EXIM Locations, Empty Pallet Locations, Production Line Areas, and Charger Areas — used to filter which topology nodes get a marker on the Factory Map, plus the Charger Area subset for choosing which icon to render',
   })
   async locationCodes() {
     const data = await this.getLocationCodesUseCase.execute();

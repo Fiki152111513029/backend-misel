@@ -27,6 +27,7 @@ import { IcsLogsAccessModule } from './modules/ics-logs-access/ics-logs-access.m
 import { WebhookLogsModule } from './modules/webhook-logs/webhook-logs.module';
 import { FactoryMapsModule } from './modules/factory-maps/factory-maps.module';
 import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module';
+import { TrolleysModule } from './modules/trolleys/trolleys.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module
     WebhookLogsModule,
     FactoryMapsModule,
     ChargerAreasModule,
+    TrolleysModule,
   ],
   controllers: [AppController],
   providers: [AppService],

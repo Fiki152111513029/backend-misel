@@ -338,6 +338,27 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Charger Area',
     description: 'Delete charger areas',
   },
+  // Trolley
+  {
+    code: 'trolley.create',
+    name: 'Create Trolley',
+    description: 'Create new trolleys',
+  },
+  {
+    code: 'trolley.read',
+    name: 'Read Trolley',
+    description: 'View trolleys',
+  },
+  {
+    code: 'trolley.update',
+    name: 'Update Trolley',
+    description: 'Update trolleys',
+  },
+  {
+    code: 'trolley.delete',
+    name: 'Delete Trolley',
+    description: 'Delete trolleys',
+  },
 ];
 
 interface BoxTypeSeed {
