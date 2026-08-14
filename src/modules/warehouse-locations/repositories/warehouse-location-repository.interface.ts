@@ -37,6 +37,7 @@ export interface IWarehouseLocationsRepository {
   findById(id: string): Promise<WarehouseLocation | null>;
   existsByName(name: string, excludeId?: string): Promise<boolean>;
   existsByLocationCode(code: string, excludeId?: string): Promise<boolean>;
+  existsActiveByLocationCode(code: string): Promise<boolean>;
   create(data: CreateWarehouseLocationData): Promise<WarehouseLocation>;
   update(
     id: string,

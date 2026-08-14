@@ -401,6 +401,27 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Warehouse Location',
     description: 'Delete warehouse locations',
   },
+  // Production Location
+  {
+    code: 'production-location.create',
+    name: 'Create Production Location',
+    description: 'Create new production locations',
+  },
+  {
+    code: 'production-location.read',
+    name: 'Read Production Location',
+    description: 'View production locations',
+  },
+  {
+    code: 'production-location.update',
+    name: 'Update Production Location',
+    description: 'Update production locations',
+  },
+  {
+    code: 'production-location.delete',
+    name: 'Delete Production Location',
+    description: 'Delete production locations',
+  },
 ];
 
 interface BoxTypeSeed {

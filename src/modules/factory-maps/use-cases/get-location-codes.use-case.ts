@@ -25,6 +25,7 @@ export class GetLocationCodesUseCase {
       productionLineAreas,
       chargerAreas,
       warehouseLocations,
+      productionLocations,
     ] = await Promise.all([
       this.prisma.quarantineArea.findMany({
         where: { deletedAt: null },
@@ -50,6 +51,10 @@ export class GetLocationCodesUseCase {
         where: { deletedAt: null },
         select: { iRaypleLocationCode: true },
       }),
+      this.prisma.productionLocation.findMany({
+        where: { deletedAt: null },
+        select: { iRaypleLocationCode: true },
+      }),
     ]);
 
     const codes = [
@@ -59,6 +64,7 @@ export class GetLocationCodesUseCase {
       ...productionLineAreas,
       ...chargerAreas,
       ...warehouseLocations,
+      ...productionLocations,
     ].map((row) => row.iRaypleLocationCode);
 
     const chargerCodes = chargerAreas.map((row) => row.iRaypleLocationCode);

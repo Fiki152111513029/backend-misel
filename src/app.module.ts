@@ -30,6 +30,7 @@ import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module
 import { TrolleysModule } from './modules/trolleys/trolleys.module';
 import { TrolleyCategoriesModule } from './modules/trolley-categories/trolley-categories.module';
 import { WarehouseLocationsModule } from './modules/warehouse-locations/warehouse-locations.module';
+import { ProductionLocationsModule } from './modules/production-locations/production-locations.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { WarehouseLocationsModule } from './modules/warehouse-locations/warehous
     TrolleysModule,
     TrolleyCategoriesModule,
     WarehouseLocationsModule,
+    ProductionLocationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

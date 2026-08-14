@@ -2,25 +2,25 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
-  CreateWarehouseLocationData,
-  FindAllWarehouseLocationsParams,
-  FindAllWarehouseLocationsResult,
-  IWarehouseLocationsRepository,
-  UpdateWarehouseLocationData,
-} from './warehouse-location-repository.interface';
+  CreateProductionLocationData,
+  FindAllProductionLocationsParams,
+  FindAllProductionLocationsResult,
+  IProductionLocationsRepository,
+  UpdateProductionLocationData,
+} from './production-location-repository.interface';
 
-const NOT_DELETED: Prisma.WarehouseLocationWhereInput = { deletedAt: null };
+const NOT_DELETED: Prisma.ProductionLocationWhereInput = { deletedAt: null };
 
 @Injectable()
-export class WarehouseLocationRepository
-  implements IWarehouseLocationsRepository
+export class ProductionLocationRepository
+  implements IProductionLocationsRepository
 {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(
-    params: FindAllWarehouseLocationsParams,
-  ): Promise<FindAllWarehouseLocationsResult> {
-    const where: Prisma.WarehouseLocationWhereInput = {
+    params: FindAllProductionLocationsParams,
+  ): Promise<FindAllProductionLocationsResult> {
+    const where: Prisma.ProductionLocationWhereInput = {
       ...NOT_DELETED,
       ...(params.search
         ? { name: { contains: params.search, mode: 'insensitive' } }
@@ -28,26 +28,26 @@ export class WarehouseLocationRepository
     };
 
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.warehouseLocation.findMany({
+      this.prisma.productionLocation.findMany({
         where,
         orderBy: { [params.sortBy]: params.sortOrder },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
       }),
-      this.prisma.warehouseLocation.count({ where }),
+      this.prisma.productionLocation.count({ where }),
     ]);
 
     return { items, total };
   }
 
   findById(id: string) {
-    return this.prisma.warehouseLocation.findFirst({
+    return this.prisma.productionLocation.findFirst({
       where: { id, ...NOT_DELETED },
     });
   }
 
   async existsByName(name: string, excludeId?: string): Promise<boolean> {
-    const count = await this.prisma.warehouseLocation.count({
+    const count = await this.prisma.productionLocation.count({
       where: {
         name,
         ...NOT_DELETED,
@@ -61,7 +61,7 @@ export class WarehouseLocationRepository
     code: string,
     excludeId?: string,
   ): Promise<boolean> {
-    const count = await this.prisma.warehouseLocation.count({
+    const count = await this.prisma.productionLocation.count({
       where: {
         iRaypleLocationCode: code,
         ...NOT_DELETED,
@@ -72,22 +72,22 @@ export class WarehouseLocationRepository
   }
 
   async existsActiveByLocationCode(code: string): Promise<boolean> {
-    const count = await this.prisma.warehouseLocation.count({
+    const count = await this.prisma.productionLocation.count({
       where: { iRaypleLocationCode: code, isActive: true, ...NOT_DELETED },
     });
     return count > 0;
   }
 
-  create(data: CreateWarehouseLocationData) {
-    return this.prisma.warehouseLocation.create({ data });
+  create(data: CreateProductionLocationData) {
+    return this.prisma.productionLocation.create({ data });
   }
 
-  update(id: string, data: UpdateWarehouseLocationData) {
-    return this.prisma.warehouseLocation.update({ where: { id }, data });
+  update(id: string, data: UpdateProductionLocationData) {
+    return this.prisma.productionLocation.update({ where: { id }, data });
   }
 
   async softDelete(id: string): Promise<void> {
-    await this.prisma.warehouseLocation.update({
+    await this.prisma.productionLocation.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

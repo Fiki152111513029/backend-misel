@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ModelCodeProcessesModule } from '../model-code-processes/model-code-processes.module';
+import { WarehouseLocationsModule } from '../warehouse-locations/warehouse-locations.module';
+import { ProductionLocationsModule } from '../production-locations/production-locations.module';
 import { WarehouseLineLocationController } from './controllers/warehouse-line-location.controller';
 import { WAREHOUSE_LINE_LOCATIONS_REPOSITORY } from './repositories/warehouse-line-location-repository.interface';
 import { WarehouseLineLocationRepository } from './repositories/warehouse-line-location.repository';
@@ -10,7 +12,7 @@ import { GetWarehouseLineLocationsUseCase } from './use-cases/get-warehouse-line
 import { UpdateWarehouseLineLocationUseCase } from './use-cases/update-warehouse-line-location.use-case';
 
 @Module({
-  imports: [ModelCodeProcessesModule],
+  imports: [ModelCodeProcessesModule, WarehouseLocationsModule, ProductionLocationsModule],
   controllers: [WarehouseLineLocationController],
   providers: [
     {

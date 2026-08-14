@@ -479,6 +479,23 @@ model WarehouseLocation {
   @@map("warehouse_locations")
 }
 
+model ProductionLocation {
+  id                  String    @id @default(uuid())
+  name                String
+  iRaypleLocationCode String
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
+  // indexes (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted
+  // row's name/code can be reused.
+  @@index([name])
+  @@index([iRaypleLocationCode])
+  @@map("production_locations")
+}
+
 enum TrolleyStatus {
   FULL
   EMPTY
