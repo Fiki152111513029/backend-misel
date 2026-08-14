@@ -17,6 +17,9 @@ export class TrolleyEntity {
   @ApiProperty({ nullable: true })
   trolleyCategoryId!: string | null;
 
+  @ApiProperty({ nullable: true })
+  droppingLocationCode!: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 

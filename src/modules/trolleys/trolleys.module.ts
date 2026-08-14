@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ProductionLocationsModule } from '../production-locations/production-locations.module';
 import { TrolleyController } from './controllers/trolley.controller';
 import { TROLLEYS_REPOSITORY } from './repositories/trolley-repository.interface';
 import { TrolleyRepository } from './repositories/trolley.repository';
@@ -9,6 +10,7 @@ import { GetTrolleysUseCase } from './use-cases/get-trolleys.use-case';
 import { UpdateTrolleyUseCase } from './use-cases/update-trolley.use-case';
 
 @Module({
+  imports: [ProductionLocationsModule],
   controllers: [TrolleyController],
   providers: [
     { provide: TROLLEYS_REPOSITORY, useClass: TrolleyRepository },

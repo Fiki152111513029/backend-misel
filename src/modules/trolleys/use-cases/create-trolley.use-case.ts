@@ -3,12 +3,16 @@ import { isUniqueConstraintViolation } from '../../../common/utils/prisma-errors
 import { CreateTrolleyDto } from '../dto/create-trolley.dto';
 import { TROLLEYS_REPOSITORY } from '../repositories/trolley-repository.interface';
 import type { ITrolleysRepository } from '../repositories/trolley-repository.interface';
+import { PRODUCTION_LOCATIONS_REPOSITORY } from '../../production-locations/repositories/production-location-repository.interface';
+import type { IProductionLocationsRepository } from '../../production-locations/repositories/production-location-repository.interface';
 
 @Injectable()
 export class CreateTrolleyUseCase {
   constructor(
     @Inject(TROLLEYS_REPOSITORY)
     private readonly trolleysRepository: ITrolleysRepository,
+    @Inject(PRODUCTION_LOCATIONS_REPOSITORY)
+    private readonly productionLocationsRepository: IProductionLocationsRepository,
   ) {}
 
   async execute(dto: CreateTrolleyDto) {
@@ -29,6 +33,18 @@ export class CreateTrolleyUseCase {
         );
       if (!categoryExists) {
         throw new BadRequestException('Trolley Category not found');
+      }
+    }
+
+    if (dto.droppingLocationCode) {
+      const locationExists =
+        await this.productionLocationsRepository.existsActiveByLocationCode(
+          dto.droppingLocationCode,
+        );
+      if (!locationExists) {
+        throw new BadRequestException(
+          'Dropping Location Code must match an active Production Location',
+        );
       }
     }
 

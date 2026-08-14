@@ -31,4 +31,12 @@ export class CreateTrolleyDto {
   @IsOptional()
   @IsUUID()
   trolleyCategoryId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Dropping Location Code — the Production Location this trolley drops off at (iRayple Location Code)',
+  })
+  @IsOptional()
+  @IsString()
+  droppingLocationCode?: string;
 }

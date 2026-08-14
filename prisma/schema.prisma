@@ -518,14 +518,19 @@ model TrolleyCategory {
 }
 
 model Trolley {
-  id                String        @id @default(uuid())
-  name              String
-  code              String
-  status            TrolleyStatus @default(EMPTY)
-  trolleyCategoryId String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  deletedAt         DateTime?
+  id                   String        @id @default(uuid())
+  name                 String
+  code                 String
+  status               TrolleyStatus @default(EMPTY)
+  trolleyCategoryId    String?
+  // The Production Location this trolley drops off at — stored as the
+  // location's iRaypleLocationCode (not a hard FK) so it matches the same
+  // validate-by-code convention as WarehouseLineLocation's dropping/picking
+  // codes, checked server-side against active Production Locations.
+  droppingLocationCode String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedAt            DateTime?
 
   category TrolleyCategory? @relation(fields: [trolleyCategoryId], references: [id])
 
@@ -535,6 +540,7 @@ model Trolley {
   @@index([name])
   @@index([code])
   @@index([trolleyCategoryId])
+  @@index([droppingLocationCode])
   @@map("trolleys")
 }
 

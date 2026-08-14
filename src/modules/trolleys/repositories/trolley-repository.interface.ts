@@ -9,6 +9,7 @@ export interface CreateTrolleyData {
   code: string;
   status?: TrolleyStatus;
   trolleyCategoryId?: string;
+  droppingLocationCode?: string;
 }
 
 export interface UpdateTrolleyData {
@@ -16,6 +17,7 @@ export interface UpdateTrolleyData {
   code?: string;
   status?: TrolleyStatus;
   trolleyCategoryId?: string;
+  droppingLocationCode?: string;
 }
 
 export type TrolleySortBy = 'name' | 'createdAt';
