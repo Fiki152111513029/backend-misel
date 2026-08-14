@@ -462,25 +462,62 @@ model ChargerArea {
   @@map("charger_areas")
 }
 
+model WarehouseLocation {
+  id                  String    @id @default(uuid())
+  name                String
+  iRaypleLocationCode String
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
+  // indexes (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted
+  // row's name/code can be reused.
+  @@index([name])
+  @@index([iRaypleLocationCode])
+  @@map("warehouse_locations")
+}
+
 enum TrolleyStatus {
   FULL
   EMPTY
 }
 
-model Trolley {
-  id        String        @id @default(uuid())
+model TrolleyCategory {
+  id        String    @id @default(uuid())
   name      String
-  code      String
-  status    TrolleyStatus @default(EMPTY)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+
+  trolleys Trolley[]
+
+  // `name` uniqueness is enforced by a partial unique index (WHERE
+  // "deletedAt" IS NULL, see migration) so a soft-deleted row's name can be
+  // reused.
+  @@index([name])
+  @@map("trolley_categories")
+}
+
+model Trolley {
+  id                String        @id @default(uuid())
+  name              String
+  code              String
+  status            TrolleyStatus @default(EMPTY)
+  trolleyCategoryId String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+
+  category TrolleyCategory? @relation(fields: [trolleyCategoryId], references: [id])
 
   // `name`/`code` uniqueness is enforced by partial unique indexes
   // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's
   // name/code can be reused.
   @@index([name])
   @@index([code])
+  @@index([trolleyCategoryId])
   @@map("trolleys")
 }
 

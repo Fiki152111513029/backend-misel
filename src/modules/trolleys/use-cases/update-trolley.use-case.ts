@@ -36,6 +36,19 @@ export class UpdateTrolleyUseCase {
       }
     }
 
+    if (
+      dto.trolleyCategoryId &&
+      dto.trolleyCategoryId !== existing.trolleyCategoryId
+    ) {
+      const categoryExists =
+        await this.trolleysRepository.existsActiveTrolleyCategoryById(
+          dto.trolleyCategoryId,
+        );
+      if (!categoryExists) {
+        throw new BadRequestException('Trolley Category not found');
+      }
+    }
+
     try {
       return await this.trolleysRepository.update(id, dto);
     } catch (error) {

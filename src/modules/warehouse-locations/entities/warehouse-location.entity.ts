@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TrolleyStatus } from '@prisma/client';
 
-export class TrolleyEntity {
+export class WarehouseLocationEntity {
   @ApiProperty()
   id!: string;
 
@@ -9,13 +8,10 @@ export class TrolleyEntity {
   name!: string;
 
   @ApiProperty()
-  code!: string;
+  iRaypleLocationCode!: string;
 
-  @ApiProperty({ enum: TrolleyStatus })
-  status!: TrolleyStatus;
-
-  @ApiProperty({ nullable: true })
-  trolleyCategoryId!: string | null;
+  @ApiProperty()
+  isActive!: boolean;
 
   @ApiProperty()
   createdAt!: Date;

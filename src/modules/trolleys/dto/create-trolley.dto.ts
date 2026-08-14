@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { TrolleyStatus } from '@prisma/client';
 
 export class CreateTrolleyDto {
@@ -19,4 +26,9 @@ export class CreateTrolleyDto {
   @IsOptional()
   @IsEnum(TrolleyStatus)
   status?: TrolleyStatus;
+
+  @ApiPropertyOptional({ description: 'Trolley Category id' })
+  @IsOptional()
+  @IsUUID()
+  trolleyCategoryId?: string;
 }

@@ -10,6 +10,9 @@ import {
 } from './trolley-repository.interface';
 
 const NOT_DELETED: Prisma.TrolleyWhereInput = { deletedAt: null };
+const RELATIONS_INCLUDE = {
+  category: { select: { id: true, name: true } },
+} as const;
 
 @Injectable()
 export class TrolleyRepository implements ITrolleysRepository {
@@ -26,6 +29,7 @@ export class TrolleyRepository implements ITrolleysRepository {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.trolley.findMany({
         where,
+        include: RELATIONS_INCLUDE,
         orderBy: { [params.sortBy]: params.sortOrder },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
@@ -37,7 +41,10 @@ export class TrolleyRepository implements ITrolleysRepository {
   }
 
   findById(id: string) {
-    return this.prisma.trolley.findFirst({ where: { id, ...NOT_DELETED } });
+    return this.prisma.trolley.findFirst({
+      where: { id, ...NOT_DELETED },
+      include: RELATIONS_INCLUDE,
+    });
   }
 
   async existsByName(name: string, excludeId?: string): Promise<boolean> {
@@ -58,6 +65,13 @@ export class TrolleyRepository implements ITrolleysRepository {
         ...NOT_DELETED,
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
+    });
+    return count > 0;
+  }
+
+  async existsActiveTrolleyCategoryById(id: string): Promise<boolean> {
+    const count = await this.prisma.trolleyCategory.count({
+      where: { id, deletedAt: null },
     });
     return count > 0;
   }

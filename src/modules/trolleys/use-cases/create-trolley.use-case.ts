@@ -22,6 +22,16 @@ export class CreateTrolleyUseCase {
       throw new BadRequestException('Trolley code already in use');
     }
 
+    if (dto.trolleyCategoryId) {
+      const categoryExists =
+        await this.trolleysRepository.existsActiveTrolleyCategoryById(
+          dto.trolleyCategoryId,
+        );
+      if (!categoryExists) {
+        throw new BadRequestException('Trolley Category not found');
+      }
+    }
+
     try {
       return await this.trolleysRepository.create(dto);
     } catch (error) {

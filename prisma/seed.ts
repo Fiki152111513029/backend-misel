@@ -359,6 +359,48 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Trolley',
     description: 'Delete trolleys',
   },
+  // Trolley Category
+  {
+    code: 'trolley-category.create',
+    name: 'Create Trolley Category',
+    description: 'Create new trolley categories',
+  },
+  {
+    code: 'trolley-category.read',
+    name: 'Read Trolley Category',
+    description: 'View trolley categories',
+  },
+  {
+    code: 'trolley-category.update',
+    name: 'Update Trolley Category',
+    description: 'Update trolley categories',
+  },
+  {
+    code: 'trolley-category.delete',
+    name: 'Delete Trolley Category',
+    description: 'Delete trolley categories',
+  },
+  // Warehouse Location
+  {
+    code: 'warehouse-location.create',
+    name: 'Create Warehouse Location',
+    description: 'Create new warehouse locations',
+  },
+  {
+    code: 'warehouse-location.read',
+    name: 'Read Warehouse Location',
+    description: 'View warehouse locations',
+  },
+  {
+    code: 'warehouse-location.update',
+    name: 'Update Warehouse Location',
+    description: 'Update warehouse locations',
+  },
+  {
+    code: 'warehouse-location.delete',
+    name: 'Delete Warehouse Location',
+    description: 'Delete warehouse locations',
+  },
 ];
 
 interface BoxTypeSeed {
