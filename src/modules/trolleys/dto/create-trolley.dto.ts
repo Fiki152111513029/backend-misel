@@ -39,4 +39,12 @@ export class CreateTrolleyDto {
   @IsOptional()
   @IsString()
   droppingLocationCode?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Model Code Process id — used to build the RCS task-order payload when a Trolley Activity is submitted for this trolley',
+  })
+  @IsOptional()
+  @IsUUID()
+  modelCodeProcessId?: string;
 }

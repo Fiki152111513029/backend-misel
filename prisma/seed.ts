@@ -422,6 +422,17 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Production Location',
     description: 'Delete production locations',
   },
+  // Trolley Activity
+  {
+    code: 'trolley-activity.create',
+    name: 'Create Trolley Activity',
+    description: 'Submit trolley activities (Warehouse/Operator Trolley Task scan flow)',
+  },
+  {
+    code: 'trolley-activity.read',
+    name: 'Read Trolley Activity',
+    description: 'View trolley activities',
+  },
 ];
 
 interface BoxTypeSeed {
@@ -461,6 +472,8 @@ const LINE_STAFF_CODES = [
   'task.create',
   'warehouse-cart-task.read',
   'warehouse-cart-task.create',
+  'trolley-activity.read',
+  'trolley-activity.create',
 ];
 
 const ROLE_PERMISSION_MAP: Record<(typeof ROLE_NAMES)[number], string[]> = {

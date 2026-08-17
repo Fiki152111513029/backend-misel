@@ -48,6 +48,16 @@ export class CreateTrolleyUseCase {
       }
     }
 
+    if (dto.modelCodeProcessId) {
+      const modelCodeProcessExists =
+        await this.trolleysRepository.existsActiveModelCodeProcessById(
+          dto.modelCodeProcessId,
+        );
+      if (!modelCodeProcessExists) {
+        throw new BadRequestException('Model Code Process not found');
+      }
+    }
+
     try {
       return await this.trolleysRepository.create(dto);
     } catch (error) {

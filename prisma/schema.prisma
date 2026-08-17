@@ -30,6 +30,7 @@ model User {
   productionLines           ProductionLine[]
   tasks                     Task[]
   warehouseCartTasks        WarehouseCartTask[]
+  trolleyActivities         TrolleyActivity[]
 
   @@index([roleId])
   @@map("users")
@@ -128,6 +129,7 @@ model ModelCodeProcess {
   warehouseCartTasks     WarehouseCartTask[]
   productionLineAreas    ProductionLineArea[]
   quarantineLines        QuarantineLine[]
+  trolleys               Trolley[]
 
   // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
   // IS NULL, see migration) so a soft-deleted row's name can be reused.
@@ -385,6 +387,7 @@ model Robot {
   tasks             Task[]
   warehouseCartTasks WarehouseCartTask[]
   activityLogs      RobotActivityLog[]
+  trolleyActivities TrolleyActivity[]
 
   // `name`/`amrDeviceSerialNo`/`amrDeviceNo` uniqueness is enforced by
   // partial unique indexes (WHERE "deletedAt" IS NULL, see migration) so a
@@ -528,11 +531,16 @@ model Trolley {
   // validate-by-code convention as WarehouseLineLocation's dropping/picking
   // codes, checked server-side against active Production Locations.
   droppingLocationCode String?
+  // Used to build the RCS task-order payload (modelProcessCode/fromSystem)
+  // when a Trolley Activity is submitted for this trolley.
+  modelCodeProcessId   String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   deletedAt            DateTime?
 
-  category TrolleyCategory? @relation(fields: [trolleyCategoryId], references: [id])
+  category         TrolleyCategory?   @relation(fields: [trolleyCategoryId], references: [id])
+  modelCodeProcess ModelCodeProcess?  @relation(fields: [modelCodeProcessId], references: [id])
+  activities       TrolleyActivity[]
 
   // `name`/`code` uniqueness is enforced by partial unique indexes
   // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's
@@ -541,7 +549,44 @@ model Trolley {
   @@index([code])
   @@index([trolleyCategoryId])
   @@index([droppingLocationCode])
+  @@index([modelCodeProcessId])
   @@map("trolleys")
+}
+
+// One scan-driven "trolley run": an operator/warehouse user scans a trolley
+// (capturing its status at that moment), then scans a pickup location, then
+// submits — which flips the trolley's status (EMPTY<->FULL), persists that
+// flip onto the Trolley row itself, and forwards a task order to RCS built
+// from pickupLocationCode -> the trolley's own droppingLocationCode. `taskId`
+// is the RCS orderId, kept in sync with live status via the same webhook
+// receiver that already updates Task/WarehouseCartTask (see
+// receive-task-status-webhook.use-case.ts).
+model TrolleyActivity {
+  id                   String     @id @default(uuid())
+  userId               String
+  trolleyId            String
+  statusBeginning      TrolleyStatus
+  statusEnd            TrolleyStatus
+  pickupLocationCode   String
+  droppingLocationCode String?
+  startDate            DateTime
+  endDate              DateTime
+  taskId               String     @unique
+  status               TaskStatus @default(PENDING)
+  robotId              String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  deletedAt            DateTime?
+
+  user    User    @relation(fields: [userId], references: [id])
+  trolley Trolley @relation(fields: [trolleyId], references: [id])
+  robot   Robot?  @relation(fields: [robotId], references: [id])
+
+  @@index([userId])
+  @@index([trolleyId])
+  @@index([taskId])
+  @@index([robotId])
+  @@map("trolley_activities")
 }
 
 enum TaskAction {

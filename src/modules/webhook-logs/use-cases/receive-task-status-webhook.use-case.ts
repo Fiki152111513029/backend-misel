@@ -61,11 +61,19 @@ export class ReceiveTaskStatusWebhookUseCase {
             robotId,
           );
         if (!matchedTask) {
-          await this.webhookLogsRepository.updateWarehouseCartTaskStatusByTaskId(
-            orderId,
-            status,
-            robotId,
-          );
+          const matchedCartTask =
+            await this.webhookLogsRepository.updateWarehouseCartTaskStatusByTaskId(
+              orderId,
+              status,
+              robotId,
+            );
+          if (!matchedCartTask) {
+            await this.webhookLogsRepository.updateTrolleyActivityStatusByTaskId(
+              orderId,
+              status,
+              robotId,
+            );
+          }
         }
       }
     } catch {

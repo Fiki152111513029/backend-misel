@@ -78,6 +78,12 @@ export class WarehouseLocationRepository
     return count > 0;
   }
 
+  findActiveByLocationCode(code: string) {
+    return this.prisma.warehouseLocation.findFirst({
+      where: { iRaypleLocationCode: code, isActive: true, ...NOT_DELETED },
+    });
+  }
+
   create(data: CreateWarehouseLocationData) {
     return this.prisma.warehouseLocation.create({ data });
   }

@@ -12,6 +12,7 @@ import {
 const NOT_DELETED: Prisma.TrolleyWhereInput = { deletedAt: null };
 const RELATIONS_INCLUDE = {
   category: { select: { id: true, name: true } },
+  modelCodeProcess: { select: { id: true, name: true, fromSystem: true } },
 } as const;
 
 @Injectable()
@@ -47,6 +48,13 @@ export class TrolleyRepository implements ITrolleysRepository {
     });
   }
 
+  findActiveByCode(code: string) {
+    return this.prisma.trolley.findFirst({
+      where: { code, ...NOT_DELETED },
+      include: RELATIONS_INCLUDE,
+    });
+  }
+
   async existsByName(name: string, excludeId?: string): Promise<boolean> {
     const count = await this.prisma.trolley.count({
       where: {
@@ -72,6 +80,13 @@ export class TrolleyRepository implements ITrolleysRepository {
   async existsActiveTrolleyCategoryById(id: string): Promise<boolean> {
     const count = await this.prisma.trolleyCategory.count({
       where: { id, deletedAt: null },
+    });
+    return count > 0;
+  }
+
+  async existsActiveModelCodeProcessById(id: string): Promise<boolean> {
+    const count = await this.prisma.modelCodeProcess.count({
+      where: { id, deletedAt: null, isActive: true },
     });
     return count > 0;
   }

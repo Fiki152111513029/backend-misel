@@ -159,4 +159,16 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     });
     return result.count > 0;
   }
+
+  async updateTrolleyActivityStatusByTaskId(
+    taskId: string,
+    status: TaskStatus,
+    robotId?: string,
+  ): Promise<boolean> {
+    const result = await this.prisma.trolleyActivity.updateMany({
+      where: { taskId, deletedAt: null },
+      data: { status, ...(robotId ? { robotId } : {}) },
+    });
+    return result.count > 0;
+  }
 }
