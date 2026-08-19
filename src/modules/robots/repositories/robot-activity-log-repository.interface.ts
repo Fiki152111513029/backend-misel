@@ -44,4 +44,7 @@ export const ROBOT_ACTIVITY_LOG_REPOSITORY = 'ROBOT_ACTIVITY_LOG_REPOSITORY';
 export interface IRobotActivityLogRepository {
   createLog(data: CreateRobotActivityLogData): Promise<void>;
   findByRobot(params: FindRobotActivityParams): Promise<FindRobotActivityResult>;
+  // Retention — deletes rows older than the cutoff, returns how many were
+  // removed (see RobotActivityLogRetentionService).
+  deleteOlderThan(cutoff: Date): Promise<number>;
 }

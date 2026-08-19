@@ -15,6 +15,7 @@ import { GetRobotUseCase } from './use-cases/get-robot.use-case';
 import { GetRobotsUseCase } from './use-cases/get-robots.use-case';
 import { UpdateRobotUseCase } from './use-cases/update-robot.use-case';
 import { RobotTelemetryService } from './services/robot-telemetry.service';
+import { RobotActivityLogRetentionService } from './services/robot-activity-log-retention.service';
 
 @Module({
   imports: [WebhookLogsModule],
@@ -23,6 +24,7 @@ import { RobotTelemetryService } from './services/robot-telemetry.service';
     { provide: ROBOTS_REPOSITORY, useClass: RobotRepository },
     { provide: ROBOT_ACTIVITY_LOG_REPOSITORY, useClass: RobotActivityLogRepository },
     RobotTelemetryService,
+    RobotActivityLogRetentionService,
     CreateRobotUseCase,
     GetRobotsUseCase,
     GetRobotUseCase,
