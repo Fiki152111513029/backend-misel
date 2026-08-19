@@ -11,6 +11,10 @@ export interface LocationCodesResult {
   // Factory Map can render a distinct charger icon for those nodes instead
   // of the generic location icon.
   chargerCodes: string[];
+  // Warehouse Location codes with their current occupancy (see
+  // CreateTrolleyActivityUseCase) — the Factory Map shows a
+  // full/empty-trolley icon on these nodes instead of the generic one.
+  warehouseLocationStatuses: { code: string; status: 'EMPTY' | 'FULL' }[];
 }
 
 @Injectable()
@@ -49,7 +53,7 @@ export class GetLocationCodesUseCase {
       }),
       this.prisma.warehouseLocation.findMany({
         where: { deletedAt: null },
-        select: { iRaypleLocationCode: true },
+        select: { iRaypleLocationCode: true, status: true },
       }),
       this.prisma.productionLocation.findMany({
         where: { deletedAt: null },
@@ -72,6 +76,10 @@ export class GetLocationCodesUseCase {
     return {
       codes: [...new Set(codes)],
       chargerCodes: [...new Set(chargerCodes)],
+      warehouseLocationStatuses: warehouseLocations.map((row) => ({
+        code: row.iRaypleLocationCode,
+        status: row.status,
+      })),
     };
   }
 }

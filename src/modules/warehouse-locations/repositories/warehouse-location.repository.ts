@@ -84,6 +84,13 @@ export class WarehouseLocationRepository
     });
   }
 
+  findFirstActiveEmpty() {
+    return this.prisma.warehouseLocation.findFirst({
+      where: { isActive: true, status: 'EMPTY', ...NOT_DELETED },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   create(data: CreateWarehouseLocationData) {
     return this.prisma.warehouseLocation.create({ data });
   }

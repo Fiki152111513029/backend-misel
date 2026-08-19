@@ -1,4 +1,4 @@
-import { WarehouseLocation } from '@prisma/client';
+import { WarehouseLocation, WarehouseLocationStatus } from '@prisma/client';
 
 export interface CreateWarehouseLocationData {
   name: string;
@@ -10,6 +10,7 @@ export interface UpdateWarehouseLocationData {
   name?: string;
   iRaypleLocationCode?: string;
   isActive?: boolean;
+  status?: WarehouseLocationStatus;
 }
 
 export type WarehouseLocationSortBy = 'name' | 'createdAt';
@@ -39,6 +40,10 @@ export interface IWarehouseLocationsRepository {
   existsByLocationCode(code: string, excludeId?: string): Promise<boolean>;
   existsActiveByLocationCode(code: string): Promise<boolean>;
   findActiveByLocationCode(code: string): Promise<WarehouseLocation | null>;
+  // Picks the dropping location for the Production->Warehouse Trolley Task
+  // direction — first active, non-deleted, EMPTY location, deterministically
+  // ordered so concurrent lookups don't jump around.
+  findFirstActiveEmpty(): Promise<WarehouseLocation | null>;
   create(data: CreateWarehouseLocationData): Promise<WarehouseLocation>;
   update(
     id: string,

@@ -38,6 +38,7 @@ export interface IProductionLocationsRepository {
   existsByName(name: string, excludeId?: string): Promise<boolean>;
   existsByLocationCode(code: string, excludeId?: string): Promise<boolean>;
   existsActiveByLocationCode(code: string): Promise<boolean>;
+  findActiveByLocationCode(code: string): Promise<ProductionLocation | null>;
   create(data: CreateProductionLocationData): Promise<ProductionLocation>;
   update(
     id: string,

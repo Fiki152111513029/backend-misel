@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
+  ActiveTrolleyActivityByRobot,
   CreateTrolleyActivityData,
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
@@ -62,5 +63,20 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       data: { status, ...(robotId ? { robotId } : {}) },
     });
     return result.count > 0;
+  }
+
+  async findActiveByRobot(): Promise<ActiveTrolleyActivityByRobot[]> {
+    const rows = await this.prisma.trolleyActivity.findMany({
+      where: {
+        ...NOT_DELETED,
+        robotId: { not: null },
+        status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
+      },
+      select: { robotId: true, statusBeginning: true },
+    });
+    return rows.map((row) => ({
+      robotId: row.robotId as string,
+      carrying: row.statusBeginning,
+    }));
   }
 }

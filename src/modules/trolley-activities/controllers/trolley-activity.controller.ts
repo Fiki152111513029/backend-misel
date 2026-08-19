@@ -12,6 +12,7 @@ import { LookupLocationUseCase } from '../use-cases/lookup-location.use-case';
 import { CreateTrolleyActivityUseCase } from '../use-cases/create-trolley-activity.use-case';
 import { GetTrolleyActivitiesUseCase } from '../use-cases/get-trolley-activities.use-case';
 import { GetTrolleyActivitySequenceUseCase } from '../use-cases/get-trolley-activity-sequence.use-case';
+import { GetActiveTrolleyActivitiesByRobotUseCase } from '../use-cases/get-active-trolley-activities-by-robot.use-case';
 
 @ApiTags('Trolley Activities')
 @ApiBearerAuth('access-token')
@@ -23,6 +24,7 @@ export class TrolleyActivityController {
     private readonly createTrolleyActivityUseCase: CreateTrolleyActivityUseCase,
     private readonly getTrolleyActivitiesUseCase: GetTrolleyActivitiesUseCase,
     private readonly getTrolleyActivitySequenceUseCase: GetTrolleyActivitySequenceUseCase,
+    private readonly getActiveTrolleyActivitiesByRobotUseCase: GetActiveTrolleyActivitiesByRobotUseCase,
   ) {}
 
   @Post('lookup-trolley')
@@ -64,6 +66,17 @@ export class TrolleyActivityController {
   async findAll(@Query() query: TrolleyActivityQueryDto) {
     const data = await this.getTrolleyActivitiesUseCase.execute(query);
     return { success: true, message: 'Trolley Activities retrieved successfully', data };
+  }
+
+  @Get('active-by-robot')
+  @Permissions('trolley-activity.read')
+  @ApiOperation({
+    summary:
+      'Robots currently executing a Trolley Task (PENDING/IN_PROGRESS) and what they\'re carrying right now — powers the Factory Map robot marker',
+  })
+  async activeByRobot() {
+    const data = await this.getActiveTrolleyActivitiesByRobotUseCase.execute();
+    return { success: true, message: 'Active trolley activities retrieved successfully', data };
   }
 
   @Get(':id/sequence')

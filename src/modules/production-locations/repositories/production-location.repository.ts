@@ -78,6 +78,12 @@ export class ProductionLocationRepository
     return count > 0;
   }
 
+  findActiveByLocationCode(code: string) {
+    return this.prisma.productionLocation.findFirst({
+      where: { iRaypleLocationCode: code, isActive: true, ...NOT_DELETED },
+    });
+  }
+
   create(data: CreateProductionLocationData) {
     return this.prisma.productionLocation.create({ data });
   }

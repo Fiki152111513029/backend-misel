@@ -466,12 +466,18 @@ model ChargerArea {
 }
 
 model WarehouseLocation {
-  id                  String    @id @default(uuid())
+  id                  String                  @id @default(uuid())
   name                String
   iRaypleLocationCode String
-  isActive            Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  isActive            Boolean                 @default(true)
+  // Occupancy for the Production->Warehouse Trolley Task direction: the
+  // dropping location is picked automatically from whichever Warehouse
+  // Location is EMPTY, then flipped to FULL. It flips back to EMPTY when a
+  // later Trolley Task picks up from this same location (Warehouse->
+  // Production direction), see CreateTrolleyActivityUseCase.
+  status              WarehouseLocationStatus @default(EMPTY)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
   deletedAt           DateTime?
 
   // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
@@ -500,6 +506,11 @@ model ProductionLocation {
 }
 
 enum TrolleyStatus {
+  FULL
+  EMPTY
+}
+
+enum WarehouseLocationStatus {
   FULL
   EMPTY
 }

@@ -35,7 +35,17 @@ import { TrolleyActivitiesModule } from './modules/trolley-activities/trolley-ac
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [configuration], validate }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+      validate,
+      // Lets .env reference its own variables via ${VAR} (e.g. RCS_HOST
+      // reused across ROBOT_TELEMETRY_URL/ROBOT_CONTROL_URL/TASK_ORDER_URL/
+      // TASK_ORDER_GET_ORDER_LIST_URL) instead of repeating the IP in every
+      // line — expansion happens before `validate` runs, so it sees the
+      // already-resolved URLs.
+      expandVariables: true,
+    }),
     PrismaModule,
     AuthModule,
     UsersModule,

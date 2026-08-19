@@ -1,9 +1,13 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { TrolleyStatus } from '@prisma/client';
+import { TrolleyStatus, WarehouseLocation } from '@prisma/client';
 import { TROLLEYS_REPOSITORY } from '../../trolleys/repositories/trolley-repository.interface';
 import type { ITrolleysRepository } from '../../trolleys/repositories/trolley-repository.interface';
 import { USERS_REPOSITORY } from '../../users/repositories/users-repository.interface';
 import type { IUsersRepository } from '../../users/repositories/users-repository.interface';
+import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import { PRODUCTION_LOCATIONS_REPOSITORY } from '../../production-locations/repositories/production-location-repository.interface';
+import type { IProductionLocationsRepository } from '../../production-locations/repositories/production-location-repository.interface';
 import { TaskOrderService, TaskOrderPayload } from '../../tasks/services/task-order.service';
 import { generateOrderId } from '../../tasks/utils/generate-order-id';
 import { CreateTrolleyActivityDto } from '../dto/create-trolley-activity.dto';
@@ -21,6 +25,10 @@ export class CreateTrolleyActivityUseCase {
     private readonly trolleysRepository: ITrolleysRepository,
     @Inject(USERS_REPOSITORY)
     private readonly usersRepository: IUsersRepository,
+    @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
+    private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
+    @Inject(PRODUCTION_LOCATIONS_REPOSITORY)
+    private readonly productionLocationsRepository: IProductionLocationsRepository,
     @Inject(TROLLEY_ACTIVITIES_REPOSITORY)
     private readonly trolleyActivitiesRepository: ITrolleyActivitiesRepository,
     private readonly taskOrderService: TaskOrderService,
@@ -30,11 +38,6 @@ export class CreateTrolleyActivityUseCase {
     const trolley = await this.trolleysRepository.findById(dto.trolleyId);
     if (!trolley) {
       throw new BadRequestException('Trolley not found');
-    }
-    if (!trolley.droppingLocationCode) {
-      throw new BadRequestException(
-        'This trolley has no Dropping Location Code set — configure it on the Trolley first',
-      );
     }
     if (!trolley.modelCodeProcess) {
       throw new BadRequestException(
@@ -47,11 +50,57 @@ export class CreateTrolleyActivityUseCase {
       throw new BadRequestException('User not found');
     }
 
+    // Direction is derived from where the scanned pickup code resolves to —
+    // never trusted from the client:
+    // - Warehouse Location match -> Warehouse->Production. Dropping is the
+    //   trolley's own fixed droppingLocationCode, and this Warehouse
+    //   Location is vacated (EMPTY) once picked up from.
+    // - Production Location match -> Production->Warehouse. Dropping is
+    //   auto-picked from whichever Warehouse Location is currently EMPTY,
+    //   then flipped to FULL.
+    const pickupWarehouseLocation =
+      await this.warehouseLocationsRepository.findActiveByLocationCode(
+        dto.pickupLocationCode,
+      );
+
+    let droppingLocationCode: string;
+    let warehouseLocationToFree: WarehouseLocation | null = null;
+    let warehouseLocationToOccupy: WarehouseLocation | null = null;
+
+    if (pickupWarehouseLocation) {
+      if (!trolley.droppingLocationCode) {
+        throw new BadRequestException(
+          'This trolley has no Dropping Location Code set — configure it on the Trolley first',
+        );
+      }
+      droppingLocationCode = trolley.droppingLocationCode;
+      warehouseLocationToFree = pickupWarehouseLocation;
+    } else {
+      const pickupProductionLocation =
+        await this.productionLocationsRepository.findActiveByLocationCode(
+          dto.pickupLocationCode,
+        );
+      if (!pickupProductionLocation) {
+        throw new BadRequestException(
+          'Pickup location code does not match an active Warehouse Location or Production Location',
+        );
+      }
+      const emptyWarehouseLocation =
+        await this.warehouseLocationsRepository.findFirstActiveEmpty();
+      if (!emptyWarehouseLocation) {
+        throw new BadRequestException(
+          'No empty Warehouse Location is available for dropping right now',
+        );
+      }
+      droppingLocationCode = emptyWarehouseLocation.iRaypleLocationCode;
+      warehouseLocationToOccupy = emptyWarehouseLocation;
+    }
+
     const statusBeginning = trolley.status;
     const statusEnd = toggleStatus(statusBeginning);
     const startDate = new Date(dto.startDate);
     const endDate = new Date();
-    const taskPath = [dto.pickupLocationCode, trolley.droppingLocationCode].join(',');
+    const taskPath = [dto.pickupLocationCode, droppingLocationCode].join(',');
     const orderId = generateOrderId();
 
     const rcsRequest: TaskOrderPayload = {
@@ -63,8 +112,8 @@ export class CreateTrolleyActivityUseCase {
     };
 
     // Call RCS first — only persist the activity (and flip the trolley's
-    // status) once the order is actually accepted, same ordering Mainline's
-    // release-task flow uses.
+    // status / the Warehouse Location's occupancy) once the order is
+    // actually accepted, same ordering Mainline's release-task flow uses.
     const rcsResponse = await this.taskOrderService.addTask(rcsRequest);
 
     const activity = await this.trolleyActivitiesRepository.create({
@@ -73,13 +122,24 @@ export class CreateTrolleyActivityUseCase {
       statusBeginning,
       statusEnd,
       pickupLocationCode: dto.pickupLocationCode,
-      droppingLocationCode: trolley.droppingLocationCode,
+      droppingLocationCode,
       startDate,
       endDate,
       taskId: orderId,
     });
 
     await this.trolleysRepository.update(trolley.id, { status: statusEnd });
+
+    if (warehouseLocationToFree) {
+      await this.warehouseLocationsRepository.update(warehouseLocationToFree.id, {
+        status: 'EMPTY',
+      });
+    }
+    if (warehouseLocationToOccupy) {
+      await this.warehouseLocationsRepository.update(warehouseLocationToOccupy.id, {
+        status: 'FULL',
+      });
+    }
 
     return { activity, rcsRequest, rcsResponse };
   }

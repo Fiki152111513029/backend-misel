@@ -30,6 +30,17 @@ export interface FindAllTrolleyActivitiesResult {
 
 export const TROLLEY_ACTIVITIES_REPOSITORY = 'TROLLEY_ACTIVITIES_REPOSITORY';
 
+export interface ActiveTrolleyActivityByRobot {
+  robotId: string;
+  // What the trolley physically has on it *right now*, while still in
+  // transit — statusBeginning, not statusEnd. The trolley's own `status`
+  // field already flips to statusEnd the instant the task order is
+  // accepted (see CreateTrolleyActivityUseCase), well before the robot has
+  // actually delivered it, so it can't be used to represent "what's being
+  // carried" while the task is still PENDING/IN_PROGRESS.
+  carrying: TrolleyStatus;
+}
+
 export interface ITrolleyActivitiesRepository {
   create(data: CreateTrolleyActivityData): Promise<TrolleyActivity>;
   findById(id: string): Promise<TrolleyActivityWithRelations | null>;
@@ -42,4 +53,5 @@ export interface ITrolleyActivitiesRepository {
     status: TaskStatus,
     robotId?: string,
   ): Promise<boolean>;
+  findActiveByRobot(): Promise<ActiveTrolleyActivityByRobot[]>;
 }
