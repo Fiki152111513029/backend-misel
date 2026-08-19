@@ -182,6 +182,16 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
 
     expect(res.body.data.activity.droppingLocationCode).toBe(`${suffix}WHDROP`);
 
+    // Regression: create() previously returned the bare TrolleyActivity row
+    // with no relations included, so activity.trolley was undefined and any
+    // caller reading .trolley.code/.name (e.g. the Current Queue card) would
+    // throw at runtime.
+    expect(res.body.data.activity.trolley).toEqual({
+      id: trolleyId,
+      code: `${suffix}TRL`,
+      name: `${suffix} Trolley`,
+    });
+
     const whDrop = await prisma.warehouseLocation.findUnique({ where: { id: whDropId } });
     expect(whDrop?.status).toBe('FULL');
   });

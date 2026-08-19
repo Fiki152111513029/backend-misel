@@ -21,7 +21,7 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   create(data: CreateTrolleyActivityData) {
-    return this.prisma.trolleyActivity.create({ data });
+    return this.prisma.trolleyActivity.create({ data, include: RELATIONS_INCLUDE });
   }
 
   findById(id: string) {

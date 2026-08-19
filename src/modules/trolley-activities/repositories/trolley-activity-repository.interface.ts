@@ -42,7 +42,7 @@ export interface ActiveTrolleyActivityByRobot {
 }
 
 export interface ITrolleyActivitiesRepository {
-  create(data: CreateTrolleyActivityData): Promise<TrolleyActivity>;
+  create(data: CreateTrolleyActivityData): Promise<TrolleyActivityWithRelations>;
   findById(id: string): Promise<TrolleyActivityWithRelations | null>;
   findAll(
     params: FindAllTrolleyActivitiesParams,
