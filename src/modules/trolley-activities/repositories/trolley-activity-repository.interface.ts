@@ -54,4 +54,8 @@ export interface ITrolleyActivitiesRepository {
     robotId?: string,
   ): Promise<boolean>;
   findActiveByRobot(): Promise<ActiveTrolleyActivityByRobot[]>;
+  // PENDING/IN_PROGRESS activities the given user submitted — lets the
+  // Warehouse/Operator Trolley Task page restore its Current Queue cards
+  // after a page reload (Pinia's in-memory queue doesn't survive that).
+  findActiveByUser(userId: string): Promise<TrolleyActivityWithRelations[]>;
 }

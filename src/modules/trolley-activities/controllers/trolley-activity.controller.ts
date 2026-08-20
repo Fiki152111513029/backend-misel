@@ -13,6 +13,7 @@ import { CreateTrolleyActivityUseCase } from '../use-cases/create-trolley-activi
 import { GetTrolleyActivitiesUseCase } from '../use-cases/get-trolley-activities.use-case';
 import { GetTrolleyActivitySequenceUseCase } from '../use-cases/get-trolley-activity-sequence.use-case';
 import { GetActiveTrolleyActivitiesByRobotUseCase } from '../use-cases/get-active-trolley-activities-by-robot.use-case';
+import { GetMyActiveTrolleyActivitiesUseCase } from '../use-cases/get-my-active-trolley-activities.use-case';
 
 @ApiTags('Trolley Activities')
 @ApiBearerAuth('access-token')
@@ -25,6 +26,7 @@ export class TrolleyActivityController {
     private readonly getTrolleyActivitiesUseCase: GetTrolleyActivitiesUseCase,
     private readonly getTrolleyActivitySequenceUseCase: GetTrolleyActivitySequenceUseCase,
     private readonly getActiveTrolleyActivitiesByRobotUseCase: GetActiveTrolleyActivitiesByRobotUseCase,
+    private readonly getMyActiveTrolleyActivitiesUseCase: GetMyActiveTrolleyActivitiesUseCase,
   ) {}
 
   @Post('lookup-trolley')
@@ -66,6 +68,17 @@ export class TrolleyActivityController {
   async findAll(@Query() query: TrolleyActivityQueryDto) {
     const data = await this.getTrolleyActivitiesUseCase.execute(query);
     return { success: true, message: 'Trolley Activities retrieved successfully', data };
+  }
+
+  @Get('active-mine')
+  @Permissions('trolley-activity.create')
+  @ApiOperation({
+    summary:
+      'The current user\'s own in-flight Trolley Tasks (PENDING/IN_PROGRESS) — used to restore Current Queue cards after a page reload',
+  })
+  async activeMine(@CurrentUser() user: AuthRequestUser) {
+    const data = await this.getMyActiveTrolleyActivitiesUseCase.execute(user.userId);
+    return { success: true, message: 'Active trolley activities retrieved successfully', data };
   }
 
   @Get('active-by-robot')

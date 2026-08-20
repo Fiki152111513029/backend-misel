@@ -201,6 +201,21 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     // the Factory Map's node icon reflects for it.
     const plPickup = await prisma.productionLocation.findUnique({ where: { id: plPickupId } });
     expect(plPickup?.status).toBe('EMPTY');
+
+    // Still PENDING (RCS is mocked, no webhook ever moves it further) — this
+    // is exactly the state Warehouse/Operator Trolley Task's restore-on-
+    // mount relies on to bring the Current Queue card back after a reload.
+    const activeMine = await request(app.getHttpServer())
+      .get('/trolley-activities/active-mine')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(activeMine.body.data).toContainEqual({
+      activityId: res.body.data.activity.id,
+      taskId: res.body.data.activity.taskId,
+      trolleyCode: `${suffix}TRL`,
+      trolleyName: `${suffix} Trolley`,
+      pickupSource: 'PRODUCTION',
+    });
   });
 
   it('Warehouse->Production: uses the trolley fixed dropping code and flips the pickup Warehouse Location EMPTY', async () => {
@@ -233,6 +248,18 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     // occupied — this is what the Factory Map's node icon reflects for it.
     const plDrop = await prisma.productionLocation.findUnique({ where: { id: plDropId } });
     expect(plDrop?.status).toBe('FULL');
+
+    const activeMine = await request(app.getHttpServer())
+      .get('/trolley-activities/active-mine')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(activeMine.body.data).toContainEqual({
+      activityId: res.body.data.activity.id,
+      taskId: res.body.data.activity.taskId,
+      trolleyCode: `${suffix}TRL`,
+      trolleyName: `${suffix} Trolley`,
+      pickupSource: 'WAREHOUSE',
+    });
   });
 
   // "No Warehouse Location is EMPTY at all" isn't tested end-to-end here —

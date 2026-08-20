@@ -470,12 +470,15 @@ model WarehouseLocation {
   name                String
   iRaypleLocationCode String
   isActive            Boolean                 @default(true)
-  // Occupancy for the Production->Warehouse Trolley Task direction: the
-  // dropping location is picked automatically from whichever Warehouse
-  // Location is EMPTY, then flipped to FULL. It flips back to EMPTY when a
-  // later Trolley Task picks up from this same location (Warehouse->
-  // Production direction), see CreateTrolleyActivityUseCase.
-  status              WarehouseLocationStatus @default(EMPTY)
+  // Occupancy for the Trolley Task flow — null until a Trolley Task actually
+  // touches this location (no trolley has ever been here, shown as the
+  // plain node icon on the Factory Map, not "empty"). The
+  // Production->Warehouse direction's dropping location is auto-picked from
+  // whichever Warehouse Location is FULL's opposite (EMPTY or still null),
+  // then flipped to FULL; it flips back to EMPTY when a later Trolley Task
+  // picks up from this same location (Warehouse->Production direction), see
+  // CreateTrolleyActivityUseCase.
+  status              WarehouseLocationStatus?
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   deletedAt           DateTime?
@@ -493,12 +496,14 @@ model ProductionLocation {
   name                String
   iRaypleLocationCode String
   isActive            Boolean                  @default(true)
-  // Occupancy for the Trolley Task flow, mirroring WarehouseLocation.status:
-  // flips to FULL when a trolley is dropped off here (Warehouse->Production,
+  // Occupancy for the Trolley Task flow — null until a Trolley Task actually
+  // touches this location (no trolley has ever been here, shown as the
+  // plain node icon on the Factory Map, not "empty"). Flips to FULL when a
+  // trolley is dropped off here (Warehouse->Production,
   // trolley.droppingLocationCode), back to EMPTY once a later Trolley Task
   // picks up from here again (Production->Warehouse), see
   // CreateTrolleyActivityUseCase.
-  status              ProductionLocationStatus @default(EMPTY)
+  status              ProductionLocationStatus?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   deletedAt           DateTime?

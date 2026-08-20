@@ -79,4 +79,16 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       carrying: row.statusBeginning,
     }));
   }
+
+  findActiveByUser(userId: string) {
+    return this.prisma.trolleyActivity.findMany({
+      where: {
+        ...NOT_DELETED,
+        userId,
+        status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
+      },
+      include: RELATIONS_INCLUDE,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
 }

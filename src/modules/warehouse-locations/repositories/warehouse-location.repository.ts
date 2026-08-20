@@ -85,8 +85,15 @@ export class WarehouseLocationRepository
   }
 
   findFirstActiveEmpty() {
+    // Available means explicitly EMPTY *or* never touched by a Trolley Task
+    // (null — no trolley has ever been dropped here) — only FULL is
+    // excluded.
     return this.prisma.warehouseLocation.findFirst({
-      where: { isActive: true, status: 'EMPTY', ...NOT_DELETED },
+      where: {
+        isActive: true,
+        OR: [{ status: 'EMPTY' }, { status: null }],
+        ...NOT_DELETED,
+      },
       orderBy: { name: 'asc' },
     });
   }

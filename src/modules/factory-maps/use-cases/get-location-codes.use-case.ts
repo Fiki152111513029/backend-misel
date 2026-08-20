@@ -1,6 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
+// Drops rows whose status has never been set — no Trolley Task has ever
+// touched that location, so the Factory Map should show its plain node icon
+// rather than an "empty" one.
+function toStatusEntries(
+  rows: { iRaypleLocationCode: string; status: 'EMPTY' | 'FULL' | null }[],
+): { code: string; status: 'EMPTY' | 'FULL' }[] {
+  return rows
+    .filter((row): row is typeof row & { status: 'EMPTY' | 'FULL' } => row.status !== null)
+    .map((row) => ({ code: row.iRaypleLocationCode, status: row.status }));
+}
+
 export interface LocationCodesResult {
   // All real, named locations in the system — the Factory Map only marks
   // topology nodes whose content matches one of these codes, instead of
@@ -79,14 +90,8 @@ export class GetLocationCodesUseCase {
     return {
       codes: [...new Set(codes)],
       chargerCodes: [...new Set(chargerCodes)],
-      warehouseLocationStatuses: warehouseLocations.map((row) => ({
-        code: row.iRaypleLocationCode,
-        status: row.status,
-      })),
-      productionLocationStatuses: productionLocations.map((row) => ({
-        code: row.iRaypleLocationCode,
-        status: row.status,
-      })),
+      warehouseLocationStatuses: toStatusEntries(warehouseLocations),
+      productionLocationStatuses: toStatusEntries(productionLocations),
     };
   }
 }

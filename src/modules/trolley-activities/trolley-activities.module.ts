@@ -13,6 +13,7 @@ import { CreateTrolleyActivityUseCase } from './use-cases/create-trolley-activit
 import { GetTrolleyActivitiesUseCase } from './use-cases/get-trolley-activities.use-case';
 import { GetTrolleyActivitySequenceUseCase } from './use-cases/get-trolley-activity-sequence.use-case';
 import { GetActiveTrolleyActivitiesByRobotUseCase } from './use-cases/get-active-trolley-activities-by-robot.use-case';
+import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-trolley-activities.use-case';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { GetActiveTrolleyActivitiesByRobotUseCase } from './use-cases/get-active
     GetTrolleyActivitiesUseCase,
     GetTrolleyActivitySequenceUseCase,
     GetActiveTrolleyActivitiesByRobotUseCase,
+    GetMyActiveTrolleyActivitiesUseCase,
   ],
   exports: [TROLLEY_ACTIVITIES_REPOSITORY],
 })
