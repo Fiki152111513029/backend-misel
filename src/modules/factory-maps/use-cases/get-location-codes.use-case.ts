@@ -15,6 +15,9 @@ export interface LocationCodesResult {
   // CreateTrolleyActivityUseCase) — the Factory Map shows a
   // full/empty-trolley icon on these nodes instead of the generic one.
   warehouseLocationStatuses: { code: string; status: 'EMPTY' | 'FULL' }[];
+  // Same, but for Production Location codes (a trolley's fixed dropping
+  // point in the Warehouse->Production direction).
+  productionLocationStatuses: { code: string; status: 'EMPTY' | 'FULL' }[];
 }
 
 @Injectable()
@@ -57,7 +60,7 @@ export class GetLocationCodesUseCase {
       }),
       this.prisma.productionLocation.findMany({
         where: { deletedAt: null },
-        select: { iRaypleLocationCode: true },
+        select: { iRaypleLocationCode: true, status: true },
       }),
     ]);
 
@@ -77,6 +80,10 @@ export class GetLocationCodesUseCase {
       codes: [...new Set(codes)],
       chargerCodes: [...new Set(chargerCodes)],
       warehouseLocationStatuses: warehouseLocations.map((row) => ({
+        code: row.iRaypleLocationCode,
+        status: row.status,
+      })),
+      productionLocationStatuses: productionLocations.map((row) => ({
         code: row.iRaypleLocationCode,
         status: row.status,
       })),

@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { TrolleyStatus, WarehouseLocation } from '@prisma/client';
+import { ProductionLocation, TrolleyStatus, WarehouseLocation } from '@prisma/client';
 import { TROLLEYS_REPOSITORY } from '../../trolleys/repositories/trolley-repository.interface';
 import type { ITrolleysRepository } from '../../trolleys/repositories/trolley-repository.interface';
 import { USERS_REPOSITORY } from '../../users/repositories/users-repository.interface';
@@ -53,9 +53,12 @@ export class CreateTrolleyActivityUseCase {
     // Direction is derived from where the scanned pickup code resolves to —
     // never trusted from the client:
     // - Warehouse Location match -> Warehouse->Production. Dropping is the
-    //   trolley's own fixed droppingLocationCode, and this Warehouse
-    //   Location is vacated (EMPTY) once picked up from.
-    // - Production Location match -> Production->Warehouse. Dropping is
+    //   trolley's own fixed droppingLocationCode (a Production Location).
+    //   The Warehouse Location is vacated (EMPTY) once picked up from, and
+    //   the Production Location it's dropped at is now occupied (FULL) —
+    //   this is what the Factory Map's node icons reflect.
+    // - Production Location match -> Production->Warehouse. The Production
+    //   Location is vacated (EMPTY) once picked up from. Dropping is
     //   auto-picked from whichever Warehouse Location is currently EMPTY,
     //   then flipped to FULL.
     const pickupWarehouseLocation =
@@ -66,6 +69,8 @@ export class CreateTrolleyActivityUseCase {
     let droppingLocationCode: string;
     let warehouseLocationToFree: WarehouseLocation | null = null;
     let warehouseLocationToOccupy: WarehouseLocation | null = null;
+    let productionLocationToFree: ProductionLocation | null = null;
+    let productionLocationToOccupy: ProductionLocation | null = null;
 
     if (pickupWarehouseLocation) {
       if (!trolley.droppingLocationCode) {
@@ -75,6 +80,10 @@ export class CreateTrolleyActivityUseCase {
       }
       droppingLocationCode = trolley.droppingLocationCode;
       warehouseLocationToFree = pickupWarehouseLocation;
+      productionLocationToOccupy =
+        await this.productionLocationsRepository.findActiveByLocationCode(
+          trolley.droppingLocationCode,
+        );
     } else {
       const pickupProductionLocation =
         await this.productionLocationsRepository.findActiveByLocationCode(
@@ -85,6 +94,7 @@ export class CreateTrolleyActivityUseCase {
           'Pickup location code does not match an active Warehouse Location or Production Location',
         );
       }
+      productionLocationToFree = pickupProductionLocation;
       const emptyWarehouseLocation =
         await this.warehouseLocationsRepository.findFirstActiveEmpty();
       if (!emptyWarehouseLocation) {
@@ -137,6 +147,16 @@ export class CreateTrolleyActivityUseCase {
     }
     if (warehouseLocationToOccupy) {
       await this.warehouseLocationsRepository.update(warehouseLocationToOccupy.id, {
+        status: 'FULL',
+      });
+    }
+    if (productionLocationToFree) {
+      await this.productionLocationsRepository.update(productionLocationToFree.id, {
+        status: 'EMPTY',
+      });
+    }
+    if (productionLocationToOccupy) {
+      await this.productionLocationsRepository.update(productionLocationToOccupy.id, {
         status: 'FULL',
       });
     }

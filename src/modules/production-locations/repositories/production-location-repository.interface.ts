@@ -1,4 +1,4 @@
-import { ProductionLocation } from '@prisma/client';
+import { ProductionLocation, ProductionLocationStatus } from '@prisma/client';
 
 export interface CreateProductionLocationData {
   name: string;
@@ -10,6 +10,7 @@ export interface UpdateProductionLocationData {
   name?: string;
   iRaypleLocationCode?: string;
   isActive?: boolean;
+  status?: ProductionLocationStatus;
 }
 
 export type ProductionLocationSortBy = 'name' | 'createdAt';

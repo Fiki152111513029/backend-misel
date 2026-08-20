@@ -489,12 +489,18 @@ model WarehouseLocation {
 }
 
 model ProductionLocation {
-  id                  String    @id @default(uuid())
+  id                  String                   @id @default(uuid())
   name                String
   iRaypleLocationCode String
-  isActive            Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  isActive            Boolean                  @default(true)
+  // Occupancy for the Trolley Task flow, mirroring WarehouseLocation.status:
+  // flips to FULL when a trolley is dropped off here (Warehouse->Production,
+  // trolley.droppingLocationCode), back to EMPTY once a later Trolley Task
+  // picks up from here again (Production->Warehouse), see
+  // CreateTrolleyActivityUseCase.
+  status              ProductionLocationStatus @default(EMPTY)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
   deletedAt           DateTime?
 
   // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
@@ -511,6 +517,11 @@ enum TrolleyStatus {
 }
 
 enum WarehouseLocationStatus {
+  FULL
+  EMPTY
+}
+
+enum ProductionLocationStatus {
   FULL
   EMPTY
 }

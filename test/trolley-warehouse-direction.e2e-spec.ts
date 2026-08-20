@@ -30,6 +30,8 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
   let whPickupId: string; // WarehouseLocation used as pickup in direction A
   let whDropId: string; // WarehouseLocation left EMPTY, auto-picked as dropping in direction B
   let plDropCode: string; // trolley's fixed dropping code (direction A), points to a ProductionLocation
+  let plDropId: string; // ProductionLocation at plDropCode — must flip FULL after direction A
+  let plPickupId: string; // ProductionLocation used as pickup in direction B — must flip EMPTY after
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -82,12 +84,14 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
 
     plDropCode = `${suffix}PLDROP`;
     const productionLocationDrop = await prisma.productionLocation.create({
-      data: { name: `${suffix} PL Drop`, iRaypleLocationCode: plDropCode, isActive: true },
+      data: { name: `${suffix} PL Drop`, iRaypleLocationCode: plDropCode, isActive: true, status: 'EMPTY' },
     });
+    plDropId = productionLocationDrop.id;
 
-    await prisma.productionLocation.create({
-      data: { name: `${suffix} PL Pickup`, iRaypleLocationCode: `${suffix}PLPICK`, isActive: true },
+    const productionLocationPickup = await prisma.productionLocation.create({
+      data: { name: `${suffix} PL Pickup`, iRaypleLocationCode: `${suffix}PLPICK`, isActive: true, status: 'FULL' },
     });
+    plPickupId = productionLocationPickup.id;
 
     const warehouseLocationPickup = await prisma.warehouseLocation.create({
       data: {
@@ -119,8 +123,6 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       },
     });
     trolleyId = trolley.id;
-
-    void productionLocationDrop;
   });
 
   afterAll(async () => {
@@ -194,6 +196,11 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
 
     const whDrop = await prisma.warehouseLocation.findUnique({ where: { id: whDropId } });
     expect(whDrop?.status).toBe('FULL');
+
+    // The Production Location just picked up from is vacated — this is what
+    // the Factory Map's node icon reflects for it.
+    const plPickup = await prisma.productionLocation.findUnique({ where: { id: plPickupId } });
+    expect(plPickup?.status).toBe('EMPTY');
   });
 
   it('Warehouse->Production: uses the trolley fixed dropping code and flips the pickup Warehouse Location EMPTY', async () => {
@@ -221,6 +228,11 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
 
     const whPickup = await prisma.warehouseLocation.findUnique({ where: { id: whPickupId } });
     expect(whPickup?.status).toBe('EMPTY');
+
+    // The Production Location the trolley was fixed to drop at is now
+    // occupied — this is what the Factory Map's node icon reflects for it.
+    const plDrop = await prisma.productionLocation.findUnique({ where: { id: plDropId } });
+    expect(plDrop?.status).toBe('FULL');
   });
 
   // "No Warehouse Location is EMPTY at all" isn't tested end-to-end here —
