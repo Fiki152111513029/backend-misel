@@ -160,13 +160,18 @@ export class RcsStockStatusService {
       return [];
     }
 
+    const payload = { areaId };
+    this.logger.log(`POST ${url} — payload: ${JSON.stringify(payload)}`);
+
     let raw: string;
     try {
-      raw = await postJson(url, { areaId }, 5000);
+      raw = await postJson(url, payload, 5000);
     } catch (error) {
       this.logger.warn(`Failed to reach stock status endpoint: ${error}`);
       return [];
     }
+
+    this.logger.log(`Stock status response for areaId ${areaId}: ${raw}`);
 
     let parsed: unknown;
     try {
@@ -176,6 +181,23 @@ export class RcsStockStatusService {
       return [];
     }
 
-    return findStockStatusArray(parsed) ?? [];
+    const rows = findStockStatusArray(parsed) ?? [];
+    if (rows.length === 0) {
+      this.logger.warn(
+        `Stock status response had no recognizable rows for areaId ${areaId}. Raw keys: ${
+          parsed && typeof parsed === 'object'
+            ? Object.keys(parsed).join(', ')
+            : typeof parsed
+        }`,
+      );
+    } else {
+      this.logger.log(
+        `Stock status: found ${rows.length} row(s) for areaId ${areaId} — qrContents: ${rows
+          .map((r) => `${r.qrContent}=${r.stockStatus}`)
+          .join(', ')}`,
+      );
+    }
+
+    return rows;
   }
 }
