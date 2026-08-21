@@ -33,6 +33,7 @@ import { TrolleyCategoriesModule } from './modules/trolley-categories/trolley-ca
 import { WarehouseLocationsModule } from './modules/warehouse-locations/warehouse-locations.module';
 import { ProductionLocationsModule } from './modules/production-locations/production-locations.module';
 import { TrolleyActivitiesModule } from './modules/trolley-activities/trolley-activities.module';
+import { RcsStockStatusModule } from './modules/rcs-stock-status/rcs-stock-status.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { TrolleyActivitiesModule } from './modules/trolley-activities/trolley-ac
     WarehouseLocationsModule,
     ProductionLocationsModule,
     TrolleyActivitiesModule,
+    RcsStockStatusModule,
   ],
   controllers: [AppController],
   providers: [AppService],

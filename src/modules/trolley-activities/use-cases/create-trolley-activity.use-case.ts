@@ -45,6 +45,20 @@ export class CreateTrolleyActivityUseCase {
       );
     }
 
+    // Position lock: once RCS has confirmed (via the "Placed" webhook event)
+    // that this trolley is physically sitting at a location, it can't be
+    // released again from anywhere else — it has to be picked up from
+    // wherever it actually is. Null means RCS hasn't reported a Placed event
+    // for this trolley yet, so there's nothing to lock against.
+    if (
+      trolley.currentLocationCode &&
+      trolley.currentLocationCode !== dto.pickupLocationCode
+    ) {
+      throw new BadRequestException(
+        `This trolley is currently at ${trolley.currentLocationCode} — scan that location to release it, not ${dto.pickupLocationCode}`,
+      );
+    }
+
     const user = await this.usersRepository.findById(userId);
     if (!user) {
       throw new BadRequestException('User not found');

@@ -28,6 +28,7 @@ import { DeleteFactoryMapUseCase } from '../use-cases/delete-factory-map.use-cas
 import { GetFactoryMapUseCase } from '../use-cases/get-factory-map.use-case';
 import { GetFactoryMapsUseCase } from '../use-cases/get-factory-maps.use-case';
 import { GetLocationCodesUseCase } from '../use-cases/get-location-codes.use-case';
+import { GetStockStatusUseCase } from '../use-cases/get-stock-status.use-case';
 import { UpdateFactoryMapUseCase } from '../use-cases/update-factory-map.use-case';
 import {
   deleteUploadedFile,
@@ -60,6 +61,7 @@ export class FactoryMapController {
     private readonly updateFactoryMapUseCase: UpdateFactoryMapUseCase,
     private readonly deleteFactoryMapUseCase: DeleteFactoryMapUseCase,
     private readonly getLocationCodesUseCase: GetLocationCodesUseCase,
+    private readonly getStockStatusUseCase: GetStockStatusUseCase,
     private readonly configService: ConfigService,
   ) {}
 
@@ -142,6 +144,25 @@ export class FactoryMapController {
     return {
       success: true,
       message: 'Location codes retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('stock-status')
+  @Permissions('factory-map.read')
+  @ApiOperation({
+    summary:
+      "Live full/empty status per Warehouse/Production Location node, straight from RCS's own getStockStatus (query param: areaId) — the Factory Map's node icons",
+  })
+  async stockStatus(@Query('areaId') areaId?: string) {
+    const parsedAreaId = Number(areaId);
+    if (!areaId || !Number.isFinite(parsedAreaId)) {
+      throw new BadRequestException('areaId query param is required');
+    }
+    const data = await this.getStockStatusUseCase.execute(parsedAreaId);
+    return {
+      success: true,
+      message: 'Stock status retrieved successfully',
       data,
     };
   }

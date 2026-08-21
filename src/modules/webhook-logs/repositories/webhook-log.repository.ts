@@ -171,4 +171,12 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     });
     return result.count > 0;
   }
+
+  async findTrolleyActivityLocationsByTaskId(taskId: string) {
+    const activity = await this.prisma.trolleyActivity.findFirst({
+      where: { taskId, deletedAt: null },
+      select: { trolleyId: true, pickupLocationCode: true, droppingLocationCode: true },
+    });
+    return activity ?? null;
+  }
 }

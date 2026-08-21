@@ -49,4 +49,15 @@ export default () => ({
       'http://172.18.101.10:7000/ics/out/task/getOrderList',
     areaId: parseInt(process.env.TASK_ORDER_AREA_ID ?? '2', 10),
   },
+  // RCS's own stock/bin tracking for Warehouse/Production Location nodes —
+  // separate from our own DB (see Trolley.currentLocationCode) since RCS is
+  // the system of record other integrations may also read/write.
+  stockStatus: {
+    updateUrl:
+      process.env.NODE_STATUS ??
+      'http://172.18.101.10:7000/ics/stock/update/appStockStatus',
+    getUrl:
+      process.env.NODE_LOCATION_STATUS ??
+      'http://172.18.101.10:7000/ics/out/getStockStatus',
+  },
 });

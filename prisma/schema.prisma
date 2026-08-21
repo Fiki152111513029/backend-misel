@@ -558,6 +558,15 @@ model Trolley {
   // validate-by-code convention as WarehouseLineLocation's dropping/picking
   // codes, checked server-side against active Production Locations.
   droppingLocationCode String?
+  // Where this trolley physically is right now — an iRaypleLocationCode,
+  // same convention as droppingLocationCode. Null until the first Trolley
+  // Task involving it is actually placed by the robot (see the "Placed"
+  // webhook handling in ReceiveTaskStatusWebhookUseCase); once set, the
+  // *next* Trolley Task for this trolley must be picked up from this exact
+  // location — CreateTrolleyActivityUseCase rejects a mismatched scan, so a
+  // trolley reported at Production can't be released again from Warehouse
+  // until it's actually been brought back.
+  currentLocationCode  String?
   // Used to build the RCS task-order payload (modelProcessCode/fromSystem)
   // when a Trolley Activity is submitted for this trolley.
   modelCodeProcessId   String?

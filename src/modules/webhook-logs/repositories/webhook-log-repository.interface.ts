@@ -72,4 +72,14 @@ export interface IWebhookLogsRepository {
     status: TaskStatus,
     robotId?: string,
   ): Promise<boolean>;
+  /**
+   * Pickup/dropping codes + trolleyId for the TrolleyActivity behind this
+   * taskId, if any — used to fire RCS stock-status updates and advance
+   * Trolley.currentLocationCode on Picked/Placed webhook events.
+   */
+  findTrolleyActivityLocationsByTaskId(taskId: string): Promise<{
+    trolleyId: string;
+    pickupLocationCode: string;
+    droppingLocationCode: string | null;
+  } | null>;
 }

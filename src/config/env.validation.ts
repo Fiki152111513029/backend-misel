@@ -66,6 +66,14 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  NODE_STATUS?: string;
+
+  @IsOptional()
+  @IsString()
+  NODE_LOCATION_STATUS?: string;
+
+  @IsOptional()
+  @IsString()
   ICS_LOGS_DEVELOPER_PASSWORD?: string;
 }
 

@@ -21,6 +21,10 @@ export interface UpdateTrolleyData {
   trolleyCategoryId?: string;
   droppingLocationCode?: string;
   modelCodeProcessId?: string;
+  // Only ever set by ReceiveTaskStatusWebhookUseCase (on a "Placed" event)
+  // — not exposed on CreateTrolleyDto/UpdateTrolleyDto, since it reflects
+  // physical reality reported by RCS, not something an admin should edit.
+  currentLocationCode?: string;
 }
 
 export type TrolleySortBy = 'name' | 'createdAt';
