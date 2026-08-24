@@ -63,7 +63,13 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
       where: { taskId: orderId, deletedAt: null },
       select: { modelCodeProcess: { select: { name: true } } },
     });
-    return cartTask?.modelCodeProcess.name ?? null;
+    if (cartTask) return cartTask.modelCodeProcess.name;
+
+    const trolleyActivity = await this.prisma.trolleyActivity.findFirst({
+      where: { taskId: orderId, deletedAt: null },
+      select: { trolley: { select: { modelCodeProcess: { select: { name: true } } } } },
+    });
+    return trolleyActivity?.trolley.modelCodeProcess?.name ?? null;
   }
 
   async findStatusComment(

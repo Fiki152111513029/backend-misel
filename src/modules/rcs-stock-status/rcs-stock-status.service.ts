@@ -160,7 +160,10 @@ export class RcsStockStatusService {
       return [];
     }
 
-    const payload = { areaId };
+    // Paginated on RCS's side — pageSize is set well above any realistic
+    // number of locations in one area, so a single page covers everything
+    // without needing to loop through further pages.
+    const payload = { areaId, pageNo: '1', pageSize: '50' };
     this.logger.log(`POST ${url} — payload: ${JSON.stringify(payload)}`);
 
     let raw: string;
