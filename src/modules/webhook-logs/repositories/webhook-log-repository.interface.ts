@@ -73,13 +73,14 @@ export interface IWebhookLogsRepository {
     robotId?: string,
   ): Promise<boolean>;
   /**
-   * Pickup/dropping codes + trolleyId for the TrolleyActivity behind this
-   * taskId, if any — used to fire RCS stock-status updates and advance
-   * Trolley.currentLocationCode on Picked/Placed webhook events.
+   * Backfills TrolleyActivity.droppingLocationCode from its trolley's
+   * currentLocationCode, but only when it's still null — Production-
+   * >Warehouse activities are deliberately left blank at submit time (RCS
+   * picks its own destination and never confirms it back to us), so this
+   * fills it in once the task is confirmed complete instead of recording a
+   * location the task might never have actually reached. No-op if the
+   * activity's droppingLocationCode is already set, or the trolley has no
+   * currentLocationCode yet.
    */
-  findTrolleyActivityLocationsByTaskId(taskId: string): Promise<{
-    trolleyId: string;
-    pickupLocationCode: string;
-    droppingLocationCode: string | null;
-  } | null>;
+  finalizeTrolleyActivityDroppingLocation(taskId: string): Promise<void>;
 }

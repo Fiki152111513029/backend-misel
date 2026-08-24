@@ -7,6 +7,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { TaskOrderService } from './../src/modules/tasks/services/task-order.service';
+import { RcsStockStatusService } from './../src/modules/rcs-stock-status/rcs-stock-status.service';
 import { HttpExceptionFilter } from './../src/common/filters/http-exception.filter';
 
 // Verifies the Production<->Warehouse direction auto-detection added to
@@ -16,6 +17,13 @@ import { HttpExceptionFilter } from './../src/common/filters/http-exception.filt
 // trolley's own fixed droppingLocationCode (and flip that Warehouse
 // Location back to EMPTY). RCS is stubbed out — this only proves the DB
 // direction-detection/status-toggle logic, not the live network call.
+//
+// The two submission tests below run in a deliberate order — Warehouse-
+// >Production first, then Production->Warehouse — because
+// Trolley.currentLocationCode is now set immediately at submit time (not
+// waiting for a webhook), so the trolley must actually be picked up from
+// wherever the previous test left it (the position lock — see
+// CreateTrolleyActivityUseCase).
 describe('Trolley Activities — direction auto-detection (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -28,13 +36,16 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
   let mcpId: string;
   let trolleyCategoryId: string;
   let trolleyId: string;
-  let whPickupId: string; // WarehouseLocation used as pickup in direction A
-  let whDropId: string; // WarehouseLocation left EMPTY, auto-picked as dropping in direction B
-  let plDropCode: string; // trolley's fixed dropping code (direction A), points to a ProductionLocation
-  let plDropId: string; // ProductionLocation at plDropCode — must flip FULL after direction A
-  let plPickupId: string; // ProductionLocation used as pickup in direction B — must flip EMPTY after
+  let whPickupId: string; // WarehouseLocation used as pickup in the Warehouse->Production test
+  let whDropId: string; // WarehouseLocation left EMPTY, auto-picked as dropping in the Production->Warehouse test
+  let plDropCode: string; // trolley's fixed dropping code (Warehouse->Production); reused as the pickup for the chained Production->Warehouse test
+  let plDropId: string;
+  let plPickupCode: string; // Separate Production Location, used only by the standalone lookup-location test (not the submission chain)
+  let updateStockStatusMock: jest.Mock;
 
   beforeAll(async () => {
+    updateStockStatusMock = jest.fn().mockResolvedValue(undefined);
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -42,6 +53,11 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .useValue({
         addTask: jest.fn().mockResolvedValue({ code: 1000, desc: 'ok' }),
         getOrderList: jest.fn().mockResolvedValue([]),
+      })
+      .overrideProvider(RcsStockStatusService)
+      .useValue({
+        updateStockStatus: updateStockStatusMock,
+        getStockStatus: jest.fn().mockResolvedValue([]),
       })
       .compile();
 
@@ -89,17 +105,17 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     });
     plDropId = productionLocationDrop.id;
 
-    const productionLocationPickup = await prisma.productionLocation.create({
-      data: { name: `${suffix} PL Pickup`, iRaypleLocationCode: `${suffix}PLPICK`, isActive: true, status: 'FULL' },
+    plPickupCode = `${suffix}PLPICK`;
+    await prisma.productionLocation.create({
+      data: { name: `${suffix} PL Pickup`, iRaypleLocationCode: plPickupCode, isActive: true, status: 'FULL' },
     });
-    plPickupId = productionLocationPickup.id;
 
     const warehouseLocationPickup = await prisma.warehouseLocation.create({
       data: {
         name: `${suffix} WH Pickup`,
         iRaypleLocationCode: `${suffix}WHPICK`,
         isActive: true,
-        status: 'FULL', // starts FULL so direction A's toggle-to-EMPTY is observable
+        status: 'FULL', // starts FULL so the toggle-to-EMPTY is observable
       },
     });
     whPickupId = warehouseLocationPickup.id;
@@ -109,13 +125,13 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
         name: `${suffix} WH Drop`,
         iRaypleLocationCode: `${suffix}WHDROP`,
         isActive: true,
-        status: 'EMPTY', // the only EMPTY one — must be auto-picked in direction B
+        status: 'EMPTY', // the only EMPTY one — must be auto-picked
       },
     });
     whDropId = warehouseLocationDrop.id;
 
-    // Direction B (Operator Trolley Task / Production->Warehouse) resolves
-    // modelProcessCode from the trolley's Category, not the trolley itself.
+    // Production->Warehouse resolves modelProcessCode from the trolley's
+    // Category, not the trolley itself.
     const trolleyCategory = await prisma.trolleyCategory.create({
       data: { name: `${suffix} Category`, modelCodeProcessId: mcpId },
     });
@@ -140,7 +156,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     await prisma.trolleyCategory.deleteMany({ where: { id: trolleyCategoryId } });
     await prisma.warehouseLocation.deleteMany({ where: { id: { in: [whPickupId, whDropId] } } });
     await prisma.productionLocation.deleteMany({
-      where: { iRaypleLocationCode: { in: [plDropCode, `${suffix}PLPICK`] } },
+      where: { iRaypleLocationCode: { in: [plDropCode, plPickupCode] } },
     });
     await prisma.refreshToken.deleteMany({ where: { userId: testUserId } });
     await prisma.user.deleteMany({ where: { id: testUserId } });
@@ -155,16 +171,17 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .expect(201);
     expect(res.body.data.pickupLocationSource).toBe('WAREHOUSE');
     expect(res.body.data.pickupLocationCode).toBe(`${suffix}WHPICK`);
+    expect(res.body.data.incomingWarning).toBeNull();
   });
 
   it('lookup-location resolves a Production Location code as pickupLocationSource PRODUCTION', async () => {
     const res = await request(app.getHttpServer())
       .post('/trolley-activities/lookup-location')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ code: `${suffix}PLPICK` })
+      .send({ code: plPickupCode })
       .expect(201);
     expect(res.body.data.pickupLocationSource).toBe('PRODUCTION');
-    expect(res.body.data.pickupLocationCode).toBe(`${suffix}PLPICK`);
+    expect(res.body.data.pickupLocationCode).toBe(plPickupCode);
   });
 
   it('lookup-location rejects an unknown code', async () => {
@@ -175,69 +192,14 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .expect(400);
   });
 
-  it('Production->Warehouse: auto-picks the EMPTY Warehouse Location for dropping and flips it FULL', async () => {
+  it('Warehouse->Production: uses the trolley fixed dropping code, flips the pickup Warehouse Location EMPTY, and tells RCS the dropping node is now full', async () => {
     const lookupTrolley = await request(app.getHttpServer())
       .post('/trolley-activities/lookup-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ code: `${suffix}TRL` })
       .expect(201);
 
-    const res = await request(app.getHttpServer())
-      .post('/trolley-activities')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({
-        trolleyId,
-        pickupLocationCode: `${suffix}PLPICK`,
-        startDate: lookupTrolley.body.data.startDate,
-      })
-      .expect(201);
-
-    expect(res.body.data.activity.droppingLocationCode).toBe(`${suffix}WHDROP`);
-
-    // Regression: create() previously returned the bare TrolleyActivity row
-    // with no relations included, so activity.trolley was undefined and any
-    // caller reading .trolley.code/.name (e.g. the Current Queue card) would
-    // throw at runtime.
-    expect(res.body.data.activity.trolley).toEqual({
-      id: trolleyId,
-      code: `${suffix}TRL`,
-      name: `${suffix} Trolley`,
-    });
-
-    const whDrop = await prisma.warehouseLocation.findUnique({ where: { id: whDropId } });
-    expect(whDrop?.status).toBe('FULL');
-
-    // The Production Location just picked up from is vacated — this is what
-    // the Factory Map's node icon reflects for it.
-    const plPickup = await prisma.productionLocation.findUnique({ where: { id: plPickupId } });
-    expect(plPickup?.status).toBe('EMPTY');
-
-    // Still PENDING (RCS is mocked, no webhook ever moves it further) — this
-    // is exactly the state Warehouse/Operator Trolley Task's restore-on-
-    // mount relies on to bring the Current Queue card back after a reload.
-    const activeMine = await request(app.getHttpServer())
-      .get('/trolley-activities/active-mine')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .expect(200);
-    expect(activeMine.body.data).toContainEqual({
-      activityId: res.body.data.activity.id,
-      taskId: res.body.data.activity.taskId,
-      trolleyCode: `${suffix}TRL`,
-      trolleyName: `${suffix} Trolley`,
-      pickupSource: 'PRODUCTION',
-    });
-  });
-
-  it('Warehouse->Production: uses the trolley fixed dropping code and flips the pickup Warehouse Location EMPTY', async () => {
-    // generateOrderId() is second-resolution — avoid colliding with the
-    // previous test's taskId if both land in the same wall-clock second.
-    await new Promise((resolve) => setTimeout(resolve, 1100));
-
-    const lookupTrolley = await request(app.getHttpServer())
-      .post('/trolley-activities/lookup-trolley')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ code: `${suffix}TRL` })
-      .expect(201);
+    updateStockStatusMock.mockClear();
 
     const res = await request(app.getHttpServer())
       .post('/trolley-activities')
@@ -249,7 +211,21 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       })
       .expect(201);
 
+    // Known for certain up front (the trolley's own fixed code) — recorded
+    // on the activity immediately.
     expect(res.body.data.activity.droppingLocationCode).toBe(plDropCode);
+
+    // Regression: create() previously returned the bare TrolleyActivity row
+    // with no relations included, so activity.trolley was undefined and any
+    // caller reading .trolley.code/.name (e.g. the Current Queue card) would
+    // throw at runtime.
+    expect(res.body.data.activity.trolley).toEqual({
+      id: trolleyId,
+      code: `${suffix}TRL`,
+      name: `${suffix} Trolley`,
+    });
+
+    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
 
     const whPickup = await prisma.warehouseLocation.findUnique({ where: { id: whPickupId } });
     expect(whPickup?.status).toBe('EMPTY');
@@ -258,6 +234,11 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     // occupied — this is what the Factory Map's node icon reflects for it.
     const plDrop = await prisma.productionLocation.findUnique({ where: { id: plDropId } });
     expect(plDrop?.status).toBe('FULL');
+
+    // currentLocationCode is set immediately at submit, not on a later
+    // webhook — this is what locks the *next* submission to pick up from here.
+    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    expect(trolley?.currentLocationCode).toBe(plDropCode);
 
     const activeMine = await request(app.getHttpServer())
       .get('/trolley-activities/active-mine')
@@ -269,6 +250,63 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       trolleyCode: `${suffix}TRL`,
       trolleyName: `${suffix} Trolley`,
       pickupSource: 'WAREHOUSE',
+    });
+  });
+
+  it('Production->Warehouse: picked up from where the trolley now is, auto-picks the EMPTY Warehouse Location for dropping, and leaves the activity droppingLocationCode unset until Completed', async () => {
+    // generateOrderId() is second-resolution — avoid colliding with the
+    // previous test's taskId if both land in the same wall-clock second.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    const lookupTrolley = await request(app.getHttpServer())
+      .post('/trolley-activities/lookup-trolley')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ code: `${suffix}TRL` })
+      .expect(201);
+
+    // The previous test left the trolley's currentLocationCode at
+    // plDropCode — the position lock requires picking up from there, not
+    // the separate plPickupCode fixture.
+    updateStockStatusMock.mockClear();
+
+    const res = await request(app.getHttpServer())
+      .post('/trolley-activities')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        trolleyId,
+        pickupLocationCode: plDropCode,
+        startDate: lookupTrolley.body.data.startDate,
+      })
+      .expect(201);
+
+    // RCS picks its own destination and never confirms it back to us, so
+    // this is deliberately left unset until the task is confirmed complete
+    // (status 8) — see ReceiveTaskStatusWebhookUseCase.
+    expect(res.body.data.activity.droppingLocationCode).toBeNull();
+
+    expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHDROP`, '2');
+
+    const whDrop = await prisma.warehouseLocation.findUnique({ where: { id: whDropId } });
+    expect(whDrop?.status).toBe('FULL');
+
+    // The Production Location just picked up from is vacated — this is what
+    // the Factory Map's node icon reflects for it.
+    const plDrop = await prisma.productionLocation.findUnique({ where: { id: plDropId } });
+    expect(plDrop?.status).toBe('EMPTY');
+
+    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    expect(trolley?.currentLocationCode).toBe(`${suffix}WHDROP`);
+
+    const activeMine = await request(app.getHttpServer())
+      .get('/trolley-activities/active-mine')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(activeMine.body.data).toContainEqual({
+      activityId: res.body.data.activity.id,
+      taskId: res.body.data.activity.taskId,
+      trolleyCode: `${suffix}TRL`,
+      trolleyName: `${suffix} Trolley`,
+      pickupSource: 'PRODUCTION',
     });
   });
 

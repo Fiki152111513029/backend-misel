@@ -10,6 +10,10 @@ import { PRODUCTION_LOCATIONS_REPOSITORY } from '../../production-locations/repo
 import type { IProductionLocationsRepository } from '../../production-locations/repositories/production-location-repository.interface';
 import { TaskOrderService, TaskOrderPayload } from '../../tasks/services/task-order.service';
 import { generateOrderId } from '../../tasks/utils/generate-order-id';
+import {
+  RcsStockStatusService,
+  NODE_STATUS_FULL,
+} from '../../rcs-stock-status/rcs-stock-status.service';
 import { CreateTrolleyActivityDto } from '../dto/create-trolley-activity.dto';
 import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-repository.interface';
 import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activity-repository.interface';
@@ -32,6 +36,7 @@ export class CreateTrolleyActivityUseCase {
     @Inject(TROLLEY_ACTIVITIES_REPOSITORY)
     private readonly trolleyActivitiesRepository: ITrolleyActivitiesRepository,
     private readonly taskOrderService: TaskOrderService,
+    private readonly rcsStockStatusService: RcsStockStatusService,
   ) {}
 
   async execute(dto: CreateTrolleyActivityDto, userId: string) {
@@ -40,11 +45,12 @@ export class CreateTrolleyActivityUseCase {
       throw new BadRequestException('Trolley not found');
     }
 
-    // Position lock: once RCS has confirmed (via the "Placed" webhook event)
-    // that this trolley is physically sitting at a location, it can't be
-    // released again from anywhere else — it has to be picked up from
-    // wherever it actually is. Null means RCS hasn't reported a Placed event
-    // for this trolley yet, so there's nothing to lock against.
+    // Position lock: once a Trolley Task has been submitted for this
+    // trolley, it's considered to be heading to (and then sitting at) its
+    // dropping point immediately — see the currentLocationCode update below
+    // — so it can't be released again from anywhere else until it's picked
+    // up from there. Null means no Trolley Task has ever been submitted for
+    // this trolley yet, so there's nothing to lock against.
     if (
       trolley.currentLocationCode &&
       trolley.currentLocationCode !== dto.pickupLocationCode
@@ -166,19 +172,44 @@ export class CreateTrolleyActivityUseCase {
     // actually accepted, same ordering Mainline's release-task flow uses.
     const rcsResponse = await this.taskOrderService.addTask(rcsRequest);
 
+    // Tell RCS the dropping point is now occupied, right as the task is
+    // handed off — mirrors the "vacating" call LookupTrolleyUseCase makes
+    // on the first scan.
+    await this.rcsStockStatusService.updateStockStatus(
+      droppingLocationCode,
+      NODE_STATUS_FULL,
+    );
+
+    // Warehouse->Production knows its dropping point for certain (the
+    // trolley's own fixed code), so the activity record gets it right away.
+    // Production->Warehouse only *tentatively* reserves a Warehouse Location
+    // ourselves — RCS decides its own destination and never confirms its
+    // choice back to us — so that one is left off the activity record until
+    // RCS actually reports the task finished (status 8 backfills it from
+    // Trolley.currentLocationCode, see ReceiveTaskStatusWebhookUseCase),
+    // rather than risk recording a location the task never really reached.
+    const isOperatorDirection = !pickupWarehouseLocation;
+
     const activity = await this.trolleyActivitiesRepository.create({
       userId,
       trolleyId: trolley.id,
       statusBeginning,
       statusEnd,
       pickupLocationCode: dto.pickupLocationCode,
-      droppingLocationCode,
+      droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
       startDate,
       endDate,
       taskId: orderId,
     });
 
-    await this.trolleysRepository.update(trolley.id, { status: statusEnd });
+    // currentLocationCode drives both the position lock above and the
+    // "vacating" stock-status call LookupTrolleyUseCase makes on the next
+    // scan — updated immediately here (not waiting for a webhook) to match
+    // the same submit-time-driven design as the stock-status calls.
+    await this.trolleysRepository.update(trolley.id, {
+      status: statusEnd,
+      currentLocationCode: droppingLocationCode,
+    });
 
     if (warehouseLocationToFree) {
       await this.warehouseLocationsRepository.update(warehouseLocationToFree.id, {

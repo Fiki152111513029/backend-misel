@@ -10,13 +10,19 @@ import { TaskOrderService } from './../src/modules/tasks/services/task-order.ser
 import { RcsStockStatusService } from './../src/modules/rcs-stock-status/rcs-stock-status.service';
 import { HttpExceptionFilter } from './../src/common/filters/http-exception.filter';
 
-// Verifies the "Picked"/"Placed" webhook handling added to
-// ReceiveTaskStatusWebhookUseCase, and the position lock it feeds
+// Verifies the UI-action-driven RCS stock-status calls (nodeStatus '0' on
+// Scan Trolley confirm, nodeStatus '2' on Submit — see LookupTrolleyUseCase
+// and CreateTrolleyActivityUseCase) and the position lock they feed
 // (CreateTrolleyActivityUseCase rejects a pickup that doesn't match
-// Trolley.currentLocationCode). RCS itself is stubbed out (both the task
-// order submission and the stock-status calls) — this proves our own
+// Trolley.currentLocationCode, which is now set immediately at submit time,
+// not from a later webhook). Also verifies the Operator-direction
+// (Production->Warehouse) TrolleyActivity.droppingLocationCode backfill:
+// RCS picks its own destination for that direction and never confirms it at
+// submit time, so it's left null until a status=8 (Completed) webhook
+// confirms the task actually finished. RCS itself is stubbed out (both the
+// task order submission and the stock-status calls) — this proves our own
 // DB/webhook wiring, not the live network calls.
-describe('Trolley stock-status webhook + position lock (e2e)', () => {
+describe('Trolley stock-status + position lock (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   const suffix = `E2ESTOCK${Date.now()}`;
@@ -97,7 +103,7 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
       data: { name: `${suffix} PL Drop`, iRaypleLocationCode: plDropCode, isActive: true },
     });
 
-    // Direction B (Operator Trolley Task / Production->Warehouse) resolves
+    // Production->Warehouse (Operator Trolley Task) resolves
     // modelProcessCode from the trolley's Category, not the trolley itself.
     const trolleyCategory = await prisma.trolleyCategory.create({
       data: { name: `${suffix} Category`, modelCodeProcessId: mcp.id },
@@ -128,19 +134,25 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
     await app.close();
   });
 
-  it('submitting before any Placed event has no position lock (currentLocationCode still null)', async () => {
+  it('before any Trolley Task has ever been submitted, there is no position lock (currentLocationCode still null)', async () => {
     const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
     expect(trolley?.currentLocationCode).toBeNull();
   });
 
-  let firstTaskId: string;
+  it('Scan Trolley confirm calls RCS stock status with nodeStatus 0, and Submit calls it again with nodeStatus 2', async () => {
+    updateStockStatusMock.mockClear();
 
-  it('submits Warehouse->Production, then Picked/Placed webhooks call RCS stock status and advance currentLocationCode', async () => {
+    // Scan 1 + confirm — no currentLocationCode yet, so the trolley's own
+    // fixed droppingLocationCode is treated as its home resting spot.
     const lookupTrolley = await request(app.getHttpServer())
       .post('/trolley-activities/lookup-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ code: `${suffix}TRL` })
       .expect(201);
+
+    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '0');
+
+    updateStockStatusMock.mockClear();
 
     const createRes = await request(app.getHttpServer())
       .post('/trolley-activities')
@@ -152,26 +164,9 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
       })
       .expect(201);
 
-    firstTaskId = createRes.body.data.activity.taskId;
-
-    updateStockStatusMock.mockClear();
-
-    // Picked (21) — robot has lifted the trolley off the Warehouse pickup.
-    await request(app.getHttpServer())
-      .post('/webhooks-logs')
-      .send({ orderId: firstTaskId, deviceCode: 'AMR-E2E-STOCK', status: '21', subTaskSeq: '2' })
-      .expect(200);
-
-    expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '0');
-
-    updateStockStatusMock.mockClear();
-
-    // Placed (23) — robot has set the trolley down at the Production dropping.
-    await request(app.getHttpServer())
-      .post('/webhooks-logs')
-      .send({ orderId: firstTaskId, deviceCode: 'AMR-E2E-STOCK', status: '23', subTaskSeq: '4' })
-      .expect(200);
-
+    // Warehouse->Production: known for certain up front, so this is the
+    // trolley's own fixed dropping code.
+    expect(createRes.body.data.activity.droppingLocationCode).toBe(plDropCode);
     expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
 
     const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
@@ -204,7 +199,11 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
     expect(res.body.message).toContain(plDropCode);
   });
 
-  it('accepts the next submission once its pickup matches currentLocationCode, with the Operator-direction RCS payload', async () => {
+  let operatorActivityId: string;
+  let operatorTaskId: string;
+  let operatorDropCode: string;
+
+  it('accepts the next submission once its pickup matches currentLocationCode, with the Operator-direction RCS payload, and leaves droppingLocationCode unset', async () => {
     await new Promise((resolve) => setTimeout(resolve, 1100));
 
     const lookupTrolley = await request(app.getHttpServer())
@@ -214,13 +213,14 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
       .expect(201);
 
     addTaskMock.mockClear();
+    updateStockStatusMock.mockClear();
 
     // Correct — pickup is exactly where the trolley currently is. This is
     // the Operator Trolley Task direction (pickup resolves to a Production
     // Location), so the RCS payload should use the trolley's Category's
     // Model Code Process, a fixed priority of 6, and a taskPath that's just
     // the pickup point — not "pickup,dropping".
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .post('/trolley-activities')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
@@ -237,5 +237,36 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
         taskOrderDetail: [{ taskPath: plDropCode }],
       }),
     );
+
+    // RCS picks its own destination for this direction and never confirms
+    // it back to us at submit time — left unset until a status=8 webhook
+    // confirms the task actually finished (see next test).
+    expect(res.body.data.activity.droppingLocationCode).toBeNull();
+
+    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    expect(trolley?.currentLocationCode).toBeTruthy();
+    expect(trolley?.currentLocationCode).not.toBe(plDropCode);
+
+    // Reflects the RCS-auto-picked Warehouse Location's stock status flip,
+    // even though we don't yet know it belongs on the activity's own record.
+    expect(updateStockStatusMock).toHaveBeenCalledWith(trolley?.currentLocationCode, '2');
+
+    operatorActivityId = res.body.data.activity.id;
+    operatorTaskId = res.body.data.activity.taskId;
+    operatorDropCode = trolley!.currentLocationCode!;
+  });
+
+  it('backfills droppingLocationCode once RCS reports the Operator-direction task Completed (status 8)', async () => {
+    let activity = await prisma.trolleyActivity.findUnique({ where: { id: operatorActivityId } });
+    expect(activity?.droppingLocationCode).toBeNull();
+
+    await request(app.getHttpServer())
+      .post('/webhooks-logs')
+      .send({ orderId: operatorTaskId, deviceCode: 'AMR-E2E-STOCK', status: '8' })
+      .expect(200);
+
+    activity = await prisma.trolleyActivity.findUnique({ where: { id: operatorActivityId } });
+    expect(activity?.droppingLocationCode).toBe(operatorDropCode);
+    expect(activity?.status).toBe('COMPLETED');
   });
 });

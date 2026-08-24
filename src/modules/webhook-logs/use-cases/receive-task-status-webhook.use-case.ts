@@ -1,14 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { TaskStatus } from '@prisma/client';
 import { WEBHOOK_LOGS_REPOSITORY } from '../repositories/webhook-log-repository.interface';
 import type { IWebhookLogsRepository } from '../repositories/webhook-log-repository.interface';
-import { TROLLEYS_REPOSITORY } from '../../trolleys/repositories/trolley-repository.interface';
-import type { ITrolleysRepository } from '../../trolleys/repositories/trolley-repository.interface';
-import {
-  RcsStockStatusService,
-  NODE_STATUS_EMPTY,
-  NODE_STATUS_FULL,
-} from '../../rcs-stock-status/rcs-stock-status.service';
 
 // RCS's own OrderStatus codes (see docs/apiwebhook.md and the Mainline
 // status mapping) — 8 is the only success code, 3/5/7 are terminal
@@ -16,12 +9,6 @@ import {
 // recognize yet) is treated as still in progress.
 const RCS_COMPLETED_CODE = '8';
 const RCS_FAILED_CODES = ['3', '5', '7'];
-// Trolley Task sub-steps (see Frontend's RCS_STATUS_LABEL) — the two moments
-// that actually matter for stock-status/location tracking: the robot has
-// physically picked the trolley up off its pickup location (vacating it),
-// or physically placed it at its dropping location (occupying it).
-const RCS_PICKED_CODE = '21';
-const RCS_PLACED_CODE = '23';
 
 function normalizeStatus(rawStatus: string): TaskStatus {
   if (rawStatus === TaskStatus.COMPLETED || rawStatus === RCS_COMPLETED_CODE) {
@@ -41,14 +28,9 @@ function normalizeStatus(rawStatus: string): TaskStatus {
 
 @Injectable()
 export class ReceiveTaskStatusWebhookUseCase {
-  private readonly logger = new Logger(ReceiveTaskStatusWebhookUseCase.name);
-
   constructor(
     @Inject(WEBHOOK_LOGS_REPOSITORY)
     private readonly webhookLogsRepository: IWebhookLogsRepository,
-    @Inject(TROLLEYS_REPOSITORY)
-    private readonly trolleysRepository: ITrolleysRepository,
-    private readonly rcsStockStatusService: RcsStockStatusService,
   ) {}
 
   async execute(body: Record<string, unknown>) {
@@ -92,11 +74,15 @@ export class ReceiveTaskStatusWebhookUseCase {
                 status,
                 robotId,
               );
-            if (
-              matchedTrolleyActivity &&
-              (rawStatus === RCS_PICKED_CODE || rawStatus === RCS_PLACED_CODE)
-            ) {
-              await this.handleTrolleyPickedOrPlaced(orderId, rawStatus);
+            // Production->Warehouse activities are submitted without a
+            // droppingLocationCode (RCS picks its own destination and never
+            // confirms it back to us) — see CreateTrolleyActivityUseCase.
+            // Once RCS reports the task truly finished, backfill it from
+            // Trolley.currentLocationCode (set immediately at submit time).
+            if (matchedTrolleyActivity && status === TaskStatus.COMPLETED) {
+              await this.webhookLogsRepository.finalizeTrolleyActivityDroppingLocation(
+                orderId,
+              );
             }
           }
         }
@@ -125,44 +111,5 @@ export class ReceiveTaskStatusWebhookUseCase {
       if (value != null && value !== '') return String(value);
     }
     return undefined;
-  }
-
-  // Picked (21): the robot has physically lifted the trolley off its pickup
-  // location — tell RCS that location is empty. Placed (23): the robot has
-  // physically set the trolley down at its dropping location — tell RCS
-  // that location is full, and advance Trolley.currentLocationCode so the
-  // *next* Trolley Task for this trolley is locked to start from here (see
-  // CreateTrolleyActivityUseCase).
-  private async handleTrolleyPickedOrPlaced(
-    orderId: string,
-    rawStatus: string,
-  ): Promise<void> {
-    const locations =
-      await this.webhookLogsRepository.findTrolleyActivityLocationsByTaskId(
-        orderId,
-      );
-    if (!locations) return;
-
-    if (rawStatus === RCS_PICKED_CODE) {
-      await this.rcsStockStatusService.updateStockStatus(
-        locations.pickupLocationCode,
-        NODE_STATUS_EMPTY,
-      );
-      return;
-    }
-
-    if (!locations.droppingLocationCode) {
-      this.logger.warn(
-        `Trolley Activity for taskId ${orderId} reported Placed but has no droppingLocationCode`,
-      );
-      return;
-    }
-    await this.rcsStockStatusService.updateStockStatus(
-      locations.droppingLocationCode,
-      NODE_STATUS_FULL,
-    );
-    await this.trolleysRepository.update(locations.trolleyId, {
-      currentLocationCode: locations.droppingLocationCode,
-    });
   }
 }

@@ -4,6 +4,7 @@ import { WarehouseLocationsModule } from '../warehouse-locations/warehouse-locat
 import { ProductionLocationsModule } from '../production-locations/production-locations.module';
 import { UsersModule } from '../users/users.module';
 import { TasksModule } from '../tasks/tasks.module';
+import { RcsStockStatusModule } from '../rcs-stock-status/rcs-stock-status.module';
 import { TrolleyActivityController } from './controllers/trolley-activity.controller';
 import { TROLLEY_ACTIVITIES_REPOSITORY } from './repositories/trolley-activity-repository.interface';
 import { TrolleyActivityRepository } from './repositories/trolley-activity.repository';
@@ -22,6 +23,7 @@ import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-t
     ProductionLocationsModule,
     UsersModule,
     TasksModule,
+    RcsStockStatusModule,
   ],
   controllers: [TrolleyActivityController],
   providers: [
