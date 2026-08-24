@@ -39,11 +39,6 @@ export class CreateTrolleyActivityUseCase {
     if (!trolley) {
       throw new BadRequestException('Trolley not found');
     }
-    if (!trolley.modelCodeProcess) {
-      throw new BadRequestException(
-        'This trolley has no Model Code Process configured — configure it on the Trolley first',
-      );
-    }
 
     // Position lock: once RCS has confirmed (via the "Placed" webhook event)
     // that this trolley is physically sitting at a location, it can't be
@@ -66,15 +61,25 @@ export class CreateTrolleyActivityUseCase {
 
     // Direction is derived from where the scanned pickup code resolves to —
     // never trusted from the client:
-    // - Warehouse Location match -> Warehouse->Production. Dropping is the
-    //   trolley's own fixed droppingLocationCode (a Production Location).
-    //   The Warehouse Location is vacated (EMPTY) once picked up from, and
-    //   the Production Location it's dropped at is now occupied (FULL) —
-    //   this is what the Factory Map's node icons reflect.
-    // - Production Location match -> Production->Warehouse. The Production
-    //   Location is vacated (EMPTY) once picked up from. Dropping is
-    //   auto-picked from whichever Warehouse Location is currently EMPTY,
-    //   then flipped to FULL.
+    // - Warehouse Location match -> Warehouse->Production (Warehouse
+    //   Trolley Task). Dropping is the trolley's own fixed
+    //   droppingLocationCode (a Production Location); taskPath is the full
+    //   pickup->dropping pair. The Warehouse Location is vacated (EMPTY)
+    //   once picked up from, and the Production Location it's dropped at is
+    //   now occupied (FULL) — this is what the Factory Map's node icons
+    //   reflect. modelProcessCode comes from the trolley's own Model Code
+    //   Process, priority from the releasing user.
+    // - Production Location match -> Production->Warehouse (Operator
+    //   Trolley Task). taskPath is just the pickup point — RCS decides
+    //   which Warehouse Location to bring the trolley to on its own, we
+    //   don't tell it where. We still auto-pick + record an EMPTY Warehouse
+    //   Location ourselves for our own bookkeeping (Factory Map icons, the
+    //   activity's own droppingLocationCode, the position lock), since RCS
+    //   doesn't report its choice back to us ahead of time. modelProcessCode
+    //   comes from the trolley's Category's Model Code Process (not the
+    //   trolley's own), priority is fixed.
+    const OPERATOR_DIRECTION_PRIORITY = 6;
+
     const pickupWarehouseLocation =
       await this.warehouseLocationsRepository.findActiveByLocationCode(
         dto.pickupLocationCode,
@@ -85,11 +90,20 @@ export class CreateTrolleyActivityUseCase {
     let warehouseLocationToOccupy: WarehouseLocation | null = null;
     let productionLocationToFree: ProductionLocation | null = null;
     let productionLocationToOccupy: ProductionLocation | null = null;
+    let modelProcessCode: string;
+    let fromSystem: string;
+    let priority: number;
+    let taskPath: string;
 
     if (pickupWarehouseLocation) {
       if (!trolley.droppingLocationCode) {
         throw new BadRequestException(
           'This trolley has no Dropping Location Code set — configure it on the Trolley first',
+        );
+      }
+      if (!trolley.modelCodeProcess) {
+        throw new BadRequestException(
+          'This trolley has no Model Code Process configured — configure it on the Trolley first',
         );
       }
       droppingLocationCode = trolley.droppingLocationCode;
@@ -98,6 +112,10 @@ export class CreateTrolleyActivityUseCase {
         await this.productionLocationsRepository.findActiveByLocationCode(
           trolley.droppingLocationCode,
         );
+      modelProcessCode = trolley.modelCodeProcess.name;
+      fromSystem = trolley.modelCodeProcess.fromSystem;
+      priority = user.priority;
+      taskPath = [dto.pickupLocationCode, droppingLocationCode].join(',');
     } else {
       const pickupProductionLocation =
         await this.productionLocationsRepository.findActiveByLocationCode(
@@ -106,6 +124,11 @@ export class CreateTrolleyActivityUseCase {
       if (!pickupProductionLocation) {
         throw new BadRequestException(
           'Pickup location code does not match an active Warehouse Location or Production Location',
+        );
+      }
+      if (!trolley.category?.modelCodeProcess) {
+        throw new BadRequestException(
+          "This trolley's Category has no Model Code Process configured — configure it on the Trolley Category first",
         );
       }
       productionLocationToFree = pickupProductionLocation;
@@ -118,19 +141,22 @@ export class CreateTrolleyActivityUseCase {
       }
       droppingLocationCode = emptyWarehouseLocation.iRaypleLocationCode;
       warehouseLocationToOccupy = emptyWarehouseLocation;
+      modelProcessCode = trolley.category.modelCodeProcess.name;
+      fromSystem = trolley.category.modelCodeProcess.fromSystem;
+      priority = OPERATOR_DIRECTION_PRIORITY;
+      taskPath = dto.pickupLocationCode;
     }
 
     const statusBeginning = trolley.status;
     const statusEnd = toggleStatus(statusBeginning);
     const startDate = new Date(dto.startDate);
     const endDate = new Date();
-    const taskPath = [dto.pickupLocationCode, droppingLocationCode].join(',');
     const orderId = generateOrderId();
 
     const rcsRequest: TaskOrderPayload = {
-      modelProcessCode: trolley.modelCodeProcess.name,
-      priority: user.priority,
-      fromSystem: trolley.modelCodeProcess.fromSystem,
+      modelProcessCode,
+      priority,
+      fromSystem,
       orderId,
       taskOrderDetail: [{ taskPath }],
     };

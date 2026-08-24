@@ -11,7 +11,13 @@ import {
 
 const NOT_DELETED: Prisma.TrolleyWhereInput = { deletedAt: null };
 const RELATIONS_INCLUDE = {
-  category: { select: { id: true, name: true } },
+  category: {
+    select: {
+      id: true,
+      name: true,
+      modelCodeProcess: { select: { id: true, name: true, fromSystem: true } },
+    },
+  },
   modelCodeProcess: { select: { id: true, name: true, fromSystem: true } },
 } as const;
 

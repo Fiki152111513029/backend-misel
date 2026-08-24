@@ -19,6 +19,16 @@ export class CreateTrolleyCategoryUseCase {
       throw new BadRequestException('Trolley Category name already in use');
     }
 
+    if (dto.modelCodeProcessId) {
+      const modelCodeProcessExists =
+        await this.trolleyCategoriesRepository.existsActiveModelCodeProcessById(
+          dto.modelCodeProcessId,
+        );
+      if (!modelCodeProcessExists) {
+        throw new BadRequestException('Model Code Process not found');
+      }
+    }
+
     try {
       return await this.trolleyCategoriesRepository.create(dto);
     } catch (error) {

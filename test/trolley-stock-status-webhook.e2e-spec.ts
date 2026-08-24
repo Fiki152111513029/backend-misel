@@ -25,20 +25,24 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
   let testUserId: string;
   const testUsername = `${suffix}user`;
   const testPassword = 'E2eTestPass123!';
+  let trolleyCategoryId: string;
   let trolleyId: string;
   let whPickupCode: string;
   let plDropCode: string;
   let updateStockStatusMock: jest.Mock;
+  let addTaskMock: jest.Mock;
+  let mcpName: string;
 
   beforeAll(async () => {
     updateStockStatusMock = jest.fn().mockResolvedValue(undefined);
+    addTaskMock = jest.fn().mockResolvedValue({ code: 1000, desc: 'ok' });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(TaskOrderService)
       .useValue({
-        addTask: jest.fn().mockResolvedValue({ code: 1000, desc: 'ok' }),
+        addTask: addTaskMock,
         getOrderList: jest.fn().mockResolvedValue([]),
       })
       .overrideProvider(RcsStockStatusService)
@@ -81,6 +85,7 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
 
     const mcp = await prisma.modelCodeProcess.findFirst({ where: { deletedAt: null } });
     if (!mcp) throw new Error('No active ModelCodeProcess seeded — cannot run test');
+    mcpName = mcp.name;
 
     whPickupCode = `${suffix}WHPICK`;
     await prisma.warehouseLocation.create({
@@ -92,12 +97,20 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
       data: { name: `${suffix} PL Drop`, iRaypleLocationCode: plDropCode, isActive: true },
     });
 
+    // Direction B (Operator Trolley Task / Production->Warehouse) resolves
+    // modelProcessCode from the trolley's Category, not the trolley itself.
+    const trolleyCategory = await prisma.trolleyCategory.create({
+      data: { name: `${suffix} Category`, modelCodeProcessId: mcp.id },
+    });
+    trolleyCategoryId = trolleyCategory.id;
+
     const trolley = await prisma.trolley.create({
       data: {
         name: `${suffix} Trolley`,
         code: `${suffix}TRL`,
         status: 'EMPTY',
         modelCodeProcessId: mcp.id,
+        trolleyCategoryId,
         droppingLocationCode: plDropCode,
       },
     });
@@ -107,6 +120,7 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { trolleyId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
+    await prisma.trolleyCategory.deleteMany({ where: { id: trolleyCategoryId } });
     await prisma.warehouseLocation.deleteMany({ where: { iRaypleLocationCode: whPickupCode } });
     await prisma.productionLocation.deleteMany({ where: { iRaypleLocationCode: plDropCode } });
     await prisma.refreshToken.deleteMany({ where: { userId: testUserId } });
@@ -190,7 +204,7 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
     expect(res.body.message).toContain(plDropCode);
   });
 
-  it('accepts the next submission once its pickup matches currentLocationCode', async () => {
+  it('accepts the next submission once its pickup matches currentLocationCode, with the Operator-direction RCS payload', async () => {
     await new Promise((resolve) => setTimeout(resolve, 1100));
 
     const lookupTrolley = await request(app.getHttpServer())
@@ -199,7 +213,13 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
       .send({ code: `${suffix}TRL` })
       .expect(201);
 
-    // Correct — pickup is exactly where the trolley currently is.
+    addTaskMock.mockClear();
+
+    // Correct — pickup is exactly where the trolley currently is. This is
+    // the Operator Trolley Task direction (pickup resolves to a Production
+    // Location), so the RCS payload should use the trolley's Category's
+    // Model Code Process, a fixed priority of 6, and a taskPath that's just
+    // the pickup point — not "pickup,dropping".
     await request(app.getHttpServer())
       .post('/trolley-activities')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -209,5 +229,13 @@ describe('Trolley stock-status webhook + position lock (e2e)', () => {
         startDate: lookupTrolley.body.data.startDate,
       })
       .expect(201);
+
+    expect(addTaskMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modelProcessCode: mcpName,
+        priority: 6,
+        taskOrderDetail: [{ taskPath: plDropCode }],
+      }),
+    );
   });
 });

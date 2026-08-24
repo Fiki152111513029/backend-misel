@@ -32,6 +32,16 @@ export class UpdateTrolleyCategoryUseCase {
       }
     }
 
+    if (dto.modelCodeProcessId) {
+      const modelCodeProcessExists =
+        await this.trolleyCategoriesRepository.existsActiveModelCodeProcessById(
+          dto.modelCodeProcessId,
+        );
+      if (!modelCodeProcessExists) {
+        throw new BadRequestException('Model Code Process not found');
+      }
+    }
+
     try {
       return await this.trolleyCategoriesRepository.update(id, dto);
     } catch (error) {

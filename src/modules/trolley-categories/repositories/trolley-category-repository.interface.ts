@@ -1,11 +1,17 @@
 import { TrolleyCategory } from '@prisma/client';
 
+export interface TrolleyCategoryWithRelations extends TrolleyCategory {
+  modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
+}
+
 export interface CreateTrolleyCategoryData {
   name: string;
+  modelCodeProcessId?: string;
 }
 
 export interface UpdateTrolleyCategoryData {
   name?: string;
+  modelCodeProcessId?: string;
 }
 
 export type TrolleyCategorySortBy = 'name' | 'createdAt';
@@ -20,7 +26,7 @@ export interface FindAllTrolleyCategoriesParams {
 }
 
 export interface FindAllTrolleyCategoriesResult {
-  items: TrolleyCategory[];
+  items: TrolleyCategoryWithRelations[];
   total: number;
 }
 
@@ -30,9 +36,13 @@ export interface ITrolleyCategoriesRepository {
   findAll(
     params: FindAllTrolleyCategoriesParams,
   ): Promise<FindAllTrolleyCategoriesResult>;
-  findById(id: string): Promise<TrolleyCategory | null>;
+  findById(id: string): Promise<TrolleyCategoryWithRelations | null>;
   existsByName(name: string, excludeId?: string): Promise<boolean>;
-  create(data: CreateTrolleyCategoryData): Promise<TrolleyCategory>;
-  update(id: string, data: UpdateTrolleyCategoryData): Promise<TrolleyCategory>;
+  existsActiveModelCodeProcessById(id: string): Promise<boolean>;
+  create(data: CreateTrolleyCategoryData): Promise<TrolleyCategoryWithRelations>;
+  update(
+    id: string,
+    data: UpdateTrolleyCategoryData,
+  ): Promise<TrolleyCategoryWithRelations>;
   softDelete(id: string): Promise<void>;
 }

@@ -10,6 +10,9 @@ import {
 } from './trolley-category-repository.interface';
 
 const NOT_DELETED: Prisma.TrolleyCategoryWhereInput = { deletedAt: null };
+const RELATIONS_INCLUDE = {
+  modelCodeProcess: { select: { id: true, name: true, fromSystem: true } },
+} as const;
 
 @Injectable()
 export class TrolleyCategoryRepository implements ITrolleyCategoriesRepository {
@@ -28,6 +31,7 @@ export class TrolleyCategoryRepository implements ITrolleyCategoriesRepository {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.trolleyCategory.findMany({
         where,
+        include: RELATIONS_INCLUDE,
         orderBy: { [params.sortBy]: params.sortOrder },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
@@ -41,6 +45,7 @@ export class TrolleyCategoryRepository implements ITrolleyCategoriesRepository {
   findById(id: string) {
     return this.prisma.trolleyCategory.findFirst({
       where: { id, ...NOT_DELETED },
+      include: RELATIONS_INCLUDE,
     });
   }
 
@@ -55,12 +60,23 @@ export class TrolleyCategoryRepository implements ITrolleyCategoriesRepository {
     return count > 0;
   }
 
+  async existsActiveModelCodeProcessById(id: string): Promise<boolean> {
+    const count = await this.prisma.modelCodeProcess.count({
+      where: { id, deletedAt: null, isActive: true },
+    });
+    return count > 0;
+  }
+
   create(data: CreateTrolleyCategoryData) {
-    return this.prisma.trolleyCategory.create({ data });
+    return this.prisma.trolleyCategory.create({ data, include: RELATIONS_INCLUDE });
   }
 
   update(id: string, data: UpdateTrolleyCategoryData) {
-    return this.prisma.trolleyCategory.update({ where: { id }, data });
+    return this.prisma.trolleyCategory.update({
+      where: { id },
+      data,
+      include: RELATIONS_INCLUDE,
+    });
   }
 
   async softDelete(id: string): Promise<void> {

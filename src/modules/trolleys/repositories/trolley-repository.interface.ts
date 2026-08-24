@@ -1,7 +1,16 @@
 import { Trolley, TrolleyStatus } from '@prisma/client';
 
 export interface TrolleyWithRelations extends Trolley {
-  category: { id: string; name: string } | null;
+  category:
+    | {
+        id: string;
+        name: string;
+        // Used to build the RCS task-order payload for the Operator Trolley
+        // Task direction (Production->Warehouse) — see
+        // CreateTrolleyActivityUseCase.
+        modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
+      }
+    | null;
   modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
 }
 

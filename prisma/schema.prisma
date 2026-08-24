@@ -130,6 +130,7 @@ model ModelCodeProcess {
   productionLineAreas    ProductionLineArea[]
   quarantineLines        QuarantineLine[]
   trolleys               Trolley[]
+  trolleyCategories      TrolleyCategory[]
 
   // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
   // IS NULL, see migration) so a soft-deleted row's name can be reused.
@@ -532,18 +533,24 @@ enum ProductionLocationStatus {
 }
 
 model TrolleyCategory {
-  id        String    @id @default(uuid())
-  name      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id                 String    @id @default(uuid())
+  name               String
+  // Used to build the RCS task-order payload (modelProcessCode/fromSystem)
+  // for Trolley Activities whose trolley belongs to this category — see
+  // CreateTrolleyActivityUseCase.
+  modelCodeProcessId String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
-  trolleys Trolley[]
+  modelCodeProcess ModelCodeProcess? @relation(fields: [modelCodeProcessId], references: [id])
+  trolleys         Trolley[]
 
   // `name` uniqueness is enforced by a partial unique index (WHERE
   // "deletedAt" IS NULL, see migration) so a soft-deleted row's name can be
   // reused.
   @@index([name])
+  @@index([modelCodeProcessId])
   @@map("trolley_categories")
 }
 
