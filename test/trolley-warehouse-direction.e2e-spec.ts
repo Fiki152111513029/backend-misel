@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClassSerializerInterceptor, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
@@ -64,9 +68,15 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+    app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
 
@@ -75,8 +85,11 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     // Dedicated throwaway user instead of the real superadmin account — its
     // seeded password may have been changed by real usage of this dev DB,
     // and `prisma.user.upsert` in seed.ts never resets it on re-seed.
-    const superAdminRole = await prisma.role.findFirst({ where: { name: 'Super Admin' } });
-    if (!superAdminRole) throw new Error('No Super Admin role seeded — cannot run test');
+    const superAdminRole = await prisma.role.findFirst({
+      where: { name: 'Super Admin' },
+    });
+    if (!superAdminRole)
+      throw new Error('No Super Admin role seeded — cannot run test');
     const hashedPassword = await bcrypt.hash(testPassword, 10);
     const testUser = await prisma.user.create({
       data: {
@@ -96,19 +109,32 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .expect(200);
     accessToken = login.body.accessToken;
 
-    const mcp = await prisma.modelCodeProcess.findFirst({ where: { deletedAt: null } });
-    if (!mcp) throw new Error('No active ModelCodeProcess seeded — cannot run test');
+    const mcp = await prisma.modelCodeProcess.findFirst({
+      where: { deletedAt: null },
+    });
+    if (!mcp)
+      throw new Error('No active ModelCodeProcess seeded — cannot run test');
     mcpId = mcp.id;
 
     plDropCode = `${suffix}PLDROP`;
     const productionLocationDrop = await prisma.productionLocation.create({
-      data: { name: `${suffix} PL Drop`, iRaypleLocationCode: plDropCode, isActive: true, status: 'EMPTY' },
+      data: {
+        name: `${suffix} PL Drop`,
+        iRaypleLocationCode: plDropCode,
+        isActive: true,
+        status: 'EMPTY',
+      },
     });
     plDropId = productionLocationDrop.id;
 
     plPickupCode = `${suffix}PLPICK`;
     await prisma.productionLocation.create({
-      data: { name: `${suffix} PL Pickup`, iRaypleLocationCode: plPickupCode, isActive: true, status: 'FULL' },
+      data: {
+        name: `${suffix} PL Pickup`,
+        iRaypleLocationCode: plPickupCode,
+        isActive: true,
+        status: 'FULL',
+      },
     });
 
     const warehouseLocationPickup = await prisma.warehouseLocation.create({
@@ -154,8 +180,12 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { trolleyId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
-    await prisma.trolleyCategory.deleteMany({ where: { id: trolleyCategoryId } });
-    await prisma.warehouseLocation.deleteMany({ where: { id: { in: [whPickupId, whDropId] } } });
+    await prisma.trolleyCategory.deleteMany({
+      where: { id: trolleyCategoryId },
+    });
+    await prisma.warehouseLocation.deleteMany({
+      where: { id: { in: [whPickupId, whDropId] } },
+    });
     await prisma.productionLocation.deleteMany({
       where: { iRaypleLocationCode: { in: [plDropCode, plPickupCode] } },
     });
@@ -172,7 +202,6 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .expect(201);
     expect(res.body.data.pickupLocationSource).toBe('WAREHOUSE');
     expect(res.body.data.pickupLocationCode).toBe(`${suffix}WHPICK`);
-    expect(res.body.data.incomingWarning).toBeNull();
   });
 
   it('lookup-location resolves a Production Location code as pickupLocationSource PRODUCTION', async () => {
@@ -232,18 +261,24 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHPICK`, '0');
     expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHPICK`, '2');
 
-    const whPickup = await prisma.warehouseLocation.findUnique({ where: { id: whPickupId } });
+    const whPickup = await prisma.warehouseLocation.findUnique({
+      where: { id: whPickupId },
+    });
     expect(whPickup?.status).toBe('EMPTY');
 
     // The Production Location the trolley was fixed to drop at is now
     // occupied — this is what the Factory Map's node icon reflects for it.
-    const plDrop = await prisma.productionLocation.findUnique({ where: { id: plDropId } });
+    const plDrop = await prisma.productionLocation.findUnique({
+      where: { id: plDropId },
+    });
     expect(plDrop?.status).toBe('FULL');
 
     // currentLocationCode is set immediately at submit, not on a later
     // webhook — tracking only (feeds the "AMR incoming" warning and the
     // Operator-direction droppingLocationCode backfill), no longer a lock.
-    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const trolley = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
     expect(trolley?.currentLocationCode).toBe(plDropCode);
 
     const activeMine = await request(app.getHttpServer())
@@ -296,15 +331,21 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '0');
     expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
 
-    const whDrop = await prisma.warehouseLocation.findUnique({ where: { id: whDropId } });
+    const whDrop = await prisma.warehouseLocation.findUnique({
+      where: { id: whDropId },
+    });
     expect(whDrop?.status).toBe('FULL');
 
     // The Production Location just picked up from is vacated — this is what
     // the Factory Map's node icon reflects for it.
-    const plDrop = await prisma.productionLocation.findUnique({ where: { id: plDropId } });
+    const plDrop = await prisma.productionLocation.findUnique({
+      where: { id: plDropId },
+    });
     expect(plDrop?.status).toBe('EMPTY');
 
-    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const trolley = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
     expect(trolley?.currentLocationCode).toBe(`${suffix}WHDROP`);
 
     const activeMine = await request(app.getHttpServer())

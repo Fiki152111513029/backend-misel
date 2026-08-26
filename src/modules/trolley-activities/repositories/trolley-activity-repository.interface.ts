@@ -104,15 +104,4 @@ export interface ITrolleyActivitiesRepository {
   // Warehouse/Operator Trolley Task page restore its Current Queue cards
   // after a page reload (Pinia's in-memory queue doesn't survive that).
   findActiveByUser(userId: string): Promise<TrolleyActivityWithRelations[]>;
-  /**
-   * The trolley of an active (PENDING/IN_PROGRESS) Trolley Task currently
-   * heading to this location, if any — warns an operator scanning a node
-   * that already has an AMR incoming. Matches off Trolley.currentLocationCode
-   * (set immediately at submit time), not TrolleyActivity.droppingLocationCode,
-   * since the latter is deliberately left blank for Production->Warehouse
-   * activities until they're confirmed complete.
-   */
-  findActiveIncomingByLocationCode(
-    code: string,
-  ): Promise<{ trolleyCode: string; trolleyName: string } | null>;
 }

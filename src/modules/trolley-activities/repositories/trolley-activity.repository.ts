@@ -132,22 +132,4 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       orderBy: { createdAt: 'asc' },
     });
   }
-
-  async findActiveIncomingByLocationCode(code: string) {
-    const activity = await this.prisma.trolleyActivity.findFirst({
-      where: {
-        ...NOT_DELETED,
-        status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
-        trolley: { currentLocationCode: code },
-      },
-      select: { trolley: { select: { code: true, name: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
-    return activity
-      ? {
-          trolleyCode: activity.trolley.code,
-          trolleyName: activity.trolley.name,
-        }
-      : null;
-  }
 }

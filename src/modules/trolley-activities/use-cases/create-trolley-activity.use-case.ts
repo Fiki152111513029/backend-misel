@@ -237,11 +237,10 @@ export class CreateTrolleyActivityUseCase {
         });
 
     // currentLocationCode is tracking only now (no longer gates submission)
-    // — it still feeds the "AMR incoming" warning on the location scan step
-    // (findActiveIncomingByLocationCode) and the Operator-direction
-    // droppingLocationCode backfill on webhook completion. Updated
-    // immediately here (not waiting for a webhook) to match the same
-    // submit-time-driven design as the stock-status calls.
+    // — it still feeds the Operator-direction droppingLocationCode backfill
+    // on webhook completion. Updated immediately here (not waiting for a
+    // webhook) to match the same submit-time-driven design as the
+    // stock-status calls.
     await this.trolleysRepository.update(trolley.id, {
       status: statusEnd,
       currentLocationCode: droppingLocationCode,
