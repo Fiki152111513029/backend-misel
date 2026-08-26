@@ -13,6 +13,7 @@ export interface CreateTrolleyActivityData {
   statusEnd: TrolleyStatus;
   pickupLocationCode: string;
   droppingLocationCode?: string;
+  queueRole: string;
   startDate: Date;
   endDate: Date;
   taskId: string;

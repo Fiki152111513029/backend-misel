@@ -208,6 +208,7 @@ export class CreateTrolleyActivityUseCase {
       statusEnd,
       pickupLocationCode: dto.pickupLocationCode,
       droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
+      queueRole: dto.queueRole,
       startDate,
       endDate,
       taskId: orderId,

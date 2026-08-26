@@ -164,6 +164,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
         trolleyId,
         pickupLocationCode: whPickupCode,
         startDate: lookupTrolley.body.data.startDate,
+        queueRole: 'Warehouse',
       })
       .expect(201);
 
@@ -199,6 +200,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
         trolleyId,
         pickupLocationCode: whPickupCode,
         startDate: lookupTrolley.body.data.startDate,
+        queueRole: 'Warehouse',
       })
       .expect(400);
 
@@ -233,6 +235,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
         trolleyId,
         pickupLocationCode: plDropCode,
         startDate: lookupTrolley.body.data.startDate,
+        queueRole: 'Operator',
       })
       .expect(201);
 

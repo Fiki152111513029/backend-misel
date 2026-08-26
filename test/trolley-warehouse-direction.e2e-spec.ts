@@ -208,6 +208,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
         trolleyId,
         pickupLocationCode: `${suffix}WHPICK`,
         startDate: lookupTrolley.body.data.startDate,
+        queueRole: 'Warehouse',
       })
       .expect(201);
 
@@ -279,6 +280,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
         trolleyId,
         pickupLocationCode: plDropCode,
         startDate: lookupTrolley.body.data.startDate,
+        queueRole: 'Operator',
       })
       .expect(201);
 
@@ -314,6 +316,48 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       trolleyName: `${suffix} Trolley`,
       pickupSource: 'PRODUCTION',
     });
+  });
+
+  it('active-mine pickupSource follows the page the operator actually submitted from (queueRole), not the pickup/dropping direction', async () => {
+    // generateOrderId() is second-resolution — avoid colliding with the
+    // previous test's taskId.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    const lookupTrolley = await request(app.getHttpServer())
+      .post('/trolley-activities/lookup-trolley')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ code: `${suffix}TRL` })
+      .expect(201);
+
+    // The previous test left the trolley at `${suffix}WHDROP` (a Warehouse
+    // Location) — picking up from there is a Warehouse->Production
+    // submission by direction, but queueRole is deliberately set to
+    // 'Operator' here, simulating an operator submitting from the Operator
+    // Trolley Task page despite the scan resolving to the other direction.
+    const res = await request(app.getHttpServer())
+      .post('/trolley-activities')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        trolleyId,
+        pickupLocationCode: `${suffix}WHDROP`,
+        startDate: lookupTrolley.body.data.startDate,
+        queueRole: 'Operator',
+      })
+      .expect(201);
+
+    const activeMine = await request(app.getHttpServer())
+      .get('/trolley-activities/active-mine')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    // Follows queueRole ('Operator' -> PRODUCTION), not the Warehouse
+    // direction this submission actually resolved to.
+    expect(activeMine.body.data).toContainEqual(
+      expect.objectContaining({
+        activityId: res.body.data.activity.id,
+        pickupSource: 'PRODUCTION',
+      }),
+    );
   });
 
   // "No Warehouse Location is EMPTY at all" isn't tested end-to-end here —

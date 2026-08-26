@@ -616,6 +616,18 @@ model TrolleyActivity {
   statusEnd            TrolleyStatus
   pickupLocationCode   String
   droppingLocationCode String?
+  // Which page ("Warehouse" or "Operator" Trolley Task) the operator was
+  // actually on when they submitted this — purely for routing the Current
+  // Queue card back to the right page after a reload. Deliberately NOT the
+  // same thing as direction (Warehouse Location vs Production Location
+  // pickup, still derived fresh from pickupLocationCode wherever it drives
+  // real task logic) — an operator can, and sometimes does, scan a pickup
+  // whose direction doesn't match the page they're standing on, and the
+  // queue card must still follow the page they used, not the direction it
+  // turned out to be. Nullable because rows written before this field
+  // existed have no way to know it in hindsight — those fall back to the
+  // direction-based guess (see GetMyActiveTrolleyActivitiesUseCase).
+  queueRole            String?
   startDate            DateTime
   endDate              DateTime
   taskId               String        @unique

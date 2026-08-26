@@ -7,10 +7,14 @@ import type { IWarehouseLocationsRepository } from '../../warehouse-locations/re
 // Restores the logged-in user's own in-flight Trolley Tasks (PENDING/
 // IN_PROGRESS) after a page reload, since the Current Queue cards
 // themselves only live in the frontend's Pinia store. Each activity is
-// tagged with which direction its pickup was — the Warehouse/Operator
-// Trolley Task page uses that to only restore into its own queue and not
-// the other page's, the same split CreateTrolleyActivityUseCase already
-// derives at submit time.
+// tagged with which page (Warehouse or Operator Trolley Task) it was
+// actually submitted from — pickupSource here reflects that stored
+// queueRole, NOT the pickup/dropping direction the submission turned out to
+// be (an operator can submit a Production-direction pickup while standing
+// on the Warehouse page, and the Current Queue card must still follow the
+// page they used, not the direction). Rows written before queueRole
+// existed have no way to know it in hindsight, so those fall back to the
+// old direction-based guess.
 @Injectable()
 export class GetMyActiveTrolleyActivitiesUseCase {
   constructor(
@@ -25,20 +29,29 @@ export class GetMyActiveTrolleyActivitiesUseCase {
 
     return Promise.all(
       activities.map(async (activity) => {
-        const pickupWarehouseLocation =
-          await this.warehouseLocationsRepository.findActiveByLocationCode(
-            activity.pickupLocationCode,
-          );
+        const pickupSource = await this.resolvePickupSource(activity);
         return {
           activityId: activity.id,
           taskId: activity.taskId,
           trolleyCode: activity.trolley.code,
           trolleyName: activity.trolley.name,
-          pickupSource: pickupWarehouseLocation
-            ? ('WAREHOUSE' as const)
-            : ('PRODUCTION' as const),
+          pickupSource,
         };
       }),
     );
+  }
+
+  private async resolvePickupSource(activity: {
+    queueRole: string | null;
+    pickupLocationCode: string;
+  }): Promise<'WAREHOUSE' | 'PRODUCTION'> {
+    if (activity.queueRole === 'Warehouse') return 'WAREHOUSE';
+    if (activity.queueRole === 'Operator') return 'PRODUCTION';
+
+    const pickupWarehouseLocation =
+      await this.warehouseLocationsRepository.findActiveByLocationCode(
+        activity.pickupLocationCode,
+      );
+    return pickupWarehouseLocation ? 'WAREHOUSE' : 'PRODUCTION';
   }
 }
