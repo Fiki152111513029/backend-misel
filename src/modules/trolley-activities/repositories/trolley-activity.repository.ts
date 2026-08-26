@@ -3,6 +3,8 @@ import { TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   ActiveTrolleyActivityByRobot,
+  CompleteTrolleyActivityData,
+  CreateOpenTrolleyActivityData,
   CreateTrolleyActivityData,
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
@@ -22,6 +24,26 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
 
   create(data: CreateTrolleyActivityData) {
     return this.prisma.trolleyActivity.create({ data, include: RELATIONS_INCLUDE });
+  }
+
+  createOpen(data: CreateOpenTrolleyActivityData) {
+    return this.prisma.trolleyActivity.create({ data, include: RELATIONS_INCLUDE });
+  }
+
+  findOpenByTrolleyId(trolleyId: string) {
+    return this.prisma.trolleyActivity.findFirst({
+      where: { trolleyId, statusEnd: null, ...NOT_DELETED },
+      include: RELATIONS_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  completeById(id: string, data: CompleteTrolleyActivityData) {
+    return this.prisma.trolleyActivity.update({
+      where: { id },
+      data,
+      include: RELATIONS_INCLUDE,
+    });
   }
 
   findById(id: string) {
@@ -74,6 +96,7 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       where: {
         ...NOT_DELETED,
         robotId: { not: null },
+        statusEnd: { not: null },
         status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
       },
       select: { robotId: true, statusBeginning: true },
@@ -89,6 +112,7 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       where: {
         ...NOT_DELETED,
         userId,
+        statusEnd: { not: null },
         status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
       },
       include: RELATIONS_INCLUDE,

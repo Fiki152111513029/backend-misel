@@ -1,5 +1,9 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { ProductionLocation, TrolleyStatus, WarehouseLocation } from '@prisma/client';
+import {
+  ProductionLocation,
+  TrolleyStatus,
+  WarehouseLocation,
+} from '@prisma/client';
 import { TROLLEYS_REPOSITORY } from '../../trolleys/repositories/trolley-repository.interface';
 import type { ITrolleysRepository } from '../../trolleys/repositories/trolley-repository.interface';
 import { USERS_REPOSITORY } from '../../users/repositories/users-repository.interface';
@@ -8,7 +12,10 @@ import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/reposi
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { PRODUCTION_LOCATIONS_REPOSITORY } from '../../production-locations/repositories/production-location-repository.interface';
 import type { IProductionLocationsRepository } from '../../production-locations/repositories/production-location-repository.interface';
-import { TaskOrderService, TaskOrderPayload } from '../../tasks/services/task-order.service';
+import {
+  TaskOrderService,
+  TaskOrderPayload,
+} from '../../tasks/services/task-order.service';
 import { generateOrderId } from '../../tasks/utils/generate-order-id';
 import {
   RcsStockStatusService,
@@ -20,7 +27,9 @@ import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-
 import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activity-repository.interface';
 
 function toggleStatus(status: TrolleyStatus): TrolleyStatus {
-  return status === TrolleyStatus.EMPTY ? TrolleyStatus.FULL : TrolleyStatus.EMPTY;
+  return status === TrolleyStatus.EMPTY
+    ? TrolleyStatus.FULL
+    : TrolleyStatus.EMPTY;
 }
 
 @Injectable()
@@ -50,6 +59,14 @@ export class CreateTrolleyActivityUseCase {
     if (!user) {
       throw new BadRequestException('User not found');
     }
+
+    // A prior Take Trolley may have already opened a row for this trolley
+    // (statusEnd still null) — complete that one instead of creating a
+    // second row. If there isn't one, Drop Trolley still works completely
+    // standalone (create a fully-populated row in one step, as before).
+    const openActivity = await this.trolleyActivitiesRepository.findOpenByTrolleyId(
+      trolley.id,
+    );
 
     // Direction is derived from where the scanned pickup code resolves to —
     // never trusted from the client:
@@ -141,7 +158,10 @@ export class CreateTrolleyActivityUseCase {
 
     const statusBeginning = trolley.status;
     const statusEnd = toggleStatus(statusBeginning);
-    const startDate = new Date(dto.startDate);
+    // The open row's own startDate (set when Take Trolley ran) wins over
+    // dto.startDate when one exists — it's the real moment prep began, so
+    // Duration (endDate - startDate) reflects the true Take-to-Drop span.
+    const startDate = openActivity ? openActivity.startDate : new Date(dto.startDate);
     const endDate = new Date();
     const orderId = generateOrderId();
 
@@ -160,8 +180,12 @@ export class CreateTrolleyActivityUseCase {
     // trolley and this exact area and is submitting — deferred to here,
     // rather than the earlier scan steps, so the node it targets is always
     // the one actually confirmed by scan, not inferred), then full again
-    // once the task is actually handed off to RCS.
-    await this.rcsStockStatusService.updateStockStatus(
+    // once the task is actually handed off to RCS. Fire-and-forget (not
+    // awaited) — updateStockStatus already swallows its own errors and
+    // nothing downstream depends on its result, so blocking the operator's
+    // submit on it just adds RCS's own latency (each call has a 5s timeout)
+    // straight onto their wait time for no benefit.
+    void this.rcsStockStatusService.updateStockStatus(
       dto.pickupLocationCode,
       NODE_STATUS_EMPTY,
     );
@@ -171,7 +195,7 @@ export class CreateTrolleyActivityUseCase {
     // actually accepted, same ordering Mainline's release-task flow uses.
     const rcsResponse = await this.taskOrderService.addTask(rcsRequest);
 
-    await this.rcsStockStatusService.updateStockStatus(
+    void this.rcsStockStatusService.updateStockStatus(
       dto.pickupLocationCode,
       NODE_STATUS_FULL,
     );
@@ -186,18 +210,26 @@ export class CreateTrolleyActivityUseCase {
     // rather than risk recording a location the task never really reached.
     const isOperatorDirection = !pickupWarehouseLocation;
 
-    const activity = await this.trolleyActivitiesRepository.create({
-      userId,
-      trolleyId: trolley.id,
-      statusBeginning,
-      statusEnd,
-      pickupLocationCode: dto.pickupLocationCode,
-      droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
-      queueRole: dto.queueRole,
-      startDate,
-      endDate,
-      taskId: orderId,
-    });
+    const activity = openActivity
+      ? await this.trolleyActivitiesRepository.completeById(openActivity.id, {
+          statusEnd,
+          pickupLocationCode: dto.pickupLocationCode,
+          droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
+          endDate,
+          taskId: orderId,
+        })
+      : await this.trolleyActivitiesRepository.create({
+          userId,
+          trolleyId: trolley.id,
+          statusBeginning,
+          statusEnd,
+          pickupLocationCode: dto.pickupLocationCode,
+          droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
+          queueRole: dto.queueRole,
+          startDate,
+          endDate,
+          taskId: orderId,
+        });
 
     // currentLocationCode is tracking only now (no longer gates submission)
     // — it still feeds the "AMR incoming" warning on the location scan step
@@ -211,24 +243,36 @@ export class CreateTrolleyActivityUseCase {
     });
 
     if (warehouseLocationToFree) {
-      await this.warehouseLocationsRepository.update(warehouseLocationToFree.id, {
-        status: 'EMPTY',
-      });
+      await this.warehouseLocationsRepository.update(
+        warehouseLocationToFree.id,
+        {
+          status: 'EMPTY',
+        },
+      );
     }
     if (warehouseLocationToOccupy) {
-      await this.warehouseLocationsRepository.update(warehouseLocationToOccupy.id, {
-        status: 'FULL',
-      });
+      await this.warehouseLocationsRepository.update(
+        warehouseLocationToOccupy.id,
+        {
+          status: 'FULL',
+        },
+      );
     }
     if (productionLocationToFree) {
-      await this.productionLocationsRepository.update(productionLocationToFree.id, {
-        status: 'EMPTY',
-      });
+      await this.productionLocationsRepository.update(
+        productionLocationToFree.id,
+        {
+          status: 'EMPTY',
+        },
+      );
     }
     if (productionLocationToOccupy) {
-      await this.productionLocationsRepository.update(productionLocationToOccupy.id, {
-        status: 'FULL',
-      });
+      await this.productionLocationsRepository.update(
+        productionLocationToOccupy.id,
+        {
+          status: 'FULL',
+        },
+      );
     }
 
     return { activity, rcsRequest, rcsResponse };

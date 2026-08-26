@@ -9,15 +9,22 @@ import {
   RcsStockStatusService,
   NODE_STATUS_EMPTY,
 } from '../../rcs-stock-status/rcs-stock-status.service';
+import { generateOrderId } from '../../tasks/utils/generate-order-id';
 import { TakeTrolleyDto } from '../dto/take-trolley.dto';
+import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-repository.interface';
+import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activity-repository.interface';
 
 // Take Trolley — a standalone action, independent of Drop Trolley: scan
-// trolley, scan the area it's currently sitting in, submit. Submit is what
-// actually empties that node in RCS and starts the prep timer. Nothing is
-// persisted to our own DB here — no TrolleyActivity row, no RCS task order,
-// no change to the trolley's status or currentLocationCode (the position
-// lock). Drop Trolley (CreateTrolleyActivityUseCase) is the only place a
-// TrolleyActivity row is ever written, in full, in one step.
+// trolley, scan the area it's currently sitting in, submit. Submit empties
+// that node in RCS (fire-and-forget — see the call below) and creates an
+// *open* TrolleyActivity row (userId, trolleyId, statusBeginning,
+// pickupLocationCode, queueRole, startDate — no statusEnd/endDate/real RCS
+// task order yet). No Trolley status/currentLocationCode change here —
+// that's still purely a Drop Trolley concern. Drop Trolley
+// (CreateTrolleyActivityUseCase) later finds this same open row and
+// completes it, rather than creating a second one, once the trolley is
+// actually handed off — see the TrolleyActivity model's doc comment in
+// schema.prisma.
 @Injectable()
 export class TakeTrolleyUseCase {
   constructor(
@@ -27,10 +34,12 @@ export class TakeTrolleyUseCase {
     private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
     @Inject(PRODUCTION_LOCATIONS_REPOSITORY)
     private readonly productionLocationsRepository: IProductionLocationsRepository,
+    @Inject(TROLLEY_ACTIVITIES_REPOSITORY)
+    private readonly trolleyActivitiesRepository: ITrolleyActivitiesRepository,
     private readonly rcsStockStatusService: RcsStockStatusService,
   ) {}
 
-  async execute(dto: TakeTrolleyDto) {
+  async execute(dto: TakeTrolleyDto, userId: string) {
     const trolley = await this.trolleysRepository.findById(dto.trolleyId);
     if (!trolley) {
       throw new BadRequestException('Trolley not found');
@@ -51,17 +60,33 @@ export class TakeTrolleyUseCase {
       );
     }
 
-    await this.rcsStockStatusService.updateStockStatus(
+    // Fire-and-forget (not awaited) — updateStockStatus already swallows
+    // its own errors and nothing here depends on its result, so blocking
+    // the operator's submit on it just adds RCS's own latency (up to a 5s
+    // timeout) straight onto their wait time for no benefit.
+    void this.rcsStockStatusService.updateStockStatus(
       dto.pickupLocationCode,
       NODE_STATUS_EMPTY,
     );
 
+    const activity = await this.trolleyActivitiesRepository.createOpen({
+      userId,
+      trolleyId: trolley.id,
+      statusBeginning: trolley.status,
+      pickupLocationCode: dto.pickupLocationCode,
+      queueRole: dto.queueRole,
+      startDate: new Date(),
+      taskId: generateOrderId(),
+    });
+
     return {
+      activityId: activity.id,
       trolleyId: trolley.id,
       trolleyCode: trolley.code,
       trolleyName: trolley.name,
+      statusBeginning: activity.statusBeginning,
       pickupLocationCode: dto.pickupLocationCode,
-      startDate: new Date().toISOString(),
+      startDate: activity.startDate.toISOString(),
     };
   }
 }

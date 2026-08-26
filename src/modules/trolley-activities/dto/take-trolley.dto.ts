@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsNotEmpty, IsString, IsUUID } from 'class-validator';
 
 export class TakeTrolleyDto {
   @ApiProperty({ description: 'Trolley id, from the first (trolley) scan lookup' })
@@ -10,4 +10,12 @@ export class TakeTrolleyDto {
   @IsString()
   @IsNotEmpty()
   pickupLocationCode!: string;
+
+  @ApiProperty({
+    description:
+      'Which page the operator is on ("Warehouse" or "Operator" Trolley Task) — recorded on the open Trolley Activity row this creates, same meaning as CreateTrolleyActivityDto.queueRole',
+    enum: ['Warehouse', 'Operator'],
+  })
+  @IsIn(['Warehouse', 'Operator'])
+  queueRole!: 'Warehouse' | 'Operator';
 }

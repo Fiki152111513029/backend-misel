@@ -69,10 +69,13 @@ export class TrolleyActivityController {
   @Permissions('trolley-activity.create')
   @ApiOperation({
     summary:
-      'Submit a Take Trolley action — empties the scanned pickup node in RCS and starts the prep timer; nothing is persisted (no Trolley Activity, no RCS task order)',
+      'Submit a Take Trolley action — empties the scanned pickup node in RCS and creates an open Trolley Activity (no RCS task order sent yet); Drop Trolley later completes this same row',
   })
-  async takeTrolley(@Body() dto: TakeTrolleyDto) {
-    const data = await this.takeTrolleyUseCase.execute(dto);
+  async takeTrolley(
+    @Body() dto: TakeTrolleyDto,
+    @CurrentUser() user: AuthRequestUser,
+  ) {
+    const data = await this.takeTrolleyUseCase.execute(dto, user.userId);
     return { success: true, message: 'Trolley taken successfully', data };
   }
 
