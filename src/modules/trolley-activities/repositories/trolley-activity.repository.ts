@@ -9,6 +9,7 @@ import {
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
   ITrolleyActivitiesRepository,
+  RefreshOpenTrolleyActivityData,
 } from './trolley-activity-repository.interface';
 
 const NOT_DELETED = { deletedAt: null } as const;
@@ -23,11 +24,17 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   create(data: CreateTrolleyActivityData) {
-    return this.prisma.trolleyActivity.create({ data, include: RELATIONS_INCLUDE });
+    return this.prisma.trolleyActivity.create({
+      data,
+      include: RELATIONS_INCLUDE,
+    });
   }
 
   createOpen(data: CreateOpenTrolleyActivityData) {
-    return this.prisma.trolleyActivity.create({ data, include: RELATIONS_INCLUDE });
+    return this.prisma.trolleyActivity.create({
+      data,
+      include: RELATIONS_INCLUDE,
+    });
   }
 
   findOpenByTrolleyId(trolleyId: string) {
@@ -43,6 +50,29 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       where: { id },
       data,
       include: RELATIONS_INCLUDE,
+    });
+  }
+
+  refreshOpenById(id: string, data: RefreshOpenTrolleyActivityData) {
+    return this.prisma.trolleyActivity.update({
+      where: { id },
+      data,
+      include: RELATIONS_INCLUDE,
+    });
+  }
+
+  markFailedById(id: string) {
+    return this.prisma.trolleyActivity.update({
+      where: { id },
+      data: { status: TaskStatus.FAILED },
+      include: RELATIONS_INCLUDE,
+    });
+  }
+
+  async softDelete(id: string): Promise<void> {
+    await this.prisma.trolleyActivity.update({
+      where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 
@@ -130,6 +160,11 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       select: { trolley: { select: { code: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     });
-    return activity ? { trolleyCode: activity.trolley.code, trolleyName: activity.trolley.name } : null;
+    return activity
+      ? {
+          trolleyCode: activity.trolley.code,
+          trolleyName: activity.trolley.name,
+        }
+      : null;
   }
 }

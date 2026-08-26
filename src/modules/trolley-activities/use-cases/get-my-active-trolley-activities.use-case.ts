@@ -25,7 +25,8 @@ export class GetMyActiveTrolleyActivitiesUseCase {
   ) {}
 
   async execute(userId: string) {
-    const activities = await this.trolleyActivitiesRepository.findActiveByUser(userId);
+    const activities =
+      await this.trolleyActivitiesRepository.findActiveByUser(userId);
 
     return Promise.all(
       activities.map(async (activity) => {

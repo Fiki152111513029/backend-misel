@@ -25,6 +25,13 @@ import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activ
 // completes it, rather than creating a second one, once the trolley is
 // actually handed off — see the TrolleyActivity model's doc comment in
 // schema.prisma.
+//
+// If this trolley already has an open row (a previous Take Trolley that
+// was never followed by a Drop Trolley — the operator re-scanning it, or
+// switching pages partway through), this refreshes that same row instead
+// of creating a second one — otherwise the older row would be orphaned
+// forever: Drop Trolley only ever completes the *most recent* open row, so
+// an earlier one left behind would never get picked up by anything.
 @Injectable()
 export class TakeTrolleyUseCase {
   constructor(
@@ -69,15 +76,29 @@ export class TakeTrolleyUseCase {
       NODE_STATUS_EMPTY,
     );
 
-    const activity = await this.trolleyActivitiesRepository.createOpen({
-      userId,
-      trolleyId: trolley.id,
-      statusBeginning: trolley.status,
-      pickupLocationCode: dto.pickupLocationCode,
-      queueRole: dto.queueRole,
-      startDate: new Date(),
-      taskId: generateOrderId(),
-    });
+    const existingOpenActivity =
+      await this.trolleyActivitiesRepository.findOpenByTrolleyId(trolley.id);
+
+    const activity = existingOpenActivity
+      ? await this.trolleyActivitiesRepository.refreshOpenById(
+          existingOpenActivity.id,
+          {
+            statusBeginning: trolley.status,
+            pickupLocationCode: dto.pickupLocationCode,
+            queueRole: dto.queueRole,
+            startDate: new Date(),
+            taskId: generateOrderId(),
+          },
+        )
+      : await this.trolleyActivitiesRepository.createOpen({
+          userId,
+          trolleyId: trolley.id,
+          statusBeginning: trolley.status,
+          pickupLocationCode: dto.pickupLocationCode,
+          queueRole: dto.queueRole,
+          startDate: new Date(),
+          taskId: generateOrderId(),
+        });
 
     return {
       activityId: activity.id,

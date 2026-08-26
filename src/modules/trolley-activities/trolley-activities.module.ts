@@ -16,6 +16,8 @@ import { GetTrolleyActivitiesUseCase } from './use-cases/get-trolley-activities.
 import { GetTrolleyActivitySequenceUseCase } from './use-cases/get-trolley-activity-sequence.use-case';
 import { GetActiveTrolleyActivitiesByRobotUseCase } from './use-cases/get-active-trolley-activities-by-robot.use-case';
 import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-trolley-activities.use-case';
+import { MarkTrolleyActivityFailedUseCase } from './use-cases/mark-trolley-activity-failed.use-case';
+import { DeleteTrolleyActivityUseCase } from './use-cases/delete-trolley-activity.use-case';
 
 @Module({
   imports: [
@@ -28,7 +30,10 @@ import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-t
   ],
   controllers: [TrolleyActivityController],
   providers: [
-    { provide: TROLLEY_ACTIVITIES_REPOSITORY, useClass: TrolleyActivityRepository },
+    {
+      provide: TROLLEY_ACTIVITIES_REPOSITORY,
+      useClass: TrolleyActivityRepository,
+    },
     LookupTrolleyUseCase,
     LookupLocationUseCase,
     CreateTrolleyActivityUseCase,
@@ -37,6 +42,8 @@ import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-t
     GetTrolleyActivitySequenceUseCase,
     GetActiveTrolleyActivitiesByRobotUseCase,
     GetMyActiveTrolleyActivitiesUseCase,
+    MarkTrolleyActivityFailedUseCase,
+    DeleteTrolleyActivityUseCase,
   ],
   exports: [TROLLEY_ACTIVITIES_REPOSITORY],
 })

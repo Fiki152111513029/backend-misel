@@ -28,7 +28,11 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Create Permission',
     description: 'Create new permissions',
   },
-  { code: 'permission.read', name: 'Read Permission', description: 'View permissions' },
+  {
+    code: 'permission.read',
+    name: 'Read Permission',
+    description: 'View permissions',
+  },
   {
     code: 'permission.update',
     name: 'Update Permission',
@@ -40,7 +44,11 @@ const PERMISSIONS: PermissionSeed[] = [
     description: 'Delete permissions',
   },
   // Warehouse
-  { code: 'warehouse.read', name: 'Read Warehouse', description: 'View warehouses' },
+  {
+    code: 'warehouse.read',
+    name: 'Read Warehouse',
+    description: 'View warehouses',
+  },
   {
     code: 'warehouse.create',
     name: 'Create Warehouse',
@@ -58,7 +66,11 @@ const PERMISSIONS: PermissionSeed[] = [
   },
   // Robot
   { code: 'robot.read', name: 'Read Robot', description: 'View robots' },
-  { code: 'robot.create', name: 'Create Robot', description: 'Create new robots' },
+  {
+    code: 'robot.create',
+    name: 'Create Robot',
+    description: 'Create new robots',
+  },
   { code: 'robot.update', name: 'Update Robot', description: 'Update robots' },
   { code: 'robot.delete', name: 'Delete Robot', description: 'Delete robots' },
   // Logs
@@ -426,12 +438,24 @@ const PERMISSIONS: PermissionSeed[] = [
   {
     code: 'trolley-activity.create',
     name: 'Create Trolley Activity',
-    description: 'Submit trolley activities (Warehouse/Operator Trolley Task scan flow)',
+    description:
+      'Submit trolley activities (Warehouse/Operator Trolley Task scan flow)',
   },
   {
     code: 'trolley-activity.read',
     name: 'Read Trolley Activity',
     description: 'View trolley activities',
+  },
+  {
+    code: 'trolley-activity.update',
+    name: 'Update Trolley Activity',
+    description:
+      'Admin override for a trolley activity stuck PENDING/IN_PROGRESS forever (e.g. its RCS completion webhook never arrived) — manually mark it Failed',
+  },
+  {
+    code: 'trolley-activity.delete',
+    name: 'Delete Trolley Activity',
+    description: 'Delete trolley activities',
   },
 ];
 
@@ -526,7 +550,8 @@ async function main() {
   const superAdminRole = rolesByName.get('Super Admin')!;
   const username = process.env.SEED_SUPER_ADMIN_USERNAME ?? 'superadmin';
   const email = process.env.SEED_SUPER_ADMIN_EMAIL ?? 'superadmin@example.com';
-  const fullName = process.env.SEED_SUPER_ADMIN_FULLNAME ?? 'Super Administrator';
+  const fullName =
+    process.env.SEED_SUPER_ADMIN_FULLNAME ?? 'Super Administrator';
   const rawPassword = process.env.SEED_SUPER_ADMIN_PASSWORD ?? 'ChangeMe123!';
   const hashedPassword = await bcrypt.hash(rawPassword, SALT_ROUNDS);
 

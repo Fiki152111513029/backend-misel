@@ -64,9 +64,8 @@ export class CreateTrolleyActivityUseCase {
     // (statusEnd still null) — complete that one instead of creating a
     // second row. If there isn't one, Drop Trolley still works completely
     // standalone (create a fully-populated row in one step, as before).
-    const openActivity = await this.trolleyActivitiesRepository.findOpenByTrolleyId(
-      trolley.id,
-    );
+    const openActivity =
+      await this.trolleyActivitiesRepository.findOpenByTrolleyId(trolley.id);
 
     // Direction is derived from where the scanned pickup code resolves to —
     // never trusted from the client:
@@ -161,7 +160,9 @@ export class CreateTrolleyActivityUseCase {
     // The open row's own startDate (set when Take Trolley ran) wins over
     // dto.startDate when one exists — it's the real moment prep began, so
     // Duration (endDate - startDate) reflects the true Take-to-Drop span.
-    const startDate = openActivity ? openActivity.startDate : new Date(dto.startDate);
+    const startDate = openActivity
+      ? openActivity.startDate
+      : new Date(dto.startDate);
     const endDate = new Date();
     const orderId = generateOrderId();
 
@@ -214,7 +215,9 @@ export class CreateTrolleyActivityUseCase {
       ? await this.trolleyActivitiesRepository.completeById(openActivity.id, {
           statusEnd,
           pickupLocationCode: dto.pickupLocationCode,
-          droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
+          droppingLocationCode: isOperatorDirection
+            ? undefined
+            : droppingLocationCode,
           endDate,
           taskId: orderId,
         })
@@ -224,7 +227,9 @@ export class CreateTrolleyActivityUseCase {
           statusBeginning,
           statusEnd,
           pickupLocationCode: dto.pickupLocationCode,
-          droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
+          droppingLocationCode: isOperatorDirection
+            ? undefined
+            : droppingLocationCode,
           queueRole: dto.queueRole,
           startDate,
           endDate,

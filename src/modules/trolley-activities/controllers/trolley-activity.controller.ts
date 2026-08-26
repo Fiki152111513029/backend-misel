@@ -1,4 +1,16 @@
-import { Controller, Get, Param, Post, Body, Query } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Body,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -16,6 +28,8 @@ import { GetTrolleyActivitiesUseCase } from '../use-cases/get-trolley-activities
 import { GetTrolleyActivitySequenceUseCase } from '../use-cases/get-trolley-activity-sequence.use-case';
 import { GetActiveTrolleyActivitiesByRobotUseCase } from '../use-cases/get-active-trolley-activities-by-robot.use-case';
 import { GetMyActiveTrolleyActivitiesUseCase } from '../use-cases/get-my-active-trolley-activities.use-case';
+import { MarkTrolleyActivityFailedUseCase } from '../use-cases/mark-trolley-activity-failed.use-case';
+import { DeleteTrolleyActivityUseCase } from '../use-cases/delete-trolley-activity.use-case';
 
 @ApiTags('Trolley Activities')
 @ApiBearerAuth('access-token')
@@ -30,11 +44,15 @@ export class TrolleyActivityController {
     private readonly getTrolleyActivitySequenceUseCase: GetTrolleyActivitySequenceUseCase,
     private readonly getActiveTrolleyActivitiesByRobotUseCase: GetActiveTrolleyActivitiesByRobotUseCase,
     private readonly getMyActiveTrolleyActivitiesUseCase: GetMyActiveTrolleyActivitiesUseCase,
+    private readonly markTrolleyActivityFailedUseCase: MarkTrolleyActivityFailedUseCase,
+    private readonly deleteTrolleyActivityUseCase: DeleteTrolleyActivityUseCase,
   ) {}
 
   @Post('lookup-trolley')
   @Permissions('trolley-activity.create')
-  @ApiOperation({ summary: 'Resolve a scanned Trolley code — first scan of the flow' })
+  @ApiOperation({
+    summary: 'Resolve a scanned Trolley code — first scan of the flow',
+  })
   async lookupTrolley(
     @Body() dto: LookupTrolleyDto,
     @CurrentUser() user: AuthRequestUser,
@@ -45,7 +63,9 @@ export class TrolleyActivityController {
 
   @Post('lookup-location')
   @Permissions('trolley-activity.create')
-  @ApiOperation({ summary: 'Resolve a scanned Location code — second scan of the flow' })
+  @ApiOperation({
+    summary: 'Resolve a scanned Location code — second scan of the flow',
+  })
   async lookupLocation(@Body() dto: LookupLocationDto) {
     const data = await this.lookupLocationUseCase.execute(dto);
     return { success: true, message: 'Location resolved successfully', data };
@@ -61,8 +81,15 @@ export class TrolleyActivityController {
     @Body() dto: CreateTrolleyActivityDto,
     @CurrentUser() user: AuthRequestUser,
   ) {
-    const data = await this.createTrolleyActivityUseCase.execute(dto, user.userId);
-    return { success: true, message: 'Trolley Activity submitted successfully', data };
+    const data = await this.createTrolleyActivityUseCase.execute(
+      dto,
+      user.userId,
+    );
+    return {
+      success: true,
+      message: 'Trolley Activity submitted successfully',
+      data,
+    };
   }
 
   @Post('take-trolley')
@@ -90,34 +117,75 @@ export class TrolleyActivityController {
     @CurrentUser() user: AuthRequestUser,
   ) {
     const data = await this.getTrolleyActivitiesUseCase.execute(query, user);
-    return { success: true, message: 'Trolley Activities retrieved successfully', data };
+    return {
+      success: true,
+      message: 'Trolley Activities retrieved successfully',
+      data,
+    };
   }
 
   @Get('active-mine')
   @Permissions('trolley-activity.create')
   @ApiOperation({
     summary:
-      'The current user\'s own in-flight Trolley Tasks (PENDING/IN_PROGRESS) — used to restore Current Queue cards after a page reload',
+      "The current user's own in-flight Trolley Tasks (PENDING/IN_PROGRESS) — used to restore Current Queue cards after a page reload",
   })
   async activeMine(@CurrentUser() user: AuthRequestUser) {
-    const data = await this.getMyActiveTrolleyActivitiesUseCase.execute(user.userId);
-    return { success: true, message: 'Active trolley activities retrieved successfully', data };
+    const data = await this.getMyActiveTrolleyActivitiesUseCase.execute(
+      user.userId,
+    );
+    return {
+      success: true,
+      message: 'Active trolley activities retrieved successfully',
+      data,
+    };
   }
 
   @Get('active-by-robot')
   @Permissions('trolley-activity.read')
   @ApiOperation({
     summary:
-      'Robots currently executing a Trolley Task (PENDING/IN_PROGRESS) and what they\'re carrying right now — powers the Factory Map robot marker',
+      "Robots currently executing a Trolley Task (PENDING/IN_PROGRESS) and what they're carrying right now — powers the Factory Map robot marker",
   })
   async activeByRobot() {
     const data = await this.getActiveTrolleyActivitiesByRobotUseCase.execute();
-    return { success: true, message: 'Active trolley activities retrieved successfully', data };
+    return {
+      success: true,
+      message: 'Active trolley activities retrieved successfully',
+      data,
+    };
+  }
+
+  @Patch(':id/mark-failed')
+  @Permissions('trolley-activity.update')
+  @ApiOperation({
+    summary:
+      "Admin override — manually mark a Trolley Activity stuck PENDING/IN_PROGRESS as Failed (its RCS completion webhook never arrived, or it's an open row Drop Trolley was never submitted for)",
+  })
+  async markFailed(@Param('id') id: string) {
+    const data = await this.markTrolleyActivityFailedUseCase.execute(id);
+    return {
+      success: true,
+      message: 'Trolley Activity marked as failed',
+      data,
+    };
+  }
+
+  @Delete(':id')
+  @Permissions('trolley-activity.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Soft delete a Trolley Activity' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    await this.deleteTrolleyActivityUseCase.execute(id);
+    return { success: true, message: 'Trolley Activity deleted successfully' };
   }
 
   @Get(':id/sequence')
   @Permissions('trolley-activity.read')
-  @ApiOperation({ summary: 'This activity\'s sequence number ("No urut") among its user\'s activities' })
+  @ApiOperation({
+    summary:
+      'This activity\'s sequence number ("No urut") among its user\'s activities',
+  })
   async sequence(@Param('id') id: string) {
     const data = await this.getTrolleyActivitySequenceUseCase.execute(id);
     return { success: true, message: 'Sequence retrieved successfully', data };

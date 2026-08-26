@@ -318,6 +318,37 @@ describe('Trolley stock-status (e2e)', () => {
     expect(trolleyAfter?.status).toBe(trolleyBefore?.status);
   });
 
+  it('a repeated take-trolley for the same trolley refreshes its existing open row instead of creating a second one', async () => {
+    // The previous test left an open row for this trolley (never completed
+    // by a Drop Trolley) — exactly the "operator re-scans Take Trolley, or
+    // switches pages partway through" scenario this is meant to cover.
+    const activityCountBefore = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const openBefore = await prisma.trolleyActivity.findFirst({
+      where: { trolleyId, statusEnd: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(openBefore).not.toBeNull();
+
+    updateStockStatusMock.mockClear();
+
+    const res = await request(app.getHttpServer())
+      .post('/trolley-activities/take-trolley')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ trolleyId, pickupLocationCode: whPickupCode, queueRole: 'Operator' })
+      .expect(201);
+
+    // Same row — its id didn't change, and the row count didn't grow.
+    expect(res.body.data.activityId).toBe(openBefore!.id);
+    const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    expect(activityCountAfter).toBe(activityCountBefore);
+
+    // The row's own fields are refreshed to this latest Take Trolley call.
+    const refreshed = await prisma.trolleyActivity.findUnique({ where: { id: openBefore!.id } });
+    expect(refreshed?.queueRole).toBe('Operator');
+    expect(refreshed?.pickupLocationCode).toBe(whPickupCode);
+    expect(refreshed?.statusEnd).toBeNull();
+  });
+
   it('take-trolley rejects a pickup location code that matches neither an active Warehouse Location nor Production Location', async () => {
     updateStockStatusMock.mockClear();
 

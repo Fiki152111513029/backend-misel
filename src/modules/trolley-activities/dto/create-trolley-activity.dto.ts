@@ -1,17 +1,30 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsIn, IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsIn,
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateTrolleyActivityDto {
-  @ApiProperty({ description: 'Trolley id, from the first (trolley) scan lookup' })
+  @ApiProperty({
+    description: 'Trolley id, from the first (trolley) scan lookup',
+  })
   @IsUUID()
   trolleyId!: string;
 
-  @ApiProperty({ description: 'Pickup Location Code, from the second (location) scan lookup' })
+  @ApiProperty({
+    description: 'Pickup Location Code, from the second (location) scan lookup',
+  })
   @IsString()
   @IsNotEmpty()
   pickupLocationCode!: string;
 
-  @ApiProperty({ description: 'Timestamp of the first (trolley) scan — from the lookup-trolley response' })
+  @ApiProperty({
+    description:
+      'Timestamp of the first (trolley) scan — from the lookup-trolley response',
+  })
   @IsDateString()
   startDate!: string;
 
