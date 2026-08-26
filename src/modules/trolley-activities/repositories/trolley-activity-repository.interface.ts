@@ -41,17 +41,6 @@ export interface CompleteTrolleyActivityData {
   taskId: string;
 }
 
-// What a repeated Take Trolley (same trolley, still-open row from an
-// earlier Take Trolley) writes onto that row instead of creating a second
-// one — refreshes it as if this were the first Take Trolley.
-export interface RefreshOpenTrolleyActivityData {
-  statusBeginning: TrolleyStatus;
-  pickupLocationCode: string;
-  queueRole: string;
-  startDate: Date;
-  taskId: string;
-}
-
 export interface FindAllTrolleyActivitiesParams {
   page: number;
   limit: number;
@@ -98,19 +87,6 @@ export interface ITrolleyActivitiesRepository {
     id: string,
     data: CompleteTrolleyActivityData,
   ): Promise<TrolleyActivityWithRelations>;
-  // A repeated Take Trolley's write onto its own still-open row, instead of
-  // creating a second one (see RefreshOpenTrolleyActivityData).
-  refreshOpenById(
-    id: string,
-    data: RefreshOpenTrolleyActivityData,
-  ): Promise<TrolleyActivityWithRelations>;
-  // Admin override for a row stuck PENDING/IN_PROGRESS forever because its
-  // RCS completion webhook never arrived (or, for an open row, because Drop
-  // Trolley was never submitted for it) — manually closes it out so it
-  // stops showing as an in-flight task (e.g. the "AMR incoming" warning on
-  // the location scan step keys off exactly this: PENDING/IN_PROGRESS rows
-  // whose trolley.currentLocationCode matches the scanned node).
-  markFailedById(id: string): Promise<TrolleyActivityWithRelations>;
   softDelete(id: string): Promise<void>;
   findById(id: string): Promise<TrolleyActivityWithRelations | null>;
   findAll(

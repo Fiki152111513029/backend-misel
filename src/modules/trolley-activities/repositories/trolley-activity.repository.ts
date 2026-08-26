@@ -9,7 +9,6 @@ import {
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
   ITrolleyActivitiesRepository,
-  RefreshOpenTrolleyActivityData,
 } from './trolley-activity-repository.interface';
 
 const NOT_DELETED = { deletedAt: null } as const;
@@ -49,22 +48,6 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
     return this.prisma.trolleyActivity.update({
       where: { id },
       data,
-      include: RELATIONS_INCLUDE,
-    });
-  }
-
-  refreshOpenById(id: string, data: RefreshOpenTrolleyActivityData) {
-    return this.prisma.trolleyActivity.update({
-      where: { id },
-      data,
-      include: RELATIONS_INCLUDE,
-    });
-  }
-
-  markFailedById(id: string) {
-    return this.prisma.trolleyActivity.update({
-      where: { id },
-      data: { status: TaskStatus.FAILED },
       include: RELATIONS_INCLUDE,
     });
   }

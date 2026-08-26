@@ -318,16 +318,15 @@ describe('Trolley stock-status (e2e)', () => {
     expect(trolleyAfter?.status).toBe(trolleyBefore?.status);
   });
 
-  it('a repeated take-trolley for the same trolley refreshes its existing open row instead of creating a second one', async () => {
+  it('a repeated take-trolley for the same trolley creates a second, independent open row', async () => {
+    // generateOrderId() is second-resolution — avoid colliding with the
+    // previous test's taskId.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
     // The previous test left an open row for this trolley (never completed
-    // by a Drop Trolley) — exactly the "operator re-scans Take Trolley, or
-    // switches pages partway through" scenario this is meant to cover.
+    // by a Drop Trolley) — Take Trolley doesn't check for that, it always
+    // creates its own new row.
     const activityCountBefore = await prisma.trolleyActivity.count({ where: { trolleyId } });
-    const openBefore = await prisma.trolleyActivity.findFirst({
-      where: { trolleyId, statusEnd: null },
-      orderBy: { createdAt: 'desc' },
-    });
-    expect(openBefore).not.toBeNull();
 
     updateStockStatusMock.mockClear();
 
@@ -337,16 +336,15 @@ describe('Trolley stock-status (e2e)', () => {
       .send({ trolleyId, pickupLocationCode: whPickupCode, queueRole: 'Operator' })
       .expect(201);
 
-    // Same row — its id didn't change, and the row count didn't grow.
-    expect(res.body.data.activityId).toBe(openBefore!.id);
     const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
-    expect(activityCountAfter).toBe(activityCountBefore);
+    expect(activityCountAfter).toBe(activityCountBefore + 1);
 
-    // The row's own fields are refreshed to this latest Take Trolley call.
-    const refreshed = await prisma.trolleyActivity.findUnique({ where: { id: openBefore!.id } });
-    expect(refreshed?.queueRole).toBe('Operator');
-    expect(refreshed?.pickupLocationCode).toBe(whPickupCode);
-    expect(refreshed?.statusEnd).toBeNull();
+    const activity = await prisma.trolleyActivity.findUnique({
+      where: { id: res.body.data.activityId },
+    });
+    expect(activity?.queueRole).toBe('Operator');
+    expect(activity?.pickupLocationCode).toBe(whPickupCode);
+    expect(activity?.statusEnd).toBeNull();
   });
 
   it('take-trolley rejects a pickup location code that matches neither an active Warehouse Location nor Production Location', async () => {

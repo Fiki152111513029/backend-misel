@@ -447,12 +447,6 @@ const PERMISSIONS: PermissionSeed[] = [
     description: 'View trolley activities',
   },
   {
-    code: 'trolley-activity.update',
-    name: 'Update Trolley Activity',
-    description:
-      'Admin override for a trolley activity stuck PENDING/IN_PROGRESS forever (e.g. its RCS completion webhook never arrived) — manually mark it Failed',
-  },
-  {
     code: 'trolley-activity.delete',
     name: 'Delete Trolley Activity',
     description: 'Delete trolley activities',

@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
-  Patch,
   Post,
   Body,
   Query,
@@ -28,7 +27,6 @@ import { GetTrolleyActivitiesUseCase } from '../use-cases/get-trolley-activities
 import { GetTrolleyActivitySequenceUseCase } from '../use-cases/get-trolley-activity-sequence.use-case';
 import { GetActiveTrolleyActivitiesByRobotUseCase } from '../use-cases/get-active-trolley-activities-by-robot.use-case';
 import { GetMyActiveTrolleyActivitiesUseCase } from '../use-cases/get-my-active-trolley-activities.use-case';
-import { MarkTrolleyActivityFailedUseCase } from '../use-cases/mark-trolley-activity-failed.use-case';
 import { DeleteTrolleyActivityUseCase } from '../use-cases/delete-trolley-activity.use-case';
 
 @ApiTags('Trolley Activities')
@@ -44,7 +42,6 @@ export class TrolleyActivityController {
     private readonly getTrolleyActivitySequenceUseCase: GetTrolleyActivitySequenceUseCase,
     private readonly getActiveTrolleyActivitiesByRobotUseCase: GetActiveTrolleyActivitiesByRobotUseCase,
     private readonly getMyActiveTrolleyActivitiesUseCase: GetMyActiveTrolleyActivitiesUseCase,
-    private readonly markTrolleyActivityFailedUseCase: MarkTrolleyActivityFailedUseCase,
     private readonly deleteTrolleyActivityUseCase: DeleteTrolleyActivityUseCase,
   ) {}
 
@@ -152,21 +149,6 @@ export class TrolleyActivityController {
     return {
       success: true,
       message: 'Active trolley activities retrieved successfully',
-      data,
-    };
-  }
-
-  @Patch(':id/mark-failed')
-  @Permissions('trolley-activity.update')
-  @ApiOperation({
-    summary:
-      "Admin override — manually mark a Trolley Activity stuck PENDING/IN_PROGRESS as Failed (its RCS completion webhook never arrived, or it's an open row Drop Trolley was never submitted for)",
-  })
-  async markFailed(@Param('id') id: string) {
-    const data = await this.markTrolleyActivityFailedUseCase.execute(id);
-    return {
-      success: true,
-      message: 'Trolley Activity marked as failed',
       data,
     };
   }
