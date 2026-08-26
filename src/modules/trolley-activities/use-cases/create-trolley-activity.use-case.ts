@@ -46,21 +46,6 @@ export class CreateTrolleyActivityUseCase {
       throw new BadRequestException('Trolley not found');
     }
 
-    // Position lock: once a Trolley Task has been submitted for this
-    // trolley, it's considered to be heading to (and then sitting at) its
-    // dropping point immediately — see the currentLocationCode update below
-    // — so it can't be released again from anywhere else until it's picked
-    // up from there. Null means no Trolley Task has ever been submitted for
-    // this trolley yet, so there's nothing to lock against.
-    if (
-      trolley.currentLocationCode &&
-      trolley.currentLocationCode !== dto.pickupLocationCode
-    ) {
-      throw new BadRequestException(
-        `This trolley is currently at ${trolley.currentLocationCode} — scan that location to release it, not ${dto.pickupLocationCode}`,
-      );
-    }
-
     const user = await this.usersRepository.findById(userId);
     if (!user) {
       throw new BadRequestException('User not found');
@@ -81,9 +66,9 @@ export class CreateTrolleyActivityUseCase {
     //   which Warehouse Location to bring the trolley to on its own, we
     //   don't tell it where. We still auto-pick + record an EMPTY Warehouse
     //   Location ourselves for our own bookkeeping (Factory Map icons, the
-    //   activity's own droppingLocationCode, the position lock), since RCS
-    //   doesn't report its choice back to us ahead of time. modelProcessCode
-    //   comes from the trolley's Category's Model Code Process (not the
+    //   activity's own droppingLocationCode), since RCS doesn't report its
+    //   choice back to us ahead of time. modelProcessCode comes from the
+    //   trolley's Category's Model Code Process (not the
     //   trolley's own), priority is fixed.
     const OPERATOR_DIRECTION_PRIORITY = 6;
 
@@ -214,7 +199,10 @@ export class CreateTrolleyActivityUseCase {
       taskId: orderId,
     });
 
-    // currentLocationCode drives the position lock above — updated
+    // currentLocationCode is tracking only now (no longer gates submission)
+    // — it still feeds the "AMR incoming" warning on the location scan step
+    // (findActiveIncomingByLocationCode) and the Operator-direction
+    // droppingLocationCode backfill on webhook completion. Updated
     // immediately here (not waiting for a webhook) to match the same
     // submit-time-driven design as the stock-status calls.
     await this.trolleysRepository.update(trolley.id, {

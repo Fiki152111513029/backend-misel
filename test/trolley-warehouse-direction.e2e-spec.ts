@@ -18,12 +18,13 @@ import { HttpExceptionFilter } from './../src/common/filters/http-exception.filt
 // Location back to EMPTY). RCS is stubbed out — this only proves the DB
 // direction-detection/status-toggle logic, not the live network call.
 //
-// The two submission tests below run in a deliberate order — Warehouse-
-// >Production first, then Production->Warehouse — because
-// Trolley.currentLocationCode is now set immediately at submit time (not
-// waiting for a webhook), so the trolley must actually be picked up from
-// wherever the previous test left it (the position lock — see
-// CreateTrolleyActivityUseCase).
+// The two submission tests below run in this order — Warehouse->Production
+// first, then Production->Warehouse — purely so the second one can reuse
+// plDropCode (the first test's dropping point) as its own pickup, without
+// needing a separate fixture. Submitting doesn't require picking up from
+// wherever Trolley.currentLocationCode last landed — there's no such lock
+// (any active Warehouse/Production Location code is a valid pickup
+// regardless of the trolley's last recorded position).
 describe('Trolley Activities — direction auto-detection (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -240,7 +241,8 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     expect(plDrop?.status).toBe('FULL');
 
     // currentLocationCode is set immediately at submit, not on a later
-    // webhook — this is what locks the *next* submission to pick up from here.
+    // webhook — tracking only (feeds the "AMR incoming" warning and the
+    // Operator-direction droppingLocationCode backfill), no longer a lock.
     const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
     expect(trolley?.currentLocationCode).toBe(plDropCode);
 
@@ -268,9 +270,9 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .send({ code: `${suffix}TRL` })
       .expect(201);
 
-    // The previous test left the trolley's currentLocationCode at
-    // plDropCode — the position lock requires picking up from there, not
-    // the separate plPickupCode fixture.
+    // Reuses plDropCode (where the previous test left the trolley) as this
+    // test's own pickup — not required by any lock, just convenient so a
+    // separate fixture isn't needed.
     updateStockStatusMock.mockClear();
 
     const res = await request(app.getHttpServer())

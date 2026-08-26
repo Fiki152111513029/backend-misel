@@ -18,18 +18,18 @@ import { HttpExceptionFilter } from './../src/common/filters/http-exception.filt
 // steps (lookup-trolley, lookup-location) are pure read-only lookups with
 // no RCS side effect — the node to empty/fill is only ever the one
 // actually confirmed by the operator's own area scan, at submit, not
-// inferred earlier. Also verifies the position lock
-// (CreateTrolleyActivityUseCase rejects a pickup that doesn't match
-// Trolley.currentLocationCode, set immediately at submit time, not from a
-// later webhook), the Operator-direction (Production->Warehouse)
-// TrolleyActivity.droppingLocationCode backfill on a status=8 (Completed)
-// webhook, and the standalone Take Trolley action (its own endpoint —
-// empties the scanned node in RCS but persists nothing at all; the only
-// place a TrolleyActivity row is ever written is Drop Trolley's own
-// submit, in one step). RCS itself is stubbed out (both the task order
-// submission and the stock-status calls) — this proves our own DB/webhook
-// wiring, not the live network calls.
-describe('Trolley stock-status + position lock (e2e)', () => {
+// inferred earlier. There is no position lock — a submission's pickup
+// doesn't need to match Trolley.currentLocationCode, which is tracking
+// only now (it still feeds the "AMR incoming" warning and the
+// Operator-direction TrolleyActivity.droppingLocationCode backfill on a
+// status=8/Completed webhook, also verified here). Also verifies the
+// standalone Take Trolley action (its own endpoint — empties the scanned
+// node in RCS but persists nothing at all; the only place a TrolleyActivity
+// row is ever written is Drop Trolley's own submit, in one step). RCS
+// itself is stubbed out (both the task order submission and the
+// stock-status calls) — this proves our own DB/webhook wiring, not the
+// live network calls.
+describe('Trolley stock-status (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   const suffix = `E2ESTOCK${Date.now()}`;
@@ -141,7 +141,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     await app.close();
   });
 
-  it('before any Trolley Task has ever been submitted, there is no position lock (currentLocationCode still null)', async () => {
+  it('before any Trolley Task has ever been submitted, currentLocationCode is still null', async () => {
     const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
     expect(trolley?.currentLocationCode).toBeNull();
   });
@@ -180,38 +180,13 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     expect(trolley?.currentLocationCode).toBe(plDropCode);
   });
 
-  it('rejects the next submission if its pickup does not match currentLocationCode', async () => {
-    // generateOrderId() is second-resolution — avoid colliding with the
-    // previous test's taskId.
-    await new Promise((resolve) => setTimeout(resolve, 1100));
-
-    const lookupTrolley = await request(app.getHttpServer())
-      .post('/trolley-activities/lookup-trolley')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ code: `${suffix}TRL` })
-      .expect(201);
-
-    const res = await request(app.getHttpServer())
-      .post('/trolley-activities')
-      .set('Authorization', `Bearer ${accessToken}`)
-      // Wrong — trolley is now at plDropCode (Production), not the
-      // Warehouse pickup it started from.
-      .send({
-        trolleyId,
-        pickupLocationCode: whPickupCode,
-        startDate: lookupTrolley.body.data.startDate,
-        queueRole: 'Warehouse',
-      })
-      .expect(400);
-
-    expect(res.body.message).toContain(plDropCode);
-  });
-
   let operatorActivityId: string;
   let operatorTaskId: string;
   let operatorDropCode: string;
 
-  it('accepts the next submission once its pickup matches currentLocationCode, with the Operator-direction RCS payload, and leaves droppingLocationCode unset', async () => {
+  it('accepts a submission whose pickup does not match currentLocationCode (no position lock), with the Operator-direction RCS payload, and leaves droppingLocationCode unset', async () => {
+    // generateOrderId() is second-resolution — avoid colliding with the
+    // previous test's taskId.
     await new Promise((resolve) => setTimeout(resolve, 1100));
 
     const lookupTrolley = await request(app.getHttpServer())
@@ -223,8 +198,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     addTaskMock.mockClear();
     updateStockStatusMock.mockClear();
 
-    // Correct — pickup is exactly where the trolley currently is. This is
-    // the Operator Trolley Task direction (pickup resolves to a Production
+    // Operator Trolley Task direction (pickup resolves to a Production
     // Location), so the RCS payload should use the trolley's Category's
     // Model Code Process, a fixed priority of 6, and a taskPath that's just
     // the pickup point — not "pickup,dropping".
@@ -282,7 +256,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     expect(activity?.status).toBe('COMPLETED');
   });
 
-  it('take-trolley empties the scanned node via RCS and persists nothing (no activity, no RCS task order, position lock untouched)', async () => {
+  it('take-trolley empties the scanned node via RCS and persists nothing (no activity, no RCS task order, currentLocationCode untouched)', async () => {
     updateStockStatusMock.mockClear();
     addTaskMock.mockClear();
 
