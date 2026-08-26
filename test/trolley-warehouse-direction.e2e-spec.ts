@@ -192,7 +192,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .expect(400);
   });
 
-  it('Warehouse->Production: uses the trolley fixed dropping code, flips the pickup Warehouse Location EMPTY, and tells RCS the dropping node is now full', async () => {
+  it('Warehouse->Production: uses the trolley fixed dropping code, flips the pickup Warehouse Location EMPTY, and tells RCS the pickup node is now full', async () => {
     const lookupTrolley = await request(app.getHttpServer())
       .post('/trolley-activities/lookup-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -225,8 +225,10 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       name: `${suffix} Trolley`,
     });
 
+    // Both calls target the scanned pickup node — RCS owns the dropping
+    // node's status itself once its robot completes delivery there.
     expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHPICK`, '0');
-    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
+    expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHPICK`, '2');
 
     const whPickup = await prisma.warehouseLocation.findUnique({ where: { id: whPickupId } });
     expect(whPickup?.status).toBe('EMPTY');
@@ -285,8 +287,10 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     // (status 8) — see ReceiveTaskStatusWebhookUseCase.
     expect(res.body.data.activity.droppingLocationCode).toBeNull();
 
+    // Both calls target the scanned pickup node — RCS owns the dropping
+    // node's status itself once its robot completes delivery there.
     expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '0');
-    expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHDROP`, '2');
+    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
 
     const whDrop = await prisma.warehouseLocation.findUnique({ where: { id: whDropId } });
     expect(whDrop?.status).toBe('FULL');

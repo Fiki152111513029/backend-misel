@@ -178,10 +178,14 @@ export class CreateTrolleyActivityUseCase {
       taskOrderDetail: [{ taskPath }],
     };
 
-    // Tell RCS the pickup point is emptying out now that the operator has
-    // scanned both the trolley and this exact area and is submitting —
-    // deferred to here (rather than the earlier scan steps) so the node it
-    // targets is always the one actually confirmed by scan, not inferred.
+    // Both stock-status calls target the scanned pickup node, not the
+    // dropping node — RCS owns the dropping node's own status itself once
+    // its robot actually completes the delivery there, so we never report
+    // that one. Empty first (now that the operator has scanned both the
+    // trolley and this exact area and is submitting — deferred to here,
+    // rather than the earlier scan steps, so the node it targets is always
+    // the one actually confirmed by scan, not inferred), then full again
+    // once the task is actually handed off to RCS.
     await this.rcsStockStatusService.updateStockStatus(
       dto.pickupLocationCode,
       NODE_STATUS_EMPTY,
@@ -192,10 +196,8 @@ export class CreateTrolleyActivityUseCase {
     // actually accepted, same ordering Mainline's release-task flow uses.
     const rcsResponse = await this.taskOrderService.addTask(rcsRequest);
 
-    // Tell RCS the dropping point is now occupied, right as the task is
-    // handed off.
     await this.rcsStockStatusService.updateStockStatus(
-      droppingLocationCode,
+      dto.pickupLocationCode,
       NODE_STATUS_FULL,
     );
 

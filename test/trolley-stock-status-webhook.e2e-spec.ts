@@ -142,7 +142,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     expect(trolley?.currentLocationCode).toBeNull();
   });
 
-  it('Scan Trolley confirm has no RCS side effect; Submit calls RCS stock status with nodeStatus 0 for the pickup and nodeStatus 2 for the dropping node', async () => {
+  it('Scan Trolley confirm has no RCS side effect; Submit calls RCS stock status with nodeStatus 0 then nodeStatus 2, both for the pickup node', async () => {
     updateStockStatusMock.mockClear();
 
     const lookupTrolley = await request(app.getHttpServer())
@@ -166,8 +166,10 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     // Warehouse->Production: known for certain up front, so this is the
     // trolley's own fixed dropping code.
     expect(createRes.body.data.activity.droppingLocationCode).toBe(plDropCode);
+    // Both calls target the scanned pickup node — RCS owns the dropping
+    // node's status itself once its robot completes delivery there.
     expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '0');
-    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
+    expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '2');
 
     const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
     expect(trolley?.currentLocationCode).toBe(plDropCode);
@@ -247,11 +249,12 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     expect(trolley?.currentLocationCode).toBeTruthy();
     expect(trolley?.currentLocationCode).not.toBe(plDropCode);
 
+    // Both calls target the scanned pickup node — RCS owns the dropping
+    // node's status itself once its robot completes delivery there, so the
+    // auto-picked Warehouse Location (trolley.currentLocationCode) is never
+    // reported to RCS by us at all.
     expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '0');
-
-    // Reflects the RCS-auto-picked Warehouse Location's stock status flip,
-    // even though we don't yet know it belongs on the activity's own record.
-    expect(updateStockStatusMock).toHaveBeenCalledWith(trolley?.currentLocationCode, '2');
+    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
 
     operatorActivityId = res.body.data.activity.id;
     operatorTaskId = res.body.data.activity.taskId;
