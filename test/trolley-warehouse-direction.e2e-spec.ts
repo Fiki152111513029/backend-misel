@@ -225,6 +225,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       name: `${suffix} Trolley`,
     });
 
+    expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHPICK`, '0');
     expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
 
     const whPickup = await prisma.warehouseLocation.findUnique({ where: { id: whPickupId } });
@@ -284,6 +285,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     // (status 8) — see ReceiveTaskStatusWebhookUseCase.
     expect(res.body.data.activity.droppingLocationCode).toBeNull();
 
+    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '0');
     expect(updateStockStatusMock).toHaveBeenCalledWith(`${suffix}WHDROP`, '2');
 
     const whDrop = await prisma.warehouseLocation.findUnique({ where: { id: whDropId } });

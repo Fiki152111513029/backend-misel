@@ -11,6 +11,7 @@ import { TrolleyActivityRepository } from './repositories/trolley-activity.repos
 import { LookupTrolleyUseCase } from './use-cases/lookup-trolley.use-case';
 import { LookupLocationUseCase } from './use-cases/lookup-location.use-case';
 import { CreateTrolleyActivityUseCase } from './use-cases/create-trolley-activity.use-case';
+import { TakeTrolleyUseCase } from './use-cases/take-trolley.use-case';
 import { GetTrolleyActivitiesUseCase } from './use-cases/get-trolley-activities.use-case';
 import { GetTrolleyActivitySequenceUseCase } from './use-cases/get-trolley-activity-sequence.use-case';
 import { GetActiveTrolleyActivitiesByRobotUseCase } from './use-cases/get-active-trolley-activities-by-robot.use-case';
@@ -31,6 +32,7 @@ import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-t
     LookupTrolleyUseCase,
     LookupLocationUseCase,
     CreateTrolleyActivityUseCase,
+    TakeTrolleyUseCase,
     GetTrolleyActivitiesUseCase,
     GetTrolleyActivitySequenceUseCase,
     GetActiveTrolleyActivitiesByRobotUseCase,

@@ -10,18 +10,21 @@ import { TaskOrderService } from './../src/modules/tasks/services/task-order.ser
 import { RcsStockStatusService } from './../src/modules/rcs-stock-status/rcs-stock-status.service';
 import { HttpExceptionFilter } from './../src/common/filters/http-exception.filter';
 
-// Verifies the UI-action-driven RCS stock-status calls (nodeStatus '0' on
-// Scan Trolley confirm, nodeStatus '2' on Submit — see LookupTrolleyUseCase
-// and CreateTrolleyActivityUseCase) and the position lock they feed
+// Verifies the RCS stock-status calls Drop Trolley's Submit fires — both
+// nodeStatus '0' for the scanned pickup and nodeStatus '2' for the dropping
+// node, all at submit time (see CreateTrolleyActivityUseCase). The earlier
+// scan-trolley/scan-area steps (lookup-trolley, lookup-location) are pure
+// read-only lookups with no RCS side effect — the node to empty is only
+// ever the one actually confirmed by the operator's own area scan, at
+// submit, not inferred earlier. Also verifies the position lock
 // (CreateTrolleyActivityUseCase rejects a pickup that doesn't match
-// Trolley.currentLocationCode, which is now set immediately at submit time,
-// not from a later webhook). Also verifies the Operator-direction
-// (Production->Warehouse) TrolleyActivity.droppingLocationCode backfill:
-// RCS picks its own destination for that direction and never confirms it at
-// submit time, so it's left null until a status=8 (Completed) webhook
-// confirms the task actually finished. RCS itself is stubbed out (both the
-// task order submission and the stock-status calls) — this proves our own
-// DB/webhook wiring, not the live network calls.
+// Trolley.currentLocationCode, set immediately at submit time, not from a
+// later webhook), the Operator-direction (Production->Warehouse)
+// TrolleyActivity.droppingLocationCode backfill on a status=8 (Completed)
+// webhook, and the standalone Take Trolley action (its own endpoint, empties
+// the scanned node but persists nothing). RCS itself is stubbed out (both
+// the task order submission and the stock-status calls) — this proves our
+// own DB/webhook wiring, not the live network calls.
 describe('Trolley stock-status + position lock (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -139,20 +142,16 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     expect(trolley?.currentLocationCode).toBeNull();
   });
 
-  it('Scan Trolley confirm calls RCS stock status with nodeStatus 0, and Submit calls it again with nodeStatus 2', async () => {
+  it('Scan Trolley confirm has no RCS side effect; Submit calls RCS stock status with nodeStatus 0 for the pickup and nodeStatus 2 for the dropping node', async () => {
     updateStockStatusMock.mockClear();
 
-    // Scan 1 + confirm — no currentLocationCode yet, so the trolley's own
-    // fixed droppingLocationCode is treated as its home resting spot.
     const lookupTrolley = await request(app.getHttpServer())
       .post('/trolley-activities/lookup-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ code: `${suffix}TRL` })
       .expect(201);
 
-    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '0');
-
-    updateStockStatusMock.mockClear();
+    expect(updateStockStatusMock).not.toHaveBeenCalled();
 
     const createRes = await request(app.getHttpServer())
       .post('/trolley-activities')
@@ -167,6 +166,7 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     // Warehouse->Production: known for certain up front, so this is the
     // trolley's own fixed dropping code.
     expect(createRes.body.data.activity.droppingLocationCode).toBe(plDropCode);
+    expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '0');
     expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '2');
 
     const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
@@ -247,6 +247,8 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     expect(trolley?.currentLocationCode).toBeTruthy();
     expect(trolley?.currentLocationCode).not.toBe(plDropCode);
 
+    expect(updateStockStatusMock).toHaveBeenCalledWith(plDropCode, '0');
+
     // Reflects the RCS-auto-picked Warehouse Location's stock status flip,
     // even though we don't yet know it belongs on the activity's own record.
     expect(updateStockStatusMock).toHaveBeenCalledWith(trolley?.currentLocationCode, '2');
@@ -268,5 +270,48 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     activity = await prisma.trolleyActivity.findUnique({ where: { id: operatorActivityId } });
     expect(activity?.droppingLocationCode).toBe(operatorDropCode);
     expect(activity?.status).toBe('COMPLETED');
+  });
+
+  it('take-trolley empties the scanned node via RCS and persists nothing (no activity, no RCS task order, position lock untouched)', async () => {
+    updateStockStatusMock.mockClear();
+    addTaskMock.mockClear();
+
+    const activityCountBefore = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const trolleyBefore = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+
+    const res = await request(app.getHttpServer())
+      .post('/trolley-activities/take-trolley')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ trolleyId, pickupLocationCode: whPickupCode })
+      .expect(201);
+
+    expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '0');
+    expect(addTaskMock).not.toHaveBeenCalled();
+    expect(res.body.data).toMatchObject({
+      trolleyId,
+      trolleyCode: `${suffix}TRL`,
+      trolleyName: `${suffix} Trolley`,
+      pickupLocationCode: whPickupCode,
+    });
+    expect(typeof res.body.data.startDate).toBe('string');
+
+    const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    expect(activityCountAfter).toBe(activityCountBefore);
+
+    const trolleyAfter = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    expect(trolleyAfter?.currentLocationCode).toBe(trolleyBefore?.currentLocationCode);
+    expect(trolleyAfter?.status).toBe(trolleyBefore?.status);
+  });
+
+  it('take-trolley rejects a pickup location code that matches neither an active Warehouse Location nor Production Location', async () => {
+    updateStockStatusMock.mockClear();
+
+    await request(app.getHttpServer())
+      .post('/trolley-activities/take-trolley')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ trolleyId, pickupLocationCode: `${suffix}NOPE` })
+      .expect(400);
+
+    expect(updateStockStatusMock).not.toHaveBeenCalled();
   });
 });

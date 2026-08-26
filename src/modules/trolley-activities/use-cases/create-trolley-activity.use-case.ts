@@ -12,6 +12,7 @@ import { TaskOrderService, TaskOrderPayload } from '../../tasks/services/task-or
 import { generateOrderId } from '../../tasks/utils/generate-order-id';
 import {
   RcsStockStatusService,
+  NODE_STATUS_EMPTY,
   NODE_STATUS_FULL,
 } from '../../rcs-stock-status/rcs-stock-status.service';
 import { CreateTrolleyActivityDto } from '../dto/create-trolley-activity.dto';
@@ -167,14 +168,22 @@ export class CreateTrolleyActivityUseCase {
       taskOrderDetail: [{ taskPath }],
     };
 
+    // Tell RCS the pickup point is emptying out now that the operator has
+    // scanned both the trolley and this exact area and is submitting —
+    // deferred to here (rather than the earlier scan steps) so the node it
+    // targets is always the one actually confirmed by scan, not inferred.
+    await this.rcsStockStatusService.updateStockStatus(
+      dto.pickupLocationCode,
+      NODE_STATUS_EMPTY,
+    );
+
     // Call RCS first — only persist the activity (and flip the trolley's
     // status / the Warehouse Location's occupancy) once the order is
     // actually accepted, same ordering Mainline's release-task flow uses.
     const rcsResponse = await this.taskOrderService.addTask(rcsRequest);
 
     // Tell RCS the dropping point is now occupied, right as the task is
-    // handed off — mirrors the "vacating" call LookupTrolleyUseCase makes
-    // on the first scan.
+    // handed off.
     await this.rcsStockStatusService.updateStockStatus(
       droppingLocationCode,
       NODE_STATUS_FULL,
@@ -202,10 +211,9 @@ export class CreateTrolleyActivityUseCase {
       taskId: orderId,
     });
 
-    // currentLocationCode drives both the position lock above and the
-    // "vacating" stock-status call LookupTrolleyUseCase makes on the next
-    // scan — updated immediately here (not waiting for a webhook) to match
-    // the same submit-time-driven design as the stock-status calls.
+    // currentLocationCode drives the position lock above — updated
+    // immediately here (not waiting for a webhook) to match the same
+    // submit-time-driven design as the stock-status calls.
     await this.trolleysRepository.update(trolley.id, {
       status: statusEnd,
       currentLocationCode: droppingLocationCode,

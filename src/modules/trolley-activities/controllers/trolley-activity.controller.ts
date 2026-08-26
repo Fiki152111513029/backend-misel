@@ -6,10 +6,12 @@ import type { AuthRequestUser } from '../../auth/types/auth-request-user.type';
 import { LookupTrolleyDto } from '../dto/lookup-trolley.dto';
 import { LookupLocationDto } from '../dto/lookup-location.dto';
 import { CreateTrolleyActivityDto } from '../dto/create-trolley-activity.dto';
+import { TakeTrolleyDto } from '../dto/take-trolley.dto';
 import { TrolleyActivityQueryDto } from '../dto/trolley-activity-query.dto';
 import { LookupTrolleyUseCase } from '../use-cases/lookup-trolley.use-case';
 import { LookupLocationUseCase } from '../use-cases/lookup-location.use-case';
 import { CreateTrolleyActivityUseCase } from '../use-cases/create-trolley-activity.use-case';
+import { TakeTrolleyUseCase } from '../use-cases/take-trolley.use-case';
 import { GetTrolleyActivitiesUseCase } from '../use-cases/get-trolley-activities.use-case';
 import { GetTrolleyActivitySequenceUseCase } from '../use-cases/get-trolley-activity-sequence.use-case';
 import { GetActiveTrolleyActivitiesByRobotUseCase } from '../use-cases/get-active-trolley-activities-by-robot.use-case';
@@ -23,6 +25,7 @@ export class TrolleyActivityController {
     private readonly lookupTrolleyUseCase: LookupTrolleyUseCase,
     private readonly lookupLocationUseCase: LookupLocationUseCase,
     private readonly createTrolleyActivityUseCase: CreateTrolleyActivityUseCase,
+    private readonly takeTrolleyUseCase: TakeTrolleyUseCase,
     private readonly getTrolleyActivitiesUseCase: GetTrolleyActivitiesUseCase,
     private readonly getTrolleyActivitySequenceUseCase: GetTrolleyActivitySequenceUseCase,
     private readonly getActiveTrolleyActivitiesByRobotUseCase: GetActiveTrolleyActivitiesByRobotUseCase,
@@ -60,6 +63,17 @@ export class TrolleyActivityController {
   ) {
     const data = await this.createTrolleyActivityUseCase.execute(dto, user.userId);
     return { success: true, message: 'Trolley Activity submitted successfully', data };
+  }
+
+  @Post('take-trolley')
+  @Permissions('trolley-activity.create')
+  @ApiOperation({
+    summary:
+      'Submit a Take Trolley action — empties the scanned pickup node in RCS and starts the prep timer; nothing is persisted (no Trolley Activity, no RCS task order)',
+  })
+  async takeTrolley(@Body() dto: TakeTrolleyDto) {
+    const data = await this.takeTrolleyUseCase.execute(dto);
+    return { success: true, message: 'Trolley taken successfully', data };
   }
 
   @Get()
