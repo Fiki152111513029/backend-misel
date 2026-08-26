@@ -18,9 +18,34 @@ export interface CreateTrolleyActivityData {
   taskId: string;
 }
 
+// What Take Trolley writes — an "open" row: no statusEnd/endDate yet, and no
+// RCS task has actually been sent (taskId here is just a reserved
+// placeholder, overwritten once Drop Trolley completes this row).
+export interface CreateOpenTrolleyActivityData {
+  userId: string;
+  trolleyId: string;
+  statusBeginning: TrolleyStatus;
+  pickupLocationCode: string;
+  startDate: Date;
+  taskId: string;
+}
+
+// What Drop Trolley writes onto a previously-open row to complete it.
+export interface CompleteTrolleyActivityData {
+  statusEnd: TrolleyStatus;
+  pickupLocationCode: string;
+  droppingLocationCode?: string;
+  endDate: Date;
+  taskId: string;
+}
+
 export interface FindAllTrolleyActivitiesParams {
   page: number;
   limit: number;
+  // Restricts the list to one user's own activities — set for Warehouse/
+  // Operator roles (see GetTrolleyActivitiesUseCase), left unset for roles
+  // that get the full audit view (e.g. Super Admin).
+  userId?: string;
 }
 
 export interface FindAllTrolleyActivitiesResult {
@@ -43,6 +68,17 @@ export interface ActiveTrolleyActivityByRobot {
 
 export interface ITrolleyActivitiesRepository {
   create(data: CreateTrolleyActivityData): Promise<TrolleyActivityWithRelations>;
+  // Take Trolley's write — creates the open row described above.
+  createOpen(data: CreateOpenTrolleyActivityData): Promise<TrolleyActivityWithRelations>;
+  // The most recent open (statusEnd still null) row for this trolley, if
+  // any — Drop Trolley completes this instead of creating a new row when
+  // one exists.
+  findOpenByTrolleyId(trolleyId: string): Promise<TrolleyActivityWithRelations | null>;
+  // Drop Trolley's write onto a previously-open row.
+  completeById(
+    id: string,
+    data: CompleteTrolleyActivityData,
+  ): Promise<TrolleyActivityWithRelations>;
   findById(id: string): Promise<TrolleyActivityWithRelations | null>;
   findAll(
     params: FindAllTrolleyActivitiesParams,
@@ -54,7 +90,8 @@ export interface ITrolleyActivitiesRepository {
     robotId?: string,
   ): Promise<boolean>;
   findActiveByRobot(): Promise<ActiveTrolleyActivityByRobot[]>;
-  // PENDING/IN_PROGRESS activities the given user submitted — lets the
+  // PENDING/IN_PROGRESS activities the given user submitted, excluding open
+  // (statusEnd still null, Take Trolley only) rows — lets the
   // Warehouse/Operator Trolley Task page restore its Current Queue cards
   // after a page reload (Pinia's in-memory queue doesn't survive that).
   findActiveByUser(userId: string): Promise<TrolleyActivityWithRelations[]>;

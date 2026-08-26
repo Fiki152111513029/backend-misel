@@ -109,20 +109,20 @@ enum FromSystem {
 }
 
 model ModelCodeProcess {
-  id             String      @id @default(uuid())
+  id             String     @id @default(uuid())
   name           String
-  fromSystem     FromSystem  @default(MES)
-  isActive       Boolean     @default(true)
-  statusComment1 String      @default("")
-  statusComment2 String      @default("")
-  statusComment3 String      @default("")
-  statusComment4 String      @default("")
-  statusComment5 String      @default("")
-  statusComment6 String      @default("")
-  statusComment7 String      @default("")
-  statusComment8 String      @default("")
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  fromSystem     FromSystem @default(MES)
+  isActive       Boolean    @default(true)
+  statusComment1 String     @default("")
+  statusComment2 String     @default("")
+  statusComment3 String     @default("")
+  statusComment4 String     @default("")
+  statusComment5 String     @default("")
+  statusComment6 String     @default("")
+  statusComment7 String     @default("")
+  statusComment8 String     @default("")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
   deletedAt      DateTime?
 
   warehouseLineLocations WarehouseLineLocation[]
@@ -139,12 +139,12 @@ model ModelCodeProcess {
 }
 
 model QuarantineLine {
-  id                 String           @id @default(uuid())
+  id                 String            @id @default(uuid())
   name               String
-  isActive           Boolean          @default(true)
+  isActive           Boolean           @default(true)
   modelCodeProcessId String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
   modelCodeProcess   ModelCodeProcess? @relation(fields: [modelCodeProcessId], references: [id])
   quarantineAreas    QuarantineArea[]
@@ -288,16 +288,16 @@ model WarehouseCartTask {
 }
 
 model ProductionLine {
-  id                 String               @id @default(uuid())
-  name               String
-  quarantineLineId   String
-  operatorId         String
-  isActive           Boolean              @default(true)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  deletedAt          DateTime?
-  quarantineLine     QuarantineLine       @relation(fields: [quarantineLineId], references: [id])
-  operator           User                 @relation(fields: [operatorId], references: [id])
+  id                  String               @id @default(uuid())
+  name                String
+  quarantineLineId    String
+  operatorId          String
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  quarantineLine      QuarantineLine       @relation(fields: [quarantineLineId], references: [id])
+  operator            User                 @relation(fields: [operatorId], references: [id])
   productionLineAreas ProductionLineArea[]
   requestBoxes        RequestBox[]
   tasks               Task[]
@@ -346,12 +346,12 @@ model ProductionLineArea {
 }
 
 model RequestBox {
-  id               String    @id @default(uuid())
+  id               String         @id @default(uuid())
   productionLineId String
   boxTypeId        String
   qty              Int
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
   productionLine   ProductionLine @relation(fields: [productionLineId], references: [id])
   boxType          BoxType        @relation(fields: [boxTypeId], references: [id])
@@ -372,23 +372,23 @@ enum RobotState {
 }
 
 model Robot {
-  id                String     @id @default(uuid())
-  name              String
-  amrDeviceSerialNo String
-  amrDeviceNo       String
-  areaId            Int
-  speed             Float      @default(0)
-  battery           Int        @default(0)
-  state             RobotState @default(OFFLINE)
-  lastUpdate        DateTime   @default(now())
-  isActive          Boolean    @default(true)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  deletedAt         DateTime?
-  tasks             Task[]
+  id                 String              @id @default(uuid())
+  name               String
+  amrDeviceSerialNo  String
+  amrDeviceNo        String
+  areaId             Int
+  speed              Float               @default(0)
+  battery            Int                 @default(0)
+  state              RobotState          @default(OFFLINE)
+  lastUpdate         DateTime            @default(now())
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+  tasks              Task[]
   warehouseCartTasks WarehouseCartTask[]
-  activityLogs      RobotActivityLog[]
-  trolleyActivities TrolleyActivity[]
+  activityLogs       RobotActivityLog[]
+  trolleyActivities  TrolleyActivity[]
 
   // `name`/`amrDeviceSerialNo`/`amrDeviceNo` uniqueness is enforced by
   // partial unique indexes (WHERE "deletedAt" IS NULL, see migration) so a
@@ -424,13 +424,13 @@ model RobotActivityLog {
 }
 
 model FactoryMap {
-  id         String @id @default(uuid())
-  name       String
+  id           String    @id @default(uuid())
+  name         String
   // Manually assigned by whoever creates the map (starts at 1) — this is
   // the areaId Robots use to talk to the AMR fleet API, so it must be
   // unique. Nullable only because existing maps predate this field; new
   // maps are required to set it (see CreateFactoryMapDto).
-  areaNumber Int?
+  areaNumber   Int?
   // Server-relative URLs under /uploads — the actual files live on disk,
   // not in the DB. imagePath is optional — some maps only have topology
   // data with no floor-plan raster to show behind it.
@@ -467,10 +467,10 @@ model ChargerArea {
 }
 
 model WarehouseLocation {
-  id                  String                  @id @default(uuid())
+  id                  String                   @id @default(uuid())
   name                String
   iRaypleLocationCode String
-  isActive            Boolean                 @default(true)
+  isActive            Boolean                  @default(true)
   // Occupancy for the Trolley Task flow — null until a Trolley Task actually
   // touches this location (no trolley has ever been here, shown as the
   // plain node icon on the Factory Map, not "empty"). The
@@ -480,8 +480,8 @@ model WarehouseLocation {
   // picks up from this same location (Warehouse->Production direction), see
   // CreateTrolleyActivityUseCase.
   status              WarehouseLocationStatus?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
   deletedAt           DateTime?
 
   // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
@@ -493,10 +493,10 @@ model WarehouseLocation {
 }
 
 model ProductionLocation {
-  id                  String                   @id @default(uuid())
+  id                  String                    @id @default(uuid())
   name                String
   iRaypleLocationCode String
-  isActive            Boolean                  @default(true)
+  isActive            Boolean                   @default(true)
   // Occupancy for the Trolley Task flow — null until a Trolley Task actually
   // touches this location (no trolley has ever been here, shown as the
   // plain node icon on the Factory Map, not "empty"). Flips to FULL when a
@@ -505,8 +505,8 @@ model ProductionLocation {
   // picks up from here again (Production->Warehouse), see
   // CreateTrolleyActivityUseCase.
   status              ProductionLocationStatus?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
   deletedAt           DateTime?
 
   // `name`/`iRaypleLocationCode` uniqueness is enforced by partial unique
@@ -581,8 +581,8 @@ model Trolley {
   updatedAt            DateTime      @updatedAt
   deletedAt            DateTime?
 
-  category         TrolleyCategory?   @relation(fields: [trolleyCategoryId], references: [id])
-  modelCodeProcess ModelCodeProcess?  @relation(fields: [modelCodeProcessId], references: [id])
+  category         TrolleyCategory?  @relation(fields: [trolleyCategoryId], references: [id])
+  modelCodeProcess ModelCodeProcess? @relation(fields: [modelCodeProcessId], references: [id])
   activities       TrolleyActivity[]
 
   // `name`/`code` uniqueness is enforced by partial unique indexes
@@ -604,21 +604,32 @@ model Trolley {
 // is the RCS orderId, kept in sync with live status via the same webhook
 // receiver that already updates Task/WarehouseCartTask (see
 // receive-task-status-webhook.use-case.ts).
+//
+// A row can also start out *open*: Take Trolley (TakeTrolleyUseCase) creates
+// one immediately with statusBeginning/pickupLocationCode/startDate/taskId
+// set but statusEnd and endDate left null, and no RCS task order sent yet —
+// Drop Trolley (CreateTrolleyActivityUseCase) then finds that same open row
+// (statusEnd still null) and completes it, rather than creating a second
+// row, once the operator actually submits. statusEnd/endDate being null is
+// exactly how an "open" (Take Trolley done, Drop Trolley not yet) row is
+// told apart from a real dispatched task — every consumer that queries for
+// "active" trolley activities must also require statusEnd is not null, or
+// an open row would look like an in-flight RCS task it never actually is.
 model TrolleyActivity {
-  id                   String     @id @default(uuid())
+  id                   String         @id @default(uuid())
   userId               String
   trolleyId            String
   statusBeginning      TrolleyStatus
-  statusEnd            TrolleyStatus
+  statusEnd            TrolleyStatus?
   pickupLocationCode   String
   droppingLocationCode String?
   startDate            DateTime
-  endDate              DateTime
-  taskId               String     @unique
-  status               TaskStatus @default(PENDING)
+  endDate              DateTime?
+  taskId               String         @unique
+  status               TaskStatus     @default(PENDING)
   robotId              String?
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
   deletedAt            DateTime?
 
   user    User    @relation(fields: [userId], references: [id])

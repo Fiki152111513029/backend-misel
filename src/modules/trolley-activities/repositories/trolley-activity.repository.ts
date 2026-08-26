@@ -3,6 +3,8 @@ import { TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   ActiveTrolleyActivityByRobot,
+  CompleteTrolleyActivityData,
+  CreateOpenTrolleyActivityData,
   CreateTrolleyActivityData,
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
@@ -24,6 +26,26 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
     return this.prisma.trolleyActivity.create({ data, include: RELATIONS_INCLUDE });
   }
 
+  createOpen(data: CreateOpenTrolleyActivityData) {
+    return this.prisma.trolleyActivity.create({ data, include: RELATIONS_INCLUDE });
+  }
+
+  findOpenByTrolleyId(trolleyId: string) {
+    return this.prisma.trolleyActivity.findFirst({
+      where: { trolleyId, statusEnd: null, ...NOT_DELETED },
+      include: RELATIONS_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  completeById(id: string, data: CompleteTrolleyActivityData) {
+    return this.prisma.trolleyActivity.update({
+      where: { id },
+      data,
+      include: RELATIONS_INCLUDE,
+    });
+  }
+
   findById(id: string) {
     return this.prisma.trolleyActivity.findFirst({
       where: { id, ...NOT_DELETED },
@@ -34,15 +56,19 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
   async findAll(
     params: FindAllTrolleyActivitiesParams,
   ): Promise<FindAllTrolleyActivitiesResult> {
+    const where = {
+      ...NOT_DELETED,
+      ...(params.userId ? { userId: params.userId } : {}),
+    };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.trolleyActivity.findMany({
-        where: NOT_DELETED,
+        where,
         include: RELATIONS_INCLUDE,
         orderBy: { createdAt: 'desc' },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
       }),
-      this.prisma.trolleyActivity.count({ where: NOT_DELETED }),
+      this.prisma.trolleyActivity.count({ where }),
     ]);
     return { items, total };
   }
@@ -70,6 +96,7 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       where: {
         ...NOT_DELETED,
         robotId: { not: null },
+        statusEnd: { not: null },
         status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
       },
       select: { robotId: true, statusBeginning: true },
@@ -85,6 +112,7 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       where: {
         ...NOT_DELETED,
         userId,
+        statusEnd: { not: null },
         status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
       },
       include: RELATIONS_INCLUDE,

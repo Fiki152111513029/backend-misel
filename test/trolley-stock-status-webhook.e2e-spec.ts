@@ -272,7 +272,11 @@ describe('Trolley stock-status + position lock (e2e)', () => {
     expect(activity?.status).toBe('COMPLETED');
   });
 
-  it('take-trolley empties the scanned node via RCS and persists nothing (no activity, no RCS task order, position lock untouched)', async () => {
+  it('take-trolley empties the scanned node via RCS and creates an open Trolley Activity row (statusEnd/endDate still null, position lock untouched)', async () => {
+    // generateOrderId() is second-resolution — avoid colliding with the
+    // previous test's taskId.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
     updateStockStatusMock.mockClear();
     addTaskMock.mockClear();
 
@@ -293,11 +297,35 @@ describe('Trolley stock-status + position lock (e2e)', () => {
       trolleyName: `${suffix} Trolley`,
       pickupLocationCode: whPickupCode,
     });
+    expect(typeof res.body.data.activityId).toBe('string');
+    expect(typeof res.body.data.statusBeginning).toBe('string');
     expect(typeof res.body.data.startDate).toBe('string');
 
+    // A real open row was created — one more than before, not zero.
     const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
-    expect(activityCountAfter).toBe(activityCountBefore);
+    expect(activityCountAfter).toBe(activityCountBefore + 1);
 
+    const activity = await prisma.trolleyActivity.findUnique({
+      where: { id: res.body.data.activityId },
+    });
+    expect(activity?.pickupLocationCode).toBe(whPickupCode);
+    expect(activity?.statusEnd).toBeNull();
+    expect(activity?.droppingLocationCode).toBeNull();
+    expect(activity?.endDate).toBeNull();
+    expect(activity?.taskId).toBeTruthy();
+
+    // No RCS task was ever sent for this row, so it must not surface as an
+    // in-flight task — the Current Queue restore endpoint would otherwise
+    // show a card for a task that was never actually dispatched.
+    const activeMine = await request(app.getHttpServer())
+      .get('/trolley-activities/active-mine')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(activeMine.body.data.map((a: { activityId: string }) => a.activityId)).not.toContain(
+      res.body.data.activityId,
+    );
+
+    // Take Trolley never touches the position lock.
     const trolleyAfter = await prisma.trolley.findUnique({ where: { id: trolleyId } });
     expect(trolleyAfter?.currentLocationCode).toBe(trolleyBefore?.currentLocationCode);
     expect(trolleyAfter?.status).toBe(trolleyBefore?.status);
@@ -306,6 +334,8 @@ describe('Trolley stock-status + position lock (e2e)', () => {
   it('take-trolley rejects a pickup location code that matches neither an active Warehouse Location nor Production Location', async () => {
     updateStockStatusMock.mockClear();
 
+    const activityCountBefore = await prisma.trolleyActivity.count({ where: { trolleyId } });
+
     await request(app.getHttpServer())
       .post('/trolley-activities/take-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -313,5 +343,59 @@ describe('Trolley stock-status + position lock (e2e)', () => {
       .expect(400);
 
     expect(updateStockStatusMock).not.toHaveBeenCalled();
+    const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    expect(activityCountAfter).toBe(activityCountBefore);
+  });
+
+  it('Take Trolley then Drop Trolley for the same trolley completes the same open row instead of creating a second one', async () => {
+    // generateOrderId() is second-resolution — avoid colliding with the
+    // previous test's taskId.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    // Pick up from wherever the position lock currently points — set by the
+    // last Drop Trolley submission earlier in this file.
+    const trolleyBefore = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const pickupCode = trolleyBefore!.currentLocationCode!;
+
+    const takeRes = await request(app.getHttpServer())
+      .post('/trolley-activities/take-trolley')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ trolleyId, pickupLocationCode: pickupCode })
+      .expect(201);
+
+    const openActivityId = takeRes.body.data.activityId;
+    const activityCountAfterTake = await prisma.trolleyActivity.count({ where: { trolleyId } });
+
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    const lookupTrolley = await request(app.getHttpServer())
+      .post('/trolley-activities/lookup-trolley')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ code: `${suffix}TRL` })
+      .expect(201);
+
+    const dropRes = await request(app.getHttpServer())
+      .post('/trolley-activities')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        trolleyId,
+        pickupLocationCode: pickupCode,
+        startDate: lookupTrolley.body.data.startDate,
+      })
+      .expect(201);
+
+    // Completed the same row Take Trolley opened — not a second one.
+    expect(dropRes.body.data.activity.id).toBe(openActivityId);
+    const activityCountAfterDrop = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    expect(activityCountAfterDrop).toBe(activityCountAfterTake);
+
+    const completedActivity = await prisma.trolleyActivity.findUnique({
+      where: { id: openActivityId },
+    });
+    expect(completedActivity?.statusEnd).not.toBeNull();
+    expect(completedActivity?.endDate).not.toBeNull();
+    // The row's own startDate (from Take Trolley) wins — not overwritten by
+    // Drop Trolley's own lookup-trolley timestamp.
+    expect(completedActivity?.startDate.toISOString()).toBe(takeRes.body.data.startDate);
   });
 });
