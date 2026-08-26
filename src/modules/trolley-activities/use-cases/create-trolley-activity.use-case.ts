@@ -66,14 +66,6 @@ export class CreateTrolleyActivityUseCase {
       throw new BadRequestException('User not found');
     }
 
-    // A prior Take Trolley may have already opened a row for this trolley
-    // (statusEnd still null) — complete that one instead of creating a
-    // second row. If there isn't one, Drop Trolley still works completely
-    // standalone (create a fully-populated row in one step, as before).
-    const openActivity = await this.trolleyActivitiesRepository.findOpenByTrolleyId(
-      trolley.id,
-    );
-
     // Direction is derived from where the scanned pickup code resolves to —
     // never trusted from the client:
     // - Warehouse Location match -> Warehouse->Production (Warehouse
@@ -164,9 +156,7 @@ export class CreateTrolleyActivityUseCase {
 
     const statusBeginning = trolley.status;
     const statusEnd = toggleStatus(statusBeginning);
-    // The open row's own startDate (set when Take Trolley ran) wins over
-    // dto.startDate when one exists — it's the real moment prep began.
-    const startDate = openActivity ? openActivity.startDate : new Date(dto.startDate);
+    const startDate = new Date(dto.startDate);
     const endDate = new Date();
     const orderId = generateOrderId();
 
@@ -211,25 +201,17 @@ export class CreateTrolleyActivityUseCase {
     // rather than risk recording a location the task never really reached.
     const isOperatorDirection = !pickupWarehouseLocation;
 
-    const activity = openActivity
-      ? await this.trolleyActivitiesRepository.completeById(openActivity.id, {
-          statusEnd,
-          pickupLocationCode: dto.pickupLocationCode,
-          droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
-          endDate,
-          taskId: orderId,
-        })
-      : await this.trolleyActivitiesRepository.create({
-          userId,
-          trolleyId: trolley.id,
-          statusBeginning,
-          statusEnd,
-          pickupLocationCode: dto.pickupLocationCode,
-          droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
-          startDate,
-          endDate,
-          taskId: orderId,
-        });
+    const activity = await this.trolleyActivitiesRepository.create({
+      userId,
+      trolleyId: trolley.id,
+      statusBeginning,
+      statusEnd,
+      pickupLocationCode: dto.pickupLocationCode,
+      droppingLocationCode: isOperatorDirection ? undefined : droppingLocationCode,
+      startDate,
+      endDate,
+      taskId: orderId,
+    });
 
     // currentLocationCode drives the position lock above — updated
     // immediately here (not waiting for a webhook) to match the same

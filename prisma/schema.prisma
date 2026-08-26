@@ -604,32 +604,25 @@ model Trolley {
 // is the RCS orderId, kept in sync with live status via the same webhook
 // receiver that already updates Task/WarehouseCartTask (see
 // receive-task-status-webhook.use-case.ts).
-//
-// A row can also start out *open*: Take Trolley (TakeTrolleyUseCase) creates
-// one immediately with statusBeginning/pickupLocationCode/startDate/taskId
-// set but statusEnd and endDate left null, and no RCS task order sent yet —
-// Drop Trolley (CreateTrolleyActivityUseCase) then finds that same open row
-// (statusEnd still null) and completes it, rather than creating a second
-// row, once the operator actually submits. statusEnd/endDate being null is
-// exactly how an "open" (Take Trolley done, Drop Trolley not yet) row is
-// told apart from a real dispatched task — every consumer that queries for
-// "active" trolley activities must also require statusEnd is not null, or
-// an open row would look like an in-flight RCS task it never actually is.
+// This row is only ever written once, in full, at Drop Trolley submit
+// (CreateTrolleyActivityUseCase) — Take Trolley (TakeTrolleyUseCase) is a
+// separate, unpersisted action (an RCS stock-status call only) and never
+// touches this table.
 model TrolleyActivity {
-  id                   String         @id @default(uuid())
+  id                   String        @id @default(uuid())
   userId               String
   trolleyId            String
   statusBeginning      TrolleyStatus
-  statusEnd            TrolleyStatus?
+  statusEnd            TrolleyStatus
   pickupLocationCode   String
   droppingLocationCode String?
   startDate            DateTime
-  endDate              DateTime?
-  taskId               String         @unique
-  status               TaskStatus     @default(PENDING)
+  endDate              DateTime
+  taskId               String        @unique
+  status               TaskStatus    @default(PENDING)
   robotId              String?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
   deletedAt            DateTime?
 
   user    User    @relation(fields: [userId], references: [id])
