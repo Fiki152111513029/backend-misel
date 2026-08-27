@@ -135,6 +135,19 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
     });
   }
 
+  async findActiveTaskIdByLocationCode(code: string): Promise<string | null> {
+    const activity = await this.prisma.trolleyActivity.findFirst({
+      where: {
+        ...NOT_DELETED,
+        status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
+        trolley: { currentLocationCode: code },
+      },
+      select: { taskId: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return activity?.taskId ?? null;
+  }
+
   async getDashboardStats(
     params: DashboardStatsParams,
   ): Promise<DashboardStatsResult> {

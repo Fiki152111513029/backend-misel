@@ -132,6 +132,20 @@ export interface ITrolleyActivitiesRepository {
   // Warehouse/Operator Trolley Task page restore its Current Queue cards
   // after a page reload (Pinia's in-memory queue doesn't survive that).
   findActiveByUser(userId: string): Promise<TrolleyActivityWithRelations[]>;
+  /**
+   * The taskId of an active (PENDING/IN_PROGRESS) Trolley Task whose
+   * trolley's currentLocationCode matches — set immediately at submit time
+   * to wherever the task is headed (the trolley's own fixed dropping code
+   * for Warehouse->Production, or the auto-picked Warehouse Location for
+   * Production->Warehouse — see CreateTrolleyActivityUseCase). Used to
+   * block a Warehouse Trolley Task pickup scan on a node an AMR is still en
+   * route to deliver something at (see LookupLocationUseCase) — matching
+   * off currentLocationCode rather than TrolleyActivity.droppingLocationCode
+   * since the latter is deliberately left blank for Production->Warehouse
+   * activities until they're confirmed complete, i.e. exactly while they're
+   * still "active" and this needs to catch them.
+   */
+  findActiveTaskIdByLocationCode(code: string): Promise<string | null>;
   getDashboardStats(
     params: DashboardStatsParams,
   ): Promise<DashboardStatsResult>;

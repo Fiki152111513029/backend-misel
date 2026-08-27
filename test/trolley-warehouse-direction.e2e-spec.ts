@@ -28,7 +28,11 @@ import { HttpExceptionFilter } from './../src/common/filters/http-exception.filt
 // needing a separate fixture. Submitting doesn't require picking up from
 // wherever Trolley.currentLocationCode last landed — there's no such lock
 // (any active Warehouse/Production Location code is a valid pickup
-// regardless of the trolley's last recorded position).
+// regardless of the trolley's last recorded position). Also verifies that
+// once the Production->Warehouse submission leaves an active task heading
+// to its auto-picked Warehouse Location, lookup-location blocks scanning
+// that same node as a pickup until RCS's own getTaskOrderStatus confirms
+// either it was reached, or gives no data at all (fails open).
 describe('Trolley Activities — direction auto-detection (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -47,9 +51,11 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
   let plDropId: string;
   let plPickupCode: string; // Separate Production Location, used only by the standalone lookup-location test (not the submission chain)
   let updateStockStatusMock: jest.Mock;
+  let getTaskOrderStatusMock: jest.Mock;
 
   beforeAll(async () => {
     updateStockStatusMock = jest.fn().mockResolvedValue(undefined);
+    getTaskOrderStatusMock = jest.fn().mockResolvedValue([]);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -58,6 +64,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       .useValue({
         addTask: jest.fn().mockResolvedValue({ code: 1000, desc: 'ok' }),
         getOrderList: jest.fn().mockResolvedValue([]),
+        getTaskOrderStatus: getTaskOrderStatusMock,
       })
       .overrideProvider(RcsStockStatusService)
       .useValue({
@@ -359,6 +366,42 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
       trolleyName: `${suffix} Trolley`,
       pickupSource: 'PRODUCTION',
     });
+  });
+
+  it('lookup-location blocks scanning the Warehouse Location an active Production->Warehouse task is still confirmed in flight to', async () => {
+    getTaskOrderStatusMock.mockResolvedValueOnce([
+      { subTaskSeq: 1, qrContent: plDropCode },
+    ]);
+
+    const res = await request(app.getHttpServer())
+      .post('/trolley-activities/lookup-location')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ code: `${suffix}WHDROP` })
+      .expect(400);
+    expect(res.body.message).toContain(`${suffix}WHDROP`);
+  });
+
+  it('lookup-location allows scanning that same Warehouse Location once RCS confirms the AMR already reached it', async () => {
+    getTaskOrderStatusMock.mockResolvedValueOnce([
+      { subTaskSeq: 1, qrContent: plDropCode },
+      { subTaskSeq: 2, qrContent: `${suffix}WHDROP` },
+    ]);
+
+    await request(app.getHttpServer())
+      .post('/trolley-activities/lookup-location')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ code: `${suffix}WHDROP` })
+      .expect(201);
+  });
+
+  it('lookup-location allows scanning that same Warehouse Location when RCS has no progress data at all (fails open)', async () => {
+    getTaskOrderStatusMock.mockResolvedValueOnce([]);
+
+    await request(app.getHttpServer())
+      .post('/trolley-activities/lookup-location')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ code: `${suffix}WHDROP` })
+      .expect(201);
   });
 
   it('active-mine pickupSource follows the page the operator actually submitted from (queueRole), not the pickup/dropping direction', async () => {

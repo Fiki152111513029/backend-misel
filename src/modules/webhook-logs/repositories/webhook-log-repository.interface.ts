@@ -73,14 +73,17 @@ export interface IWebhookLogsRepository {
     robotId?: string,
   ): Promise<boolean>;
   /**
-   * Backfills TrolleyActivity.droppingLocationCode from its trolley's
-   * currentLocationCode, but only when it's still null — Production-
-   * >Warehouse activities are deliberately left blank at submit time (RCS
-   * picks its own destination and never confirms it back to us), so this
-   * fills it in once the task is confirmed complete instead of recording a
-   * location the task might never have actually reached. No-op if the
-   * activity's droppingLocationCode is already set, or the trolley has no
-   * currentLocationCode yet.
+   * Sets TrolleyActivity.droppingLocationCode (and corrects
+   * Trolley.currentLocationCode / the relevant Warehouse Locations'
+   * occupancy to match), but only when it's still null — Production->
+   * Warehouse activities are deliberately left blank at submit time (RCS
+   * picks its own destination and never confirms it back to us at submit
+   * time), so this fills in the *real* value once
+   * TaskOrderService.getTaskOrderStatus confirms where the task actually
+   * ended up. No-op if the activity's droppingLocationCode is already set.
    */
-  finalizeTrolleyActivityDroppingLocation(taskId: string): Promise<void>;
+  setTrolleyActivityDroppingLocation(
+    taskId: string,
+    droppingLocationCode: string,
+  ): Promise<void>;
 }

@@ -32,6 +32,57 @@ export type TaskListItem = Omit<TaskWithRelations, 'status' | 'robot'> & {
   robot: { id: string; name: string } | null;
 };
 
+export interface TaskOrderStatusRow {
+  subTaskSeq: number;
+  qrContent: string;
+}
+
+function isTaskOrderStatusLike(item: unknown): item is TaskOrderStatusRow {
+  return (
+    !!item &&
+    typeof item === 'object' &&
+    'subTaskSeq' in item &&
+    'qrContent' in item
+  );
+}
+
+// Same envelope-shape uncertainty as the other RCS integrations — walk the
+// payload for an array of subtask-progress rows, at any nesting depth. A
+// single bare object (not wrapped in an array) is also accepted, since
+// getTaskOrderStatus can respond with just the current step.
+function findTaskOrderStatusArray(
+  payload: unknown,
+  depth = 0,
+): TaskOrderStatusRow[] | null {
+  if (depth > 6 || payload == null) return null;
+
+  if (Array.isArray(payload)) {
+    if (payload.length === 0) return payload as TaskOrderStatusRow[];
+    const matching = payload.filter(isTaskOrderStatusLike).length;
+    if (matching / payload.length >= 0.5) {
+      return payload.filter(isTaskOrderStatusLike);
+    }
+    return null;
+  }
+
+  if (typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    for (const key of ['data', 'list', 'rows', 'result']) {
+      if (key in record) {
+        const found = findTaskOrderStatusArray(record[key], depth + 1);
+        if (found && found.length > 0) return found;
+      }
+    }
+    if (isTaskOrderStatusLike(payload)) return [payload];
+    for (const value of Object.values(record)) {
+      const found = findTaskOrderStatusArray(value, depth + 1);
+      if (found && found.length > 0) return found;
+    }
+  }
+
+  return null;
+}
+
 function isOrderLike(item: unknown): item is ExternalOrderInfo {
   return (
     !!item &&
@@ -44,14 +95,17 @@ function isOrderLike(item: unknown): item is ExternalOrderInfo {
 // robot-telemetry.service.ts) — walk the payload for an array that looks
 // like a list of orders, at any nesting depth. A majority match (rather than
 // every single item) tolerates the odd malformed/legacy entry in the list.
-function findOrderArray(payload: unknown, depth = 0): ExternalOrderInfo[] | null {
+function findOrderArray(
+  payload: unknown,
+  depth = 0,
+): ExternalOrderInfo[] | null {
   if (depth > 6 || payload == null) return null;
 
   if (Array.isArray(payload)) {
     if (payload.length === 0) return payload as ExternalOrderInfo[];
     const matching = payload.filter(isOrderLike).length;
     if (matching / payload.length >= 0.5) {
-      return payload.filter(isOrderLike) as ExternalOrderInfo[];
+      return payload.filter(isOrderLike);
     }
     return null;
   }
@@ -150,7 +204,9 @@ export class TaskOrderService {
       );
     }
 
-    this.logger.log(`Task order response for orderId ${payload.orderId}: ${raw}`);
+    this.logger.log(
+      `Task order response for orderId ${payload.orderId}: ${raw}`,
+    );
 
     let parsed: unknown;
     try {
@@ -171,7 +227,7 @@ export class TaskOrderService {
       parsed &&
       typeof parsed === 'object' &&
       'code' in parsed &&
-      typeof (parsed as { code: unknown }).code === 'number' &&
+      typeof parsed.code === 'number' &&
       (parsed as { code: number }).code !== RCS_SUCCESS_CODE
     ) {
       const desc =
@@ -182,6 +238,62 @@ export class TaskOrderService {
     }
 
     return parsed;
+  }
+
+  /**
+   * Live per-subtask progress for one order, straight from RCS — which
+   * node/QR code each subTaskSeq of this order has actually reached so far.
+   * The ground truth for "where did this order really end up" (RCS decides
+   * its own route for Production->Warehouse Trolley Tasks and never reports
+   * its choice back any other way — see ReceiveTaskStatusWebhookUseCase).
+   * Resilient by design: a failure returns an empty list rather than
+   * throwing, so callers can fall back to leaving a value unset instead of
+   * guessing.
+   */
+  async getTaskOrderStatus(orderId: string): Promise<TaskOrderStatusRow[]> {
+    const url = this.configService.get<string>('taskOrder.getStatusUrl');
+    if (!url) {
+      this.logger.warn('Task order status URL is not configured — skipping');
+      return [];
+    }
+
+    const payload = { orderId };
+    this.logger.log(`POST ${url} — payload: ${JSON.stringify(payload)}`);
+
+    let raw: string;
+    try {
+      raw = await postJson(url, payload, 5000);
+    } catch (error) {
+      this.logger.warn(`Failed to reach task order status endpoint: ${error}`);
+      return [];
+    }
+
+    this.logger.log(
+      `Task order status response for orderId ${orderId}: ${raw}`,
+    );
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      this.logger.warn(
+        `Task order status endpoint returned invalid JSON: ${error}`,
+      );
+      return [];
+    }
+
+    const rows = findTaskOrderStatusArray(parsed) ?? [];
+    if (rows.length === 0) {
+      this.logger.warn(
+        `Task order status response had no recognizable rows for orderId ${orderId}. Raw keys: ${
+          parsed && typeof parsed === 'object'
+            ? Object.keys(parsed).join(', ')
+            : typeof parsed
+        }`,
+      );
+    }
+
+    return rows;
   }
 
   /**

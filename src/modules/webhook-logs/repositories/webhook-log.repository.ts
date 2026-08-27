@@ -67,7 +67,9 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
 
     const trolleyActivity = await this.prisma.trolleyActivity.findFirst({
       where: { taskId: orderId, deletedAt: null },
-      select: { trolley: { select: { modelCodeProcess: { select: { name: true } } } } },
+      select: {
+        trolley: { select: { modelCodeProcess: { select: { name: true } } } },
+      },
     });
     return trolleyActivity?.trolley.modelCodeProcess?.name ?? null;
   }
@@ -110,7 +112,11 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
 
     const [task, cartTask] = await Promise.all([
       this.prisma.task.findFirst({
-        where: { robotId, status: { in: ACTIVE_TASK_STATUSES }, deletedAt: null },
+        where: {
+          robotId,
+          status: { in: ACTIVE_TASK_STATUSES },
+          deletedAt: null,
+        },
         orderBy: { updatedAt: 'desc' },
         select: { taskId: true, updatedAt: true },
       }),
@@ -126,7 +132,9 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     ]);
 
     if (task && cartTask) {
-      return task.updatedAt > cartTask.updatedAt ? task.taskId : cartTask.taskId;
+      return task.updatedAt > cartTask.updatedAt
+        ? task.taskId
+        : cartTask.taskId;
     }
     return task?.taskId ?? cartTask?.taskId ?? null;
   }
@@ -178,16 +186,45 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     return result.count > 0;
   }
 
-  async finalizeTrolleyActivityDroppingLocation(taskId: string): Promise<void> {
+  async setTrolleyActivityDroppingLocation(
+    taskId: string,
+    droppingLocationCode: string,
+  ): Promise<void> {
     const activity = await this.prisma.trolleyActivity.findFirst({
       where: { taskId, deletedAt: null, droppingLocationCode: null },
-      select: { id: true, trolley: { select: { currentLocationCode: true } } },
+      select: {
+        id: true,
+        trolleyId: true,
+        trolley: { select: { currentLocationCode: true } },
+      },
     });
-    if (!activity?.trolley.currentLocationCode) return;
+    if (!activity) return;
 
-    await this.prisma.trolleyActivity.update({
-      where: { id: activity.id },
-      data: { droppingLocationCode: activity.trolley.currentLocationCode },
+    // The submit-time guess (first EMPTY Warehouse Location — see
+    // CreateTrolleyActivityUseCase) may not be where RCS actually dropped
+    // the trolley. Correct its occupancy back to EMPTY if it turns out to
+    // have been wrong, and mark the real destination FULL instead.
+    const guessedCode = activity.trolley.currentLocationCode;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.trolleyActivity.update({
+        where: { id: activity.id },
+        data: { droppingLocationCode },
+      });
+      await tx.trolley.update({
+        where: { id: activity.trolleyId },
+        data: { currentLocationCode: droppingLocationCode },
+      });
+      if (guessedCode && guessedCode !== droppingLocationCode) {
+        await tx.warehouseLocation.updateMany({
+          where: { iRaypleLocationCode: guessedCode, deletedAt: null },
+          data: { status: 'EMPTY' },
+        });
+      }
+      await tx.warehouseLocation.updateMany({
+        where: { iRaypleLocationCode: droppingLocationCode, deletedAt: null },
+        data: { status: 'FULL' },
+      });
     });
   }
 }

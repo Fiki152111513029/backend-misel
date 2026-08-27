@@ -20,9 +20,10 @@ import { HttpExceptionFilter } from './../src/common/filters/http-exception.filt
 // actually confirmed by the operator's own area scan, at submit, not
 // inferred earlier. There is no position lock — a submission's pickup
 // doesn't need to match Trolley.currentLocationCode, which is tracking
-// only now (it still feeds the "AMR incoming" warning and the
-// Operator-direction TrolleyActivity.droppingLocationCode backfill on a
-// status=8/Completed webhook, also verified here). Also verifies Take
+// only now (it still feeds the Operator-direction
+// TrolleyActivity.droppingLocationCode backfill — from RCS's own
+// getTaskOrderStatus, not our submit-time guess — on a status=8/Completed
+// webhook, also verified here). Also verifies Take
 // Trolley (its own endpoint — empties the scanned node in RCS and creates
 // an *open* TrolleyActivity row: userId/trolleyId/statusBeginning/
 // pickupLocationCode/queueRole/startDate set, no statusEnd/endDate/real RCS
@@ -46,11 +47,13 @@ describe('Trolley stock-status (e2e)', () => {
   let plDropCode: string;
   let updateStockStatusMock: jest.Mock;
   let addTaskMock: jest.Mock;
+  let getTaskOrderStatusMock: jest.Mock;
   let mcpName: string;
 
   beforeAll(async () => {
     updateStockStatusMock = jest.fn().mockResolvedValue(undefined);
     addTaskMock = jest.fn().mockResolvedValue({ code: 1000, desc: 'ok' });
+    getTaskOrderStatusMock = jest.fn().mockResolvedValue([]);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -59,6 +62,7 @@ describe('Trolley stock-status (e2e)', () => {
       .useValue({
         addTask: addTaskMock,
         getOrderList: jest.fn().mockResolvedValue([]),
+        getTaskOrderStatus: getTaskOrderStatusMock,
       })
       .overrideProvider(RcsStockStatusService)
       .useValue({
@@ -244,18 +248,41 @@ describe('Trolley stock-status (e2e)', () => {
     operatorDropCode = trolley!.currentLocationCode!;
   });
 
-  it('backfills droppingLocationCode once RCS reports the Operator-direction task Completed (status 8)', async () => {
+  it('sets droppingLocationCode from RCS getTaskOrderStatus once it reports the Operator-direction task Completed (status 8) — correcting our own submit-time guess if RCS actually chose differently', async () => {
     let activity = await prisma.trolleyActivity.findUnique({ where: { id: operatorActivityId } });
     expect(activity?.droppingLocationCode).toBeNull();
+
+    // RCS's real answer deliberately differs from our submit-time guess
+    // (operatorDropCode) — proves we record what RCS actually reports, not
+    // what we assumed.
+    const realDropCode = `${suffix}WHREAL`;
+    getTaskOrderStatusMock.mockResolvedValueOnce([
+      { subTaskSeq: 1, qrContent: plDropCode },
+      { subTaskSeq: 2, qrContent: realDropCode },
+    ]);
 
     await request(app.getHttpServer())
       .post('/webhooks-logs')
       .send({ orderId: operatorTaskId, deviceCode: 'AMR-E2E-STOCK', status: '8' })
       .expect(200);
 
+    expect(getTaskOrderStatusMock).toHaveBeenCalledWith(operatorTaskId);
+
     activity = await prisma.trolleyActivity.findUnique({ where: { id: operatorActivityId } });
-    expect(activity?.droppingLocationCode).toBe(operatorDropCode);
+    expect(activity?.droppingLocationCode).toBe(realDropCode);
+    expect(activity?.droppingLocationCode).not.toBe(operatorDropCode);
     expect(activity?.status).toBe('COMPLETED');
+
+    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    expect(trolley?.currentLocationCode).toBe(realDropCode);
+
+    // The guessed Warehouse Location (auto-picked and flipped FULL at
+    // submit time) gets freed back to EMPTY once it's confirmed RCS never
+    // actually used it.
+    const guessedLocation = await prisma.warehouseLocation.findFirst({
+      where: { iRaypleLocationCode: operatorDropCode },
+    });
+    expect(guessedLocation?.status).toBe('EMPTY');
   });
 
   it('take-trolley empties the scanned node via RCS and creates an open Trolley Activity row (statusEnd/endDate still null, currentLocationCode untouched)', async () => {

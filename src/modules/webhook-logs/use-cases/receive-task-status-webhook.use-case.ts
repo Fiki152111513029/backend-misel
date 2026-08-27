@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TaskStatus } from '@prisma/client';
 import { WEBHOOK_LOGS_REPOSITORY } from '../repositories/webhook-log-repository.interface';
 import type { IWebhookLogsRepository } from '../repositories/webhook-log-repository.interface';
+import { TaskOrderService } from '../../tasks/services/task-order.service';
 
 // RCS's own OrderStatus codes (see docs/apiwebhook.md and the Mainline
 // status mapping) — 8 is the only success code, 3/5/7 are terminal
@@ -14,10 +15,7 @@ function normalizeStatus(rawStatus: string): TaskStatus {
   if (rawStatus === TaskStatus.COMPLETED || rawStatus === RCS_COMPLETED_CODE) {
     return TaskStatus.COMPLETED;
   }
-  if (
-    rawStatus === TaskStatus.FAILED ||
-    RCS_FAILED_CODES.includes(rawStatus)
-  ) {
+  if (rawStatus === TaskStatus.FAILED || RCS_FAILED_CODES.includes(rawStatus)) {
     return TaskStatus.FAILED;
   }
   if (rawStatus === TaskStatus.PENDING) {
@@ -31,6 +29,7 @@ export class ReceiveTaskStatusWebhookUseCase {
   constructor(
     @Inject(WEBHOOK_LOGS_REPOSITORY)
     private readonly webhookLogsRepository: IWebhookLogsRepository,
+    private readonly taskOrderService: TaskOrderService,
   ) {}
 
   async execute(body: Record<string, unknown>) {
@@ -77,12 +76,29 @@ export class ReceiveTaskStatusWebhookUseCase {
             // Production->Warehouse activities are submitted without a
             // droppingLocationCode (RCS picks its own destination and never
             // confirms it back to us) — see CreateTrolleyActivityUseCase.
-            // Once RCS reports the task truly finished, backfill it from
-            // Trolley.currentLocationCode (set immediately at submit time).
+            // Once RCS reports the task truly finished, ask RCS itself where
+            // the order actually ended up (rather than trust our own
+            // submit-time guess) and record that. The row with the highest
+            // subTaskSeq is the furthest/last point the order actually
+            // reached. Left unset (no fallback guess) if RCS can't confirm
+            // it right now — a later retry of this same webhook, or another
+            // completed activity for the same trolley, gets another chance.
             if (matchedTrolleyActivity && status === TaskStatus.COMPLETED) {
-              await this.webhookLogsRepository.finalizeTrolleyActivityDroppingLocation(
-                orderId,
+              const progress =
+                await this.taskOrderService.getTaskOrderStatus(orderId);
+              const finalStep = progress.reduce<
+                (typeof progress)[number] | null
+              >(
+                (latest, row) =>
+                  !latest || row.subTaskSeq > latest.subTaskSeq ? row : latest,
+                null,
               );
+              if (finalStep?.qrContent) {
+                await this.webhookLogsRepository.setTrolleyActivityDroppingLocation(
+                  orderId,
+                  finalStep.qrContent,
+                );
+              }
             }
           }
         }

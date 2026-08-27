@@ -38,7 +38,8 @@ export default () => ({
   },
   robotControl: {
     url:
-      process.env.ROBOT_CONTROL_URL ?? 'http://172.18.101.10:7000/ics/out/controlDevice',
+      process.env.ROBOT_CONTROL_URL ??
+      'http://172.18.101.10:7000/ics/out/controlDevice',
   },
   taskOrder: {
     url:
@@ -48,6 +49,14 @@ export default () => ({
       process.env.TASK_ORDER_GET_ORDER_LIST_URL ??
       'http://172.18.101.10:7000/ics/out/task/getOrderList',
     areaId: parseInt(process.env.TASK_ORDER_AREA_ID ?? '2', 10),
+    // Per-order live progress (which node/QR code each subTaskSeq of this
+    // order has actually reached) — the ground truth for "where did this
+    // order really end up", since RCS decides its own route for
+    // Production->Warehouse Trolley Tasks and never reports its choice back
+    // any other way. See ReceiveTaskStatusWebhookUseCase.
+    getStatusUrl:
+      process.env.TASK_LOCATION ??
+      'http://172.18.101.10:7000/ics/out/task/getTaskOrderStatus',
   },
   // RCS's own stock/bin tracking for Warehouse/Production Location nodes —
   // separate from our own DB (see Trolley.currentLocationCode) since RCS is
