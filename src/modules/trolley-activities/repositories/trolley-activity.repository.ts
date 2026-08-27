@@ -6,6 +6,8 @@ import {
   CompleteTrolleyActivityData,
   CreateOpenTrolleyActivityData,
   CreateTrolleyActivityData,
+  DashboardStatsParams,
+  DashboardStatsResult,
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
   ITrolleyActivitiesRepository,
@@ -131,5 +133,121 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       include: RELATIONS_INCLUDE,
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  async getDashboardStats(
+    params: DashboardStatsParams,
+  ): Promise<DashboardStatsResult> {
+    const rows = await this.prisma.trolleyActivity.findMany({
+      where: {
+        ...NOT_DELETED,
+        createdAt: { gte: params.since },
+        ...(params.userId ? { userId: params.userId } : {}),
+      },
+      select: {
+        status: true,
+        startDate: true,
+        endDate: true,
+        createdAt: true,
+        pickupLocationCode: true,
+        droppingLocationCode: true,
+        userId: true,
+        user: { select: { fullName: true } },
+      },
+    });
+
+    const totals = {
+      total: rows.length,
+      completed: 0,
+      pending: 0,
+      inProgress: 0,
+      failed: 0,
+    };
+    let durationSum = 0;
+    let durationCount = 0;
+    const dailyMap = new Map<string, { completed: number; failed: number }>();
+    const operatorMap = new Map<
+      string,
+      {
+        fullName: string;
+        completedCount: number;
+        durationSum: number;
+        durationCount: number;
+      }
+    >();
+    const locationMap = new Map<string, number>();
+
+    for (const row of rows) {
+      if (row.status === TaskStatus.COMPLETED) totals.completed += 1;
+      else if (row.status === TaskStatus.PENDING) totals.pending += 1;
+      else if (row.status === TaskStatus.IN_PROGRESS) totals.inProgress += 1;
+      else if (row.status === TaskStatus.FAILED) totals.failed += 1;
+
+      const dayKey = row.createdAt.toISOString().slice(0, 10);
+      const day = dailyMap.get(dayKey) ?? { completed: 0, failed: 0 };
+      if (row.status === TaskStatus.COMPLETED) day.completed += 1;
+      if (row.status === TaskStatus.FAILED) day.failed += 1;
+      dailyMap.set(dayKey, day);
+
+      if (row.status === TaskStatus.COMPLETED && row.endDate) {
+        const seconds =
+          (row.endDate.getTime() - row.startDate.getTime()) / 1000;
+        durationSum += seconds;
+        durationCount += 1;
+
+        const operator = operatorMap.get(row.userId) ?? {
+          fullName: row.user.fullName,
+          completedCount: 0,
+          durationSum: 0,
+          durationCount: 0,
+        };
+        operator.completedCount += 1;
+        operator.durationSum += seconds;
+        operator.durationCount += 1;
+        operatorMap.set(row.userId, operator);
+      }
+
+      locationMap.set(
+        row.pickupLocationCode,
+        (locationMap.get(row.pickupLocationCode) ?? 0) + 1,
+      );
+      if (row.droppingLocationCode) {
+        locationMap.set(
+          row.droppingLocationCode,
+          (locationMap.get(row.droppingLocationCode) ?? 0) + 1,
+        );
+      }
+    }
+
+    const dailyTrend = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, value]) => ({ date, ...value }));
+
+    const topOperators = [...operatorMap.entries()]
+      .map(([userId, value]) => ({
+        userId,
+        fullName: value.fullName,
+        completedCount: value.completedCount,
+        avgDurationSeconds: value.durationCount
+          ? Math.round(value.durationSum / value.durationCount)
+          : null,
+      }))
+      .sort((a, b) => b.completedCount - a.completedCount)
+      .slice(0, 5);
+
+    const topLocations = [...locationMap.entries()]
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return {
+      totals,
+      avgDurationSeconds: durationCount
+        ? Math.round(durationSum / durationCount)
+        : null,
+      dailyTrend,
+      topOperators,
+      topLocations,
+    };
   }
 }

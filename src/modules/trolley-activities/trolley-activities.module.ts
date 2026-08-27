@@ -17,6 +17,7 @@ import { GetTrolleyActivitySequenceUseCase } from './use-cases/get-trolley-activ
 import { GetActiveTrolleyActivitiesByRobotUseCase } from './use-cases/get-active-trolley-activities-by-robot.use-case';
 import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-trolley-activities.use-case';
 import { DeleteTrolleyActivityUseCase } from './use-cases/delete-trolley-activity.use-case';
+import { GetTrolleyActivityDashboardUseCase } from './use-cases/get-trolley-activity-dashboard.use-case';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { DeleteTrolleyActivityUseCase } from './use-cases/delete-trolley-activit
     GetActiveTrolleyActivitiesByRobotUseCase,
     GetMyActiveTrolleyActivitiesUseCase,
     DeleteTrolleyActivityUseCase,
+    GetTrolleyActivityDashboardUseCase,
   ],
   exports: [TROLLEY_ACTIVITIES_REPOSITORY],
 })

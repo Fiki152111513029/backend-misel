@@ -68,6 +68,34 @@ export interface ActiveTrolleyActivityByRobot {
   carrying: TrolleyStatus;
 }
 
+export interface DashboardStatsParams {
+  since: Date;
+  // Restricts the stats to one user's own activities — set for Warehouse/
+  // Operator roles, left unset for roles that get the full picture.
+  userId?: string;
+}
+
+export interface DashboardStatsResult {
+  totals: {
+    total: number;
+    completed: number;
+    pending: number;
+    inProgress: number;
+    failed: number;
+  };
+  // Average COMPLETED duration (endDate - startDate) in seconds, within
+  // range — null when there's nothing completed yet to average.
+  avgDurationSeconds: number | null;
+  dailyTrend: { date: string; completed: number; failed: number }[];
+  topOperators: {
+    userId: string;
+    fullName: string;
+    completedCount: number;
+    avgDurationSeconds: number | null;
+  }[];
+  topLocations: { code: string; count: number }[];
+}
+
 export interface ITrolleyActivitiesRepository {
   create(
     data: CreateTrolleyActivityData,
@@ -104,4 +132,7 @@ export interface ITrolleyActivitiesRepository {
   // Warehouse/Operator Trolley Task page restore its Current Queue cards
   // after a page reload (Pinia's in-memory queue doesn't survive that).
   findActiveByUser(userId: string): Promise<TrolleyActivityWithRelations[]>;
+  getDashboardStats(
+    params: DashboardStatsParams,
+  ): Promise<DashboardStatsResult>;
 }
