@@ -350,6 +350,27 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Charger Area',
     description: 'Delete charger areas',
   },
+  // Parking Area
+  {
+    code: 'parking-area.create',
+    name: 'Create Parking Area',
+    description: 'Create new parking areas',
+  },
+  {
+    code: 'parking-area.read',
+    name: 'Read Parking Area',
+    description: 'View parking areas',
+  },
+  {
+    code: 'parking-area.update',
+    name: 'Update Parking Area',
+    description: 'Update parking areas',
+  },
+  {
+    code: 'parking-area.delete',
+    name: 'Delete Parking Area',
+    description: 'Delete parking areas',
+  },
   // Trolley
   {
     code: 'trolley.create',

@@ -28,6 +28,7 @@ import { IcsLogsAccessModule } from './modules/ics-logs-access/ics-logs-access.m
 import { WebhookLogsModule } from './modules/webhook-logs/webhook-logs.module';
 import { FactoryMapsModule } from './modules/factory-maps/factory-maps.module';
 import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module';
+import { ParkingAreasModule } from './modules/parking-areas/parking-areas.module';
 import { TrolleysModule } from './modules/trolleys/trolleys.module';
 import { TrolleyCategoriesModule } from './modules/trolley-categories/trolley-categories.module';
 import { WarehouseLocationsModule } from './modules/warehouse-locations/warehouse-locations.module';
@@ -72,6 +73,7 @@ import { RcsStockStatusModule } from './modules/rcs-stock-status/rcs-stock-statu
     WebhookLogsModule,
     FactoryMapsModule,
     ChargerAreasModule,
+    ParkingAreasModule,
     TrolleysModule,
     TrolleyCategoriesModule,
     WarehouseLocationsModule,
