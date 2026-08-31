@@ -16,7 +16,12 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FactoryMap } from '@prisma/client';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CreateFactoryMapDto } from '../dto/create-factory-map.dto';
@@ -137,7 +142,7 @@ export class FactoryMapController {
   @Permissions('factory-map.read')
   @ApiOperation({
     summary:
-      'Real location codes (iRaypleLocationCode) across Quarantine Areas, EXIM Locations, Empty Pallet Locations, Production Line Areas, and Charger Areas — used to filter which topology nodes get a marker on the Factory Map, plus the Charger Area subset for choosing which icon to render',
+      'Real location codes (iRaypleLocationCode) across Quarantine Areas, EXIM Locations, Empty Pallet Locations, Production Line Areas, Charger Areas, and Parking Areas — used to filter which topology nodes get a marker on the Factory Map, plus the Charger Area and Parking Area subsets for choosing which icon to render',
   })
   async locationCodes() {
     const data = await this.getLocationCodesUseCase.execute();

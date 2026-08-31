@@ -8,7 +8,10 @@ function toStatusEntries(
   rows: { iRaypleLocationCode: string; status: 'EMPTY' | 'FULL' | null }[],
 ): { code: string; status: 'EMPTY' | 'FULL' }[] {
   return rows
-    .filter((row): row is typeof row & { status: 'EMPTY' | 'FULL' } => row.status !== null)
+    .filter(
+      (row): row is typeof row & { status: 'EMPTY' | 'FULL' } =>
+        row.status !== null,
+    )
     .map((row) => ({ code: row.iRaypleLocationCode, status: row.status }));
 }
 
@@ -22,6 +25,8 @@ export interface LocationCodesResult {
   // Factory Map can render a distinct charger icon for those nodes instead
   // of the generic location icon.
   chargerCodes: string[];
+  // Same, but for Parking Area — rendered with its own distinct icon.
+  parkingCodes: string[];
   // Warehouse Location codes with their current occupancy (see
   // CreateTrolleyActivityUseCase) — the Factory Map shows a
   // full/empty-trolley icon on these nodes instead of the generic one.
@@ -42,6 +47,7 @@ export class GetLocationCodesUseCase {
       emptyPalletLocations,
       productionLineAreas,
       chargerAreas,
+      parkingAreas,
       warehouseLocations,
       productionLocations,
     ] = await Promise.all([
@@ -65,6 +71,10 @@ export class GetLocationCodesUseCase {
         where: { deletedAt: null },
         select: { iRaypleLocationCode: true },
       }),
+      this.prisma.parkingArea.findMany({
+        where: { deletedAt: null },
+        select: { iRaypleLocationCode: true },
+      }),
       this.prisma.warehouseLocation.findMany({
         where: { deletedAt: null },
         select: { iRaypleLocationCode: true, status: true },
@@ -81,15 +91,18 @@ export class GetLocationCodesUseCase {
       ...emptyPalletLocations,
       ...productionLineAreas,
       ...chargerAreas,
+      ...parkingAreas,
       ...warehouseLocations,
       ...productionLocations,
     ].map((row) => row.iRaypleLocationCode);
 
     const chargerCodes = chargerAreas.map((row) => row.iRaypleLocationCode);
+    const parkingCodes = parkingAreas.map((row) => row.iRaypleLocationCode);
 
     return {
       codes: [...new Set(codes)],
       chargerCodes: [...new Set(chargerCodes)],
+      parkingCodes: [...new Set(parkingCodes)],
       warehouseLocationStatuses: toStatusEntries(warehouseLocations),
       productionLocationStatuses: toStatusEntries(productionLocations),
     };
