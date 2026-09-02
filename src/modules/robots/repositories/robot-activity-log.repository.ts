@@ -6,6 +6,7 @@ import {
   FindRobotActivityParams,
   FindRobotActivityResult,
   IRobotActivityLogRepository,
+  RobotStatusPoint,
 } from './robot-activity-log-repository.interface';
 
 // Below this, an unchanged reading isn't worth its own row — Factory Map
@@ -73,5 +74,28 @@ export class RobotActivityLogRepository implements IRobotActivityLogRepository {
       where: { recordedAt: { lt: cutoff } },
     });
     return result.count;
+  }
+
+  async findRange(
+    robotId: string,
+    from: Date,
+    to: Date,
+  ): Promise<RobotStatusPoint[]> {
+    return this.prisma.robotActivityLog.findMany({
+      where: { robotId, recordedAt: { gte: from, lt: to } },
+      select: { recordedAt: true, state: true },
+      orderBy: { recordedAt: 'asc' },
+    });
+  }
+
+  async findLastBefore(
+    robotId: string,
+    before: Date,
+  ): Promise<RobotStatusPoint | null> {
+    return this.prisma.robotActivityLog.findFirst({
+      where: { robotId, recordedAt: { lt: before } },
+      select: { recordedAt: true, state: true },
+      orderBy: { recordedAt: 'desc' },
+    });
   }
 }

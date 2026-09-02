@@ -21,7 +21,8 @@ export class RobotActivityLogRetentionService {
   @Cron(CronExpression.EVERY_WEEK)
   async purgeOldLogs(): Promise<void> {
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const deleted = await this.robotActivityLogRepository.deleteOlderThan(cutoff);
+    const deleted =
+      await this.robotActivityLogRepository.deleteOlderThan(cutoff);
     if (deleted > 0) {
       this.logger.log(
         `Purged ${deleted} RobotActivityLog row(s) older than ${RETENTION_DAYS} days`,

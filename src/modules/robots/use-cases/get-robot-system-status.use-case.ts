@@ -9,9 +9,11 @@ export interface RobotSystemStatus {
 }
 
 function isOfflineState(value: unknown): boolean {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase() === 'offline';
+  return (
+    String(value ?? '')
+      .trim()
+      .toLowerCase() === 'offline'
+  );
 }
 
 @Injectable()

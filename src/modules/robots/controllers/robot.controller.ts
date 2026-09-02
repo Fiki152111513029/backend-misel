@@ -18,6 +18,7 @@ import { CreateRobotDto } from '../dto/create-robot.dto';
 import { DeviceInfoQueryDto } from '../dto/device-info-query.dto';
 import { RobotActivityQueryDto } from '../dto/robot-activity-query.dto';
 import { RobotQueryDto } from '../dto/robot-query.dto';
+import { RobotStatusSummaryQueryDto } from '../dto/robot-status-summary-query.dto';
 import { UpdateRobotDto } from '../dto/update-robot.dto';
 import { RobotTelemetryService } from '../services/robot-telemetry.service';
 import { ControlRobotUseCase } from '../use-cases/control-robot.use-case';
@@ -25,6 +26,7 @@ import { CreateRobotUseCase } from '../use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from '../use-cases/delete-robot.use-case';
 import { GetFleetStatusUseCase } from '../use-cases/get-fleet-status.use-case';
 import { GetRobotActivityUseCase } from '../use-cases/get-robot-activity.use-case';
+import { GetRobotStatusSummaryUseCase } from '../use-cases/get-robot-status-summary.use-case';
 import { GetRobotSystemStatusUseCase } from '../use-cases/get-robot-system-status.use-case';
 import { GetRobotUseCase } from '../use-cases/get-robot.use-case';
 import { GetRobotsUseCase } from '../use-cases/get-robots.use-case';
@@ -45,6 +47,7 @@ export class RobotController {
     private readonly controlRobotUseCase: ControlRobotUseCase,
     private readonly getRobotSystemStatusUseCase: GetRobotSystemStatusUseCase,
     private readonly getFleetStatusUseCase: GetFleetStatusUseCase,
+    private readonly getRobotStatusSummaryUseCase: GetRobotStatusSummaryUseCase,
   ) {}
 
   @Post()
@@ -117,6 +120,21 @@ export class RobotController {
     return {
       success: true,
       message: 'Fleet status retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('status-summary')
+  @Permissions('robot.read')
+  @ApiOperation({
+    summary:
+      "Running/Idle/Charging minutes per robot for one UTC calendar day (query param: date, YYYY-MM-DD) — the AMR Performance chart's data. Today is computed live from RobotActivityLog; past days read the permanent RobotStatusDailySummary rollup (falling back to a live computation if that day was never rolled up and its raw logs haven't been purged yet)",
+  })
+  async statusSummary(@Query() query: RobotStatusSummaryQueryDto) {
+    const data = await this.getRobotStatusSummaryUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Robot status summary retrieved successfully',
       data,
     };
   }

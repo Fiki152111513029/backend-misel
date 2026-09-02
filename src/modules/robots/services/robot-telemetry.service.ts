@@ -262,7 +262,7 @@ export class RobotTelemetryService {
       parsed &&
       typeof parsed === 'object' &&
       'code' in parsed &&
-      typeof (parsed as { code: unknown }).code === 'number' &&
+      typeof parsed.code === 'number' &&
       (parsed as { code: number }).code !== RCS_SUCCESS_CODE
     ) {
       const desc =

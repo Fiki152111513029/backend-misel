@@ -372,23 +372,24 @@ enum RobotState {
 }
 
 model Robot {
-  id                 String              @id @default(uuid())
-  name               String
-  amrDeviceSerialNo  String
-  amrDeviceNo        String
-  areaId             Int
-  speed              Float               @default(0)
-  battery            Int                 @default(0)
-  state              RobotState          @default(OFFLINE)
-  lastUpdate         DateTime            @default(now())
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  deletedAt          DateTime?
-  tasks              Task[]
-  warehouseCartTasks WarehouseCartTask[]
-  activityLogs       RobotActivityLog[]
-  trolleyActivities  TrolleyActivity[]
+  id                   String                    @id @default(uuid())
+  name                 String
+  amrDeviceSerialNo    String
+  amrDeviceNo          String
+  areaId               Int
+  speed                Float                     @default(0)
+  battery              Int                       @default(0)
+  state                RobotState                @default(OFFLINE)
+  lastUpdate           DateTime                  @default(now())
+  isActive             Boolean                   @default(true)
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  deletedAt            DateTime?
+  tasks                Task[]
+  warehouseCartTasks   WarehouseCartTask[]
+  activityLogs         RobotActivityLog[]
+  trolleyActivities    TrolleyActivity[]
+  statusDailySummaries RobotStatusDailySummary[]
 
   // `name`/`amrDeviceSerialNo`/`amrDeviceNo` uniqueness is enforced by
   // partial unique indexes (WHERE "deletedAt" IS NULL, see migration) so a
@@ -401,8 +402,11 @@ model Robot {
 
 // A snapshot of a robot's live telemetry (from ROBOT_TELEMETRY_URL, the same
 // device-info API already polled for the Robots list) — recorded as a side
-// effect each time that telemetry is fetched, so viewing/refreshing the
-// Robots page is what builds up this history over time.
+// effect each time that telemetry is fetched: viewing/refreshing the Robots
+// page triggers one, and RobotStatusPollerService (a backend cron, see that
+// file) triggers one on its own independent schedule so this history stays
+// gap-free even when nobody has the page open — RobotStatusRollupService's
+// nightly per-day Running/Idle/Charging minute totals depend on that.
 model RobotActivityLog {
   id          String   @id @default(uuid())
   robotId     String?
@@ -421,6 +425,28 @@ model RobotActivityLog {
   @@index([robotId])
   @@index([recordedAt])
   @@map("robot_activity_logs")
+}
+
+// One permanent row per robot per calendar day (UTC) — how many minutes it
+// spent Running/Idle/Charging that day, computed by RobotStatusRollupService
+// from that day's RobotActivityLog rows the night after the day completes.
+// Kept indefinitely (unlike RobotActivityLog, which is purged after 7 days)
+// so the AMR Performance chart can look back further than a week.
+model RobotStatusDailySummary {
+  id              String   @id @default(uuid())
+  robotId         String
+  robot           Robot    @relation(fields: [robotId], references: [id])
+  date            DateTime
+  runningMinutes  Int      @default(0)
+  idleMinutes     Int      @default(0)
+  chargingMinutes Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([robotId, date])
+  @@index([robotId])
+  @@index([date])
+  @@map("robot_status_daily_summaries")
 }
 
 model FactoryMap {

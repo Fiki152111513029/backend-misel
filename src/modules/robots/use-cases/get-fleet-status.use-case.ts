@@ -30,7 +30,8 @@ export class GetFleetStatusUseCase {
       sortBy: 'name',
       sortOrder: 'asc',
     });
-    const withTelemetry = await this.robotTelemetryService.mergeByDevice(robots);
+    const withTelemetry =
+      await this.robotTelemetryService.mergeByDevice(robots);
 
     return Promise.all(
       withTelemetry.map(async (robot) => ({
@@ -61,7 +62,9 @@ export class GetFleetStatusUseCase {
         : {};
     const subTaskSeqRaw = payload.subTaskSeq;
     const subTaskSeq =
-      subTaskSeqRaw != null && subTaskSeqRaw !== '' ? String(subTaskSeqRaw) : null;
+      subTaskSeqRaw != null && subTaskSeqRaw !== ''
+        ? String(subTaskSeqRaw)
+        : null;
     if (!subTaskSeq) return null;
 
     const modelProcessCodeName =
