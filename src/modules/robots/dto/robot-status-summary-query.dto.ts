@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, Matches } from 'class-validator';
+import { RobotShift } from '@prisma/client';
+import { IsEnum, IsNotEmpty, Matches } from 'class-validator';
 
 export class RobotStatusSummaryQueryDto {
   @ApiProperty({
@@ -11,4 +12,8 @@ export class RobotStatusSummaryQueryDto {
     message: 'date must be in YYYY-MM-DD format',
   })
   date!: string;
+
+  @ApiProperty({ enum: RobotShift, example: RobotShift.SESI_1 })
+  @IsEnum(RobotShift)
+  shift!: RobotShift;
 }

@@ -55,14 +55,17 @@ export class GetRobotStatusSummaryUseCase {
       sortOrder: 'asc',
     });
 
-    const { from: shiftStart, to: shiftEnd } = shiftBounds(dayStart);
+    const { from: shiftStart, to: shiftEnd } = shiftBounds(
+      dayStart,
+      query.shift,
+    );
 
     // Today isn't over yet, so it's never in RobotStatusDailySummary —
-    // compute it live. Clamped to the tracked shift window (07:00-16:30
-    // WIB): nothing before the shift starts or after it ends counts, so
-    // "now" never pushes the window past shiftEnd, and a query made before
-    // the shift has even started for the day naturally yields an empty
-    // (zero-duration) range.
+    // compute it live. Clamped to the tracked shift window (which already
+    // extends to the 21:00 WIB overtime cutoff): nothing before the shift
+    // starts or after that cutoff counts, so "now" never pushes the window
+    // past shiftEnd, and a query made before the shift has even started for
+    // the day naturally yields an empty (zero-duration) range.
     if (dayStart.getTime() === todayStart.getTime()) {
       const now = new Date();
       const liveEnd =
@@ -86,7 +89,10 @@ export class GetRobotStatusSummaryUseCase {
     // RobotActivityLog rows, which only works while they're still within
     // that table's retention window.
     const persisted =
-      await this.robotStatusDailySummaryRepository.findAllByDate(dayStart);
+      await this.robotStatusDailySummaryRepository.findAllByDate(
+        dayStart,
+        query.shift,
+      );
     const persistedByRobotId = new Map(
       persisted.map((row) => [row.robotId, row]),
     );

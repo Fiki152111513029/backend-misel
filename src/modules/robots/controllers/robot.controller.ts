@@ -19,6 +19,7 @@ import { DeviceInfoQueryDto } from '../dto/device-info-query.dto';
 import { RobotActivityQueryDto } from '../dto/robot-activity-query.dto';
 import { RobotQueryDto } from '../dto/robot-query.dto';
 import { RobotStatusSummaryQueryDto } from '../dto/robot-status-summary-query.dto';
+import { RobotStatusMonthlyQueryDto } from '../dto/robot-status-monthly-query.dto';
 import { UpdateRobotDto } from '../dto/update-robot.dto';
 import { RobotTelemetryService } from '../services/robot-telemetry.service';
 import { ControlRobotUseCase } from '../use-cases/control-robot.use-case';
@@ -27,6 +28,7 @@ import { DeleteRobotUseCase } from '../use-cases/delete-robot.use-case';
 import { GetFleetStatusUseCase } from '../use-cases/get-fleet-status.use-case';
 import { GetRobotActivityUseCase } from '../use-cases/get-robot-activity.use-case';
 import { GetRobotStatusSummaryUseCase } from '../use-cases/get-robot-status-summary.use-case';
+import { GetRobotStatusMonthlySummaryUseCase } from '../use-cases/get-robot-status-monthly-summary.use-case';
 import { GetRobotSystemStatusUseCase } from '../use-cases/get-robot-system-status.use-case';
 import { GetRobotUseCase } from '../use-cases/get-robot.use-case';
 import { GetRobotsUseCase } from '../use-cases/get-robots.use-case';
@@ -48,6 +50,7 @@ export class RobotController {
     private readonly getRobotSystemStatusUseCase: GetRobotSystemStatusUseCase,
     private readonly getFleetStatusUseCase: GetFleetStatusUseCase,
     private readonly getRobotStatusSummaryUseCase: GetRobotStatusSummaryUseCase,
+    private readonly getRobotStatusMonthlySummaryUseCase: GetRobotStatusMonthlySummaryUseCase,
   ) {}
 
   @Post()
@@ -128,13 +131,28 @@ export class RobotController {
   @Permissions('robot.read')
   @ApiOperation({
     summary:
-      "Running/Idle/Charging minutes per robot for one calendar day's 07:00-16:30 WIB work shift (query param: date, YYYY-MM-DD; Offline time isn't counted) — the AMR Performance chart's data. Today is computed live from RobotActivityLog; past days read the permanent RobotStatusDailySummary rollup (falling back to a live computation if that day was never rolled up and its raw logs haven't been purged yet)",
+      "Running/Idle/Charging minutes per robot for one shift (Sesi 1: 07:00-16:15 WIB, Sesi 2: 07:15-16:30 WIB, both tracked up to a 21:00 WIB overtime cutoff) on one calendar day (query params: date YYYY-MM-DD, shift SESI_1|SESI_2; Offline time isn't counted) — the AMR Performance chart's daily view. Today is computed live from RobotActivityLog; past days read the permanent RobotStatusDailySummary rollup (falling back to a live computation if that day was never rolled up and its raw logs haven't been purged yet)",
   })
   async statusSummary(@Query() query: RobotStatusSummaryQueryDto) {
     const data = await this.getRobotStatusSummaryUseCase.execute(query);
     return {
       success: true,
       message: 'Robot status summary retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('status-summary/monthly')
+  @Permissions('robot.read')
+  @ApiOperation({
+    summary:
+      "Running/Idle/Charging minutes per robot averaged or totaled across one calendar month, for one shift (query params: month YYYY-MM, shift SESI_1|SESI_2, mode AVERAGE|TOTAL) — the AMR Performance chart's Average/Total per Month views. Only reads the permanent RobotStatusDailySummary rollup, so days that were never rolled up (including the current, still-in-progress day) are excluded rather than estimated",
+  })
+  async statusSummaryMonthly(@Query() query: RobotStatusMonthlyQueryDto) {
+    const data = await this.getRobotStatusMonthlySummaryUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Robot status monthly summary retrieved successfully',
       data,
     };
   }

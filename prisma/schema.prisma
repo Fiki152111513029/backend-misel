@@ -427,25 +427,33 @@ model RobotActivityLog {
   @@map("robot_activity_logs")
 }
 
-// One permanent row per robot per calendar day (UTC) — how many minutes it
-// spent Running/Idle/Charging during that day's tracked work shift (07:00-
-// 16:30 WIB — see shiftBounds; Offline time isn't counted at all), computed
-// by RobotStatusRollupService from that day's RobotActivityLog rows once
-// the shift is over. Kept indefinitely (unlike RobotActivityLog, which is
-// purged after 7 days) so the AMR Performance chart can look back further
-// than a week.
-model RobotStatusDailySummary {
-  id              String   @id @default(uuid())
-  robotId         String
-  robot           Robot    @relation(fields: [robotId], references: [id])
-  date            DateTime
-  runningMinutes  Int      @default(0)
-  idleMinutes     Int      @default(0)
-  chargingMinutes Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+enum RobotShift {
+  SESI_1
+  SESI_2
+}
 
-  @@unique([robotId, date])
+// One permanent row per robot per calendar day (UTC) per shift — how many
+// minutes it spent Running/Idle/Charging during that shift's tracked window
+// (Sesi 1: 07:00-21:00 WIB, Sesi 2: 07:15-21:00 WIB — the 21:00 end covers
+// occasional overtime past each shift's normal 16:15/16:30 finish; see
+// shiftBounds. Offline time isn't counted at all), computed by
+// RobotStatusRollupService from that day's RobotActivityLog rows once the
+// shift's overtime window has closed. Kept indefinitely (unlike
+// RobotActivityLog, which is purged after 7 days) so the AMR Performance
+// chart can look back further than a week.
+model RobotStatusDailySummary {
+  id              String     @id @default(uuid())
+  robotId         String
+  robot           Robot      @relation(fields: [robotId], references: [id])
+  date            DateTime
+  shift           RobotShift
+  runningMinutes  Int        @default(0)
+  idleMinutes     Int        @default(0)
+  chargingMinutes Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([robotId, date, shift])
   @@index([robotId])
   @@index([date])
   @@map("robot_status_daily_summaries")
