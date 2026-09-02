@@ -8,14 +8,17 @@ import type {
 } from '../repositories/robot-status-daily-summary-repository.interface';
 import { RobotStatusAggregationService } from '../services/robot-status-aggregation.service';
 import { RobotStatusSummaryQueryDto } from '../dto/robot-status-summary-query.dto';
-import { parseUtcDateOnly, startOfUtcDay } from '../utils/robot-status-day';
+import {
+  parseUtcDateOnly,
+  shiftBounds,
+  startOfUtcDay,
+} from '../utils/robot-status-day';
 
 const ZERO_MINUTES: RobotStatusDailyMinutes = {
   runningMinutes: 0,
   idleMinutes: 0,
   chargingMinutes: 0,
 };
-const DAY_MS = 86_400_000;
 
 export interface RobotStatusSummaryRow extends RobotStatusDailyMinutes {
   robotId: string;
@@ -52,18 +55,26 @@ export class GetRobotStatusSummaryUseCase {
       sortOrder: 'asc',
     });
 
+    const { from: shiftStart, to: shiftEnd } = shiftBounds(dayStart);
+
     // Today isn't over yet, so it's never in RobotStatusDailySummary —
-    // compute it live, from midnight up to right now.
+    // compute it live. Clamped to the tracked shift window (07:00-16:30
+    // WIB): nothing before the shift starts or after it ends counts, so
+    // "now" never pushes the window past shiftEnd, and a query made before
+    // the shift has even started for the day naturally yields an empty
+    // (zero-duration) range.
     if (dayStart.getTime() === todayStart.getTime()) {
       const now = new Date();
+      const liveEnd =
+        now < shiftStart ? shiftStart : now > shiftEnd ? shiftEnd : now;
       return Promise.all(
         robots.map(async (robot) => ({
           robotId: robot.id,
           robotName: robot.name,
           ...((await this.aggregationService.computeMinutes(
             robot.id,
-            dayStart,
-            now,
+            shiftStart,
+            liveEnd,
           )) ?? ZERO_MINUTES),
         })),
       );
@@ -79,7 +90,6 @@ export class GetRobotStatusSummaryUseCase {
     const persistedByRobotId = new Map(
       persisted.map((row) => [row.robotId, row]),
     );
-    const dayEnd = new Date(dayStart.getTime() + DAY_MS);
 
     return Promise.all(
       robots.map(async (robot) => {
@@ -95,8 +105,8 @@ export class GetRobotStatusSummaryUseCase {
         }
         const minutes = await this.aggregationService.computeMinutes(
           robot.id,
-          dayStart,
-          dayEnd,
+          shiftStart,
+          shiftEnd,
         );
         return {
           robotId: robot.id,

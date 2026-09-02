@@ -18,3 +18,18 @@ export function parseUtcDateOnly(value: string): Date {
   const [, year, month, day] = match;
   return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
 }
+
+// Only the 07:00-16:30 WIB (Asia/Jakarta, UTC+7) work shift counts toward
+// Running/Idle/Charging minutes — anything outside it (before the shift
+// starts, after it ends) is simply not tracked. WIB is UTC+7, so 07:00 WIB
+// lines up with 00:00 UTC of the same calendar date — i.e. exactly
+// startOfUtcDay(date) — and 16:30 WIB is 9.5 hours after that.
+const SHIFT_START_OFFSET_MS = 0;
+const SHIFT_END_OFFSET_MS = 9.5 * 60 * 60 * 1000;
+
+export function shiftBounds(dayStart: Date): { from: Date; to: Date } {
+  return {
+    from: new Date(dayStart.getTime() + SHIFT_START_OFFSET_MS),
+    to: new Date(dayStart.getTime() + SHIFT_END_OFFSET_MS),
+  };
+}

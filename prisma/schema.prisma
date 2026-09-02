@@ -428,10 +428,12 @@ model RobotActivityLog {
 }
 
 // One permanent row per robot per calendar day (UTC) — how many minutes it
-// spent Running/Idle/Charging that day, computed by RobotStatusRollupService
-// from that day's RobotActivityLog rows the night after the day completes.
-// Kept indefinitely (unlike RobotActivityLog, which is purged after 7 days)
-// so the AMR Performance chart can look back further than a week.
+// spent Running/Idle/Charging during that day's tracked work shift (07:00-
+// 16:30 WIB — see shiftBounds; Offline time isn't counted at all), computed
+// by RobotStatusRollupService from that day's RobotActivityLog rows once
+// the shift is over. Kept indefinitely (unlike RobotActivityLog, which is
+// purged after 7 days) so the AMR Performance chart can look back further
+// than a week.
 model RobotStatusDailySummary {
   id              String   @id @default(uuid())
   robotId         String

@@ -63,7 +63,10 @@ export class RobotStatusAggregationService {
         checkpoints[i + 1].recordedAt.getTime() -
         checkpoints[i].recordedAt.getTime();
       if (durationMs <= 0) continue;
-      totalsMs[toRobotStatusCategory(checkpoints[i].state)] += durationMs;
+      const category = toRobotStatusCategory(checkpoints[i].state);
+      // Offline — not counted toward any bucket at all.
+      if (category === null) continue;
+      totalsMs[category] += durationMs;
     }
 
     return {

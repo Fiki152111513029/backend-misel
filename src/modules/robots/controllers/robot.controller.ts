@@ -128,7 +128,7 @@ export class RobotController {
   @Permissions('robot.read')
   @ApiOperation({
     summary:
-      "Running/Idle/Charging minutes per robot for one UTC calendar day (query param: date, YYYY-MM-DD) — the AMR Performance chart's data. Today is computed live from RobotActivityLog; past days read the permanent RobotStatusDailySummary rollup (falling back to a live computation if that day was never rolled up and its raw logs haven't been purged yet)",
+      "Running/Idle/Charging minutes per robot for one calendar day's 07:00-16:30 WIB work shift (query param: date, YYYY-MM-DD; Offline time isn't counted) — the AMR Performance chart's data. Today is computed live from RobotActivityLog; past days read the permanent RobotStatusDailySummary rollup (falling back to a live computation if that day was never rolled up and its raw logs haven't been purged yet)",
   })
   async statusSummary(@Query() query: RobotStatusSummaryQueryDto) {
     const data = await this.getRobotStatusSummaryUseCase.execute(query);
