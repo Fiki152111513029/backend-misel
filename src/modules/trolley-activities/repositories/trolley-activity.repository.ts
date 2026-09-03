@@ -11,6 +11,7 @@ import {
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
   ITrolleyActivitiesRepository,
+  ShiftActivityRow,
 } from './trolley-activity-repository.interface';
 
 const NOT_DELETED = { deletedAt: null } as const;
@@ -262,5 +263,31 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       topOperators,
       topLocations,
     };
+  }
+
+  async getShiftActivities(from: Date, to: Date): Promise<ShiftActivityRow[]> {
+    const rows = await this.prisma.trolleyActivity.findMany({
+      where: { ...NOT_DELETED, startDate: { gte: from, lt: to } },
+      select: {
+        trolleyId: true,
+        userId: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        trolley: { select: { code: true, name: true } },
+        user: { select: { fullName: true, role: { select: { name: true } } } },
+      },
+    });
+    return rows.map((row) => ({
+      trolleyId: row.trolleyId,
+      trolleyCode: row.trolley.code,
+      trolleyName: row.trolley.name,
+      userId: row.userId,
+      userFullName: row.user.fullName,
+      roleName: row.user.role.name,
+      status: row.status,
+      startDate: row.startDate,
+      endDate: row.endDate,
+    }));
   }
 }

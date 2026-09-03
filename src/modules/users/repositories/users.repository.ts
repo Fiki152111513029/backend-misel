@@ -114,4 +114,16 @@ export class UsersRepository implements IUsersRepository {
       }),
     ]);
   }
+
+  countActiveOperators(): Promise<number> {
+    return this.prisma.user.count({
+      where: {
+        ...NOT_DELETED,
+        role: { name: { not: 'Super Admin' } },
+        refreshTokens: {
+          some: { revoked: false, expiresAt: { gt: new Date() } },
+        },
+      },
+    });
+  }
 }

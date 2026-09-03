@@ -96,6 +96,21 @@ export interface DashboardStatsResult {
   topLocations: { code: string; count: number }[];
 }
 
+// One row of raw activity within a shift window — the shared input both
+// the Operator Duration and Trolley Supply Frequency summary use-cases
+// aggregate from (see utils/trolley-shift-summary.util.ts).
+export interface ShiftActivityRow {
+  trolleyId: string;
+  trolleyCode: string;
+  trolleyName: string;
+  userId: string;
+  userFullName: string;
+  roleName: string;
+  status: TaskStatus;
+  startDate: Date;
+  endDate: Date | null;
+}
+
 export interface ITrolleyActivitiesRepository {
   create(
     data: CreateTrolleyActivityData,
@@ -149,4 +164,8 @@ export interface ITrolleyActivitiesRepository {
   getDashboardStats(
     params: DashboardStatsParams,
   ): Promise<DashboardStatsResult>;
+  // Raw activity rows starting within [from, to) — the shared source for
+  // the Operator Duration and Trolley Supply Frequency shift charts (see
+  // utils/trolley-shift-summary.util.ts for the aggregation on top).
+  getShiftActivities(from: Date, to: Date): Promise<ShiftActivityRow[]>;
 }

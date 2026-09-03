@@ -20,6 +20,8 @@ import { CreateTrolleyActivityDto } from '../dto/create-trolley-activity.dto';
 import { TakeTrolleyDto } from '../dto/take-trolley.dto';
 import { TrolleyActivityQueryDto } from '../dto/trolley-activity-query.dto';
 import { TrolleyActivityDashboardQueryDto } from '../dto/trolley-activity-dashboard-query.dto';
+import { TrolleyShiftSummaryQueryDto } from '../dto/trolley-shift-summary-query.dto';
+import { TrolleyShiftMonthlyQueryDto } from '../dto/trolley-shift-monthly-query.dto';
 import { LookupTrolleyUseCase } from '../use-cases/lookup-trolley.use-case';
 import { LookupLocationUseCase } from '../use-cases/lookup-location.use-case';
 import { CreateTrolleyActivityUseCase } from '../use-cases/create-trolley-activity.use-case';
@@ -30,6 +32,10 @@ import { GetActiveTrolleyActivitiesByRobotUseCase } from '../use-cases/get-activ
 import { GetMyActiveTrolleyActivitiesUseCase } from '../use-cases/get-my-active-trolley-activities.use-case';
 import { DeleteTrolleyActivityUseCase } from '../use-cases/delete-trolley-activity.use-case';
 import { GetTrolleyActivityDashboardUseCase } from '../use-cases/get-trolley-activity-dashboard.use-case';
+import { GetOperatorDurationSummaryUseCase } from '../use-cases/get-operator-duration-summary.use-case';
+import { GetOperatorDurationMonthlySummaryUseCase } from '../use-cases/get-operator-duration-monthly-summary.use-case';
+import { GetTrolleyFrequencySummaryUseCase } from '../use-cases/get-trolley-frequency-summary.use-case';
+import { GetTrolleyFrequencyMonthlySummaryUseCase } from '../use-cases/get-trolley-frequency-monthly-summary.use-case';
 
 @ApiTags('Trolley Activities')
 @ApiBearerAuth('access-token')
@@ -46,6 +52,10 @@ export class TrolleyActivityController {
     private readonly getMyActiveTrolleyActivitiesUseCase: GetMyActiveTrolleyActivitiesUseCase,
     private readonly deleteTrolleyActivityUseCase: DeleteTrolleyActivityUseCase,
     private readonly getTrolleyActivityDashboardUseCase: GetTrolleyActivityDashboardUseCase,
+    private readonly getOperatorDurationSummaryUseCase: GetOperatorDurationSummaryUseCase,
+    private readonly getOperatorDurationMonthlySummaryUseCase: GetOperatorDurationMonthlySummaryUseCase,
+    private readonly getTrolleyFrequencySummaryUseCase: GetTrolleyFrequencySummaryUseCase,
+    private readonly getTrolleyFrequencyMonthlySummaryUseCase: GetTrolleyFrequencyMonthlySummaryUseCase,
   ) {}
 
   @Post('lookup-trolley')
@@ -173,6 +183,72 @@ export class TrolleyActivityController {
     return {
       success: true,
       message: 'Trolley Activity dashboard stats retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('operator-duration-summary')
+  @Permissions('trolley-activity.read')
+  @ApiOperation({
+    summary:
+      'Total/average time (minutes) Warehouse/Operator users spent per Trolley Task, per user, within one Shift on one UTC calendar day',
+  })
+  async operatorDurationSummary(@Query() query: TrolleyShiftSummaryQueryDto) {
+    const data = await this.getOperatorDurationSummaryUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Operator duration summary retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('operator-duration-summary/monthly')
+  @Permissions('trolley-activity.read')
+  @ApiOperation({
+    summary:
+      'Same as operator-duration-summary, averaged or totaled across a whole UTC calendar month',
+  })
+  async operatorDurationMonthlySummary(
+    @Query() query: TrolleyShiftMonthlyQueryDto,
+  ) {
+    const data =
+      await this.getOperatorDurationMonthlySummaryUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Operator duration monthly summary retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('trolley-frequency-summary')
+  @Permissions('trolley-activity.read')
+  @ApiOperation({
+    summary:
+      'How many times each Trolley was supplied (activity count), within one Shift on one UTC calendar day, sorted highest to lowest',
+  })
+  async trolleyFrequencySummary(@Query() query: TrolleyShiftSummaryQueryDto) {
+    const data = await this.getTrolleyFrequencySummaryUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Trolley frequency summary retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('trolley-frequency-summary/monthly')
+  @Permissions('trolley-activity.read')
+  @ApiOperation({
+    summary:
+      'Same as trolley-frequency-summary, averaged or totaled across a whole UTC calendar month',
+  })
+  async trolleyFrequencyMonthlySummary(
+    @Query() query: TrolleyShiftMonthlyQueryDto,
+  ) {
+    const data =
+      await this.getTrolleyFrequencyMonthlySummaryUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Trolley frequency monthly summary retrieved successfully',
       data,
     };
   }

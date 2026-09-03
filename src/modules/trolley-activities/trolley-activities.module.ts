@@ -5,6 +5,7 @@ import { ProductionLocationsModule } from '../production-locations/production-lo
 import { UsersModule } from '../users/users.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { RcsStockStatusModule } from '../rcs-stock-status/rcs-stock-status.module';
+import { ShiftsModule } from '../shifts/shifts.module';
 import { TrolleyActivityController } from './controllers/trolley-activity.controller';
 import { TROLLEY_ACTIVITIES_REPOSITORY } from './repositories/trolley-activity-repository.interface';
 import { TrolleyActivityRepository } from './repositories/trolley-activity.repository';
@@ -18,6 +19,10 @@ import { GetActiveTrolleyActivitiesByRobotUseCase } from './use-cases/get-active
 import { GetMyActiveTrolleyActivitiesUseCase } from './use-cases/get-my-active-trolley-activities.use-case';
 import { DeleteTrolleyActivityUseCase } from './use-cases/delete-trolley-activity.use-case';
 import { GetTrolleyActivityDashboardUseCase } from './use-cases/get-trolley-activity-dashboard.use-case';
+import { GetOperatorDurationSummaryUseCase } from './use-cases/get-operator-duration-summary.use-case';
+import { GetOperatorDurationMonthlySummaryUseCase } from './use-cases/get-operator-duration-monthly-summary.use-case';
+import { GetTrolleyFrequencySummaryUseCase } from './use-cases/get-trolley-frequency-summary.use-case';
+import { GetTrolleyFrequencyMonthlySummaryUseCase } from './use-cases/get-trolley-frequency-monthly-summary.use-case';
 
 @Module({
   imports: [
@@ -27,6 +32,7 @@ import { GetTrolleyActivityDashboardUseCase } from './use-cases/get-trolley-acti
     UsersModule,
     TasksModule,
     RcsStockStatusModule,
+    ShiftsModule,
   ],
   controllers: [TrolleyActivityController],
   providers: [
@@ -44,6 +50,10 @@ import { GetTrolleyActivityDashboardUseCase } from './use-cases/get-trolley-acti
     GetMyActiveTrolleyActivitiesUseCase,
     DeleteTrolleyActivityUseCase,
     GetTrolleyActivityDashboardUseCase,
+    GetOperatorDurationSummaryUseCase,
+    GetOperatorDurationMonthlySummaryUseCase,
+    GetTrolleyFrequencySummaryUseCase,
+    GetTrolleyFrequencyMonthlySummaryUseCase,
   ],
   exports: [TROLLEY_ACTIVITIES_REPOSITORY],
 })

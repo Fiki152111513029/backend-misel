@@ -40,4 +40,8 @@ export interface IUsersRepository {
   create(data: CreateUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
   remove(id: string): Promise<void>;
+  // Users with role other than "Super Admin" holding at least one
+  // still-valid (not revoked, not expired) refresh token right now — used
+  // by the Trolley Activity dashboard's "Active Operators" stat.
+  countActiveOperators(): Promise<number>;
 }
