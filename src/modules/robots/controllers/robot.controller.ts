@@ -131,7 +131,7 @@ export class RobotController {
   @Permissions('robot.read')
   @ApiOperation({
     summary:
-      "Running/Idle/Charging minutes per robot for one shift (Sesi 1: 07:00-16:15 WIB, Sesi 2: 07:15-16:30 WIB, both tracked up to a 21:00 WIB overtime cutoff) on one calendar day (query params: date YYYY-MM-DD, shift SESI_1|SESI_2; Offline time isn't counted) — the AMR Performance chart's daily view. Today is computed live from RobotActivityLog; past days read the permanent RobotStatusDailySummary rollup (falling back to a live computation if that day was never rolled up and its raw logs haven't been purged yet)",
+      "Running/Idle/Charging minutes per robot for one Shift (see GET /shifts — tracked from that shift's own startTime WIB up to a fixed 21:00 WIB overtime cutoff, regardless of its endTime) on one calendar day (query params: date YYYY-MM-DD, shiftId; Offline time isn't counted) — the AMR Performance chart's daily view. Today is computed live from RobotActivityLog; past days read the permanent RobotStatusDailySummary rollup (falling back to a live computation if that day was never rolled up and its raw logs haven't been purged yet)",
   })
   async statusSummary(@Query() query: RobotStatusSummaryQueryDto) {
     const data = await this.getRobotStatusSummaryUseCase.execute(query);
@@ -146,7 +146,7 @@ export class RobotController {
   @Permissions('robot.read')
   @ApiOperation({
     summary:
-      "Running/Idle/Charging minutes per robot averaged or totaled across one calendar month, for one shift (query params: month YYYY-MM, shift SESI_1|SESI_2, mode AVERAGE|TOTAL) — the AMR Performance chart's Average/Total per Month views. Only reads the permanent RobotStatusDailySummary rollup, so days that were never rolled up (including the current, still-in-progress day) are excluded rather than estimated",
+      "Running/Idle/Charging minutes per robot averaged or totaled across one calendar month, for one Shift (see GET /shifts) (query params: month YYYY-MM, shiftId, mode AVERAGE|TOTAL) — the AMR Performance chart's Average/Total per Month views. Only reads the permanent RobotStatusDailySummary rollup, so days that were never rolled up (including the current, still-in-progress day) are excluded rather than estimated",
   })
   async statusSummaryMonthly(@Query() query: RobotStatusMonthlyQueryDto) {
     const data = await this.getRobotStatusMonthlySummaryUseCase.execute(query);

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { WebhookLogsModule } from '../webhook-logs/webhook-logs.module';
+import { ShiftsModule } from '../shifts/shifts.module';
 import { RobotController } from './controllers/robot.controller';
 import { ROBOT_ACTIVITY_LOG_REPOSITORY } from './repositories/robot-activity-log-repository.interface';
 import { RobotActivityLogRepository } from './repositories/robot-activity-log.repository';
@@ -25,7 +26,7 @@ import { RobotStatusPollerService } from './services/robot-status-poller.service
 import { RobotStatusRollupService } from './services/robot-status-rollup.service';
 
 @Module({
-  imports: [WebhookLogsModule],
+  imports: [WebhookLogsModule, ShiftsModule],
   controllers: [RobotController],
   providers: [
     { provide: ROBOTS_REPOSITORY, useClass: RobotRepository },

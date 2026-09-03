@@ -1,10 +1,17 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ROBOTS_REPOSITORY } from '../repositories/robot-repository.interface';
 import type { IRobotsRepository } from '../repositories/robot-repository.interface';
 import { ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY } from '../repositories/robot-status-daily-summary-repository.interface';
 import type { IRobotStatusDailySummaryRepository } from '../repositories/robot-status-daily-summary-repository.interface';
 import { RobotStatusMonthlyQueryDto } from '../dto/robot-status-monthly-query.dto';
 import { endOfUtcMonth, parseUtcMonthOnly } from '../utils/robot-status-day';
+import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
+import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
 import type { RobotStatusSummaryRow } from './get-robot-status-summary.use-case';
 
 @Injectable()
@@ -14,6 +21,8 @@ export class GetRobotStatusMonthlySummaryUseCase {
     private readonly robotsRepository: IRobotsRepository,
     @Inject(ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY)
     private readonly robotStatusDailySummaryRepository: IRobotStatusDailySummaryRepository,
+    @Inject(SHIFTS_REPOSITORY)
+    private readonly shiftsRepository: IShiftsRepository,
   ) {}
 
   async execute(
@@ -24,6 +33,11 @@ export class GetRobotStatusMonthlySummaryUseCase {
       throw new BadRequestException('month must be in YYYY-MM format');
     }
     const monthEnd = endOfUtcMonth(monthStart);
+
+    const shift = await this.shiftsRepository.findById(query.shiftId);
+    if (!shift) {
+      throw new NotFoundException('Shift not found');
+    }
 
     const { items: robots } = await this.robotsRepository.findAll({
       page: 1,
@@ -42,7 +56,7 @@ export class GetRobotStatusMonthlySummaryUseCase {
         const days =
           await this.robotStatusDailySummaryRepository.findRangeByRobot(
             robot.id,
-            query.shift,
+            shift.id,
             monthStart,
             monthEnd,
           );

@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ROBOTS_REPOSITORY } from '../repositories/robot-repository.interface';
 import type { IRobotsRepository } from '../repositories/robot-repository.interface';
 import { ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY } from '../repositories/robot-status-daily-summary-repository.interface';
@@ -13,6 +18,8 @@ import {
   shiftBounds,
   startOfUtcDay,
 } from '../utils/robot-status-day';
+import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
+import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
 
 const ZERO_MINUTES: RobotStatusDailyMinutes = {
   runningMinutes: 0,
@@ -32,6 +39,8 @@ export class GetRobotStatusSummaryUseCase {
     private readonly robotsRepository: IRobotsRepository,
     @Inject(ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY)
     private readonly robotStatusDailySummaryRepository: IRobotStatusDailySummaryRepository,
+    @Inject(SHIFTS_REPOSITORY)
+    private readonly shiftsRepository: IShiftsRepository,
     private readonly aggregationService: RobotStatusAggregationService,
   ) {}
 
@@ -48,6 +57,11 @@ export class GetRobotStatusSummaryUseCase {
       throw new BadRequestException('date cannot be in the future');
     }
 
+    const shift = await this.shiftsRepository.findById(query.shiftId);
+    if (!shift) {
+      throw new NotFoundException('Shift not found');
+    }
+
     const { items: robots } = await this.robotsRepository.findAll({
       page: 1,
       limit: 1000,
@@ -55,10 +69,7 @@ export class GetRobotStatusSummaryUseCase {
       sortOrder: 'asc',
     });
 
-    const { from: shiftStart, to: shiftEnd } = shiftBounds(
-      dayStart,
-      query.shift,
-    );
+    const { from: shiftStart, to: shiftEnd } = shiftBounds(dayStart, shift);
 
     // Today isn't over yet, so it's never in RobotStatusDailySummary —
     // compute it live. Clamped to the tracked shift window (which already
@@ -91,7 +102,7 @@ export class GetRobotStatusSummaryUseCase {
     const persisted =
       await this.robotStatusDailySummaryRepository.findAllByDate(
         dayStart,
-        query.shift,
+        query.shiftId,
       );
     const persistedByRobotId = new Map(
       persisted.map((row) => [row.robotId, row]),

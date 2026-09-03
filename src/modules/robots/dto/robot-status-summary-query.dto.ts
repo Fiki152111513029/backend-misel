@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { RobotShift } from '@prisma/client';
-import { IsEnum, IsNotEmpty, Matches } from 'class-validator';
+import { IsNotEmpty, IsUUID, Matches } from 'class-validator';
 
 export class RobotStatusSummaryQueryDto {
   @ApiProperty({
@@ -13,7 +12,10 @@ export class RobotStatusSummaryQueryDto {
   })
   date!: string;
 
-  @ApiProperty({ enum: RobotShift, example: RobotShift.SESI_1 })
-  @IsEnum(RobotShift)
-  shift!: RobotShift;
+  @ApiProperty({
+    example: 'b3f1c2e4-...',
+    description: 'Shift id (see GET /shifts)',
+  })
+  @IsUUID()
+  shiftId!: string;
 }

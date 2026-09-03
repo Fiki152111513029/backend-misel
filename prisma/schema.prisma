@@ -41,22 +41,23 @@ model User {
   @@map("users")
 }
 
-// A configurable work shift (e.g. "Sesi 1", 07:00-16:15) users can be
-// assigned to — distinct from the hardcoded SESI_1/SESI_2 AMR tracking
-// windows (see RobotShift), this is purely for associating a person with
-// their working hours.
+// A configurable work shift (e.g. "Sesi 1", 07:00-16:15) — assignable to
+// Users (which shift a person works) and also the source of truth for the
+// AMR Performance chart's shift filter (RobotStatusDailySummary.shiftId),
+// so admins can rename/retime/add shifts without a code change.
 model Shift {
-  id        String    @id @default(uuid())
-  name      String
+  id                        String                    @id @default(uuid())
+  name                      String
   // Plain "HH:mm" 24-hour clock time — no timezone/date component, since a
   // shift's hours don't change day to day.
-  startTime String
-  endTime   String
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  users     User[]
+  startTime                 String
+  endTime                   String
+  isActive                  Boolean                   @default(true)
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  deletedAt                 DateTime?
+  users                     User[]
+  robotStatusDailySummaries RobotStatusDailySummary[]
 
   // `name` uniqueness is enforced by a partial unique index (WHERE
   // "deletedAt" IS NULL, see migration) so a soft-deleted row's name can be
@@ -456,35 +457,32 @@ model RobotActivityLog {
   @@map("robot_activity_logs")
 }
 
-enum RobotShift {
-  SESI_1
-  SESI_2
-}
-
-// One permanent row per robot per calendar day (UTC) per shift — how many
+// One permanent row per robot per calendar day (UTC) per Shift — how many
 // minutes it spent Running/Idle/Charging during that shift's tracked window
-// (Sesi 1: 07:00-21:00 WIB, Sesi 2: 07:15-21:00 WIB — the 21:00 end covers
-// occasional overtime past each shift's normal 16:15/16:30 finish; see
-// shiftBounds. Offline time isn't counted at all), computed by
-// RobotStatusRollupService from that day's RobotActivityLog rows once the
-// shift's overtime window has closed. Kept indefinitely (unlike
-// RobotActivityLog, which is purged after 7 days) so the AMR Performance
-// chart can look back further than a week.
+// (from the Shift's own startTime WIB, through a fixed 21:00 WIB overtime
+// cutoff regardless of the Shift's own endTime — see shiftBounds. Offline
+// time isn't counted at all), computed by RobotStatusRollupService from
+// that day's RobotActivityLog rows once the shift's overtime window has
+// closed. Kept indefinitely (unlike RobotActivityLog, which is purged
+// after 7 days) so the AMR Performance chart can look back further than a
+// week.
 model RobotStatusDailySummary {
-  id              String     @id @default(uuid())
+  id              String   @id @default(uuid())
   robotId         String
-  robot           Robot      @relation(fields: [robotId], references: [id])
+  robot           Robot    @relation(fields: [robotId], references: [id])
   date            DateTime
-  shift           RobotShift
-  runningMinutes  Int        @default(0)
-  idleMinutes     Int        @default(0)
-  chargingMinutes Int        @default(0)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  shiftId         String
+  shift           Shift    @relation(fields: [shiftId], references: [id])
+  runningMinutes  Int      @default(0)
+  idleMinutes     Int      @default(0)
+  chargingMinutes Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@unique([robotId, date, shift])
+  @@unique([robotId, date, shiftId])
   @@index([robotId])
   @@index([date])
+  @@index([shiftId])
   @@map("robot_status_daily_summaries")
 }
 

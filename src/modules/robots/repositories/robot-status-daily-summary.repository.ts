@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { RobotShift } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   IRobotStatusDailySummaryRepository,
@@ -22,34 +21,34 @@ export class RobotStatusDailySummaryRepository implements IRobotStatusDailySumma
   async upsert(
     robotId: string,
     date: Date,
-    shift: RobotShift,
+    shiftId: string,
     minutes: RobotStatusDailyMinutes,
   ): Promise<void> {
     await this.prisma.robotStatusDailySummary.upsert({
-      where: { robotId_date_shift: { robotId, date, shift } },
-      create: { robotId, date, shift, ...minutes },
+      where: { robotId_date_shiftId: { robotId, date, shiftId } },
+      create: { robotId, date, shiftId, ...minutes },
       update: { ...minutes },
     });
   }
 
   findAllByDate(
     date: Date,
-    shift: RobotShift,
+    shiftId: string,
   ): Promise<RobotStatusDailySummaryRecord[]> {
     return this.prisma.robotStatusDailySummary.findMany({
-      where: { date, shift },
+      where: { date, shiftId },
       select: SELECT_FIELDS,
     });
   }
 
   findRangeByRobot(
     robotId: string,
-    shift: RobotShift,
+    shiftId: string,
     from: Date,
     to: Date,
   ): Promise<RobotStatusDailySummaryRecord[]> {
     return this.prisma.robotStatusDailySummary.findMany({
-      where: { robotId, shift, date: { gte: from, lt: to } },
+      where: { robotId, shiftId, date: { gte: from, lt: to } },
       select: SELECT_FIELDS,
       orderBy: { date: 'asc' },
     });

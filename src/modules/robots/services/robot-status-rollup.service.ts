@@ -1,14 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { RobotShift } from '@prisma/client';
 import { ROBOTS_REPOSITORY } from '../repositories/robot-repository.interface';
 import type { IRobotsRepository } from '../repositories/robot-repository.interface';
 import { ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY } from '../repositories/robot-status-daily-summary-repository.interface';
 import type { IRobotStatusDailySummaryRepository } from '../repositories/robot-status-daily-summary-repository.interface';
 import { RobotStatusAggregationService } from './robot-status-aggregation.service';
 import { shiftBounds, startOfUtcDay } from '../utils/robot-status-day';
-
-const SHIFTS: RobotShift[] = [RobotShift.SESI_1, RobotShift.SESI_2];
+import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
+import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
 
 @Injectable()
 export class RobotStatusRollupService {
@@ -19,11 +18,13 @@ export class RobotStatusRollupService {
     private readonly robotsRepository: IRobotsRepository,
     @Inject(ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY)
     private readonly robotStatusDailySummaryRepository: IRobotStatusDailySummaryRepository,
+    @Inject(SHIFTS_REPOSITORY)
+    private readonly shiftsRepository: IShiftsRepository,
     private readonly aggregationService: RobotStatusAggregationService,
   ) {}
 
-  // 14:10 UTC = 21:10 WIB — ten minutes after the overtime cutoff both
-  // shifts are tracked up to (21:00 WIB), so today's shifts are always
+  // 14:10 UTC = 21:10 WIB — ten minutes after the fixed overtime cutoff
+  // every shift is tracked up to (21:00 WIB), so today's shifts are always
   // already complete by the time this runs. That whole window falls inside
   // one UTC calendar date (00:00-14:00 UTC), so "today" is the right day to
   // roll up here, not yesterday.
@@ -34,15 +35,24 @@ export class RobotStatusRollupService {
   }
 
   async rollUpDay(dayStart: Date): Promise<void> {
-    const { items: robots } = await this.robotsRepository.findAll({
-      page: 1,
-      limit: 1000,
-      sortBy: 'name',
-      sortOrder: 'asc',
-    });
+    const [{ items: robots }, { items: shifts }] = await Promise.all([
+      this.robotsRepository.findAll({
+        page: 1,
+        limit: 1000,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      }),
+      this.shiftsRepository.findAll({
+        page: 1,
+        limit: 1000,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      }),
+    ]);
+    const activeShifts = shifts.filter((shift) => shift.isActive);
 
     let rolledUp = 0;
-    for (const shift of SHIFTS) {
+    for (const shift of activeShifts) {
       const { from, to } = shiftBounds(dayStart, shift);
       for (const robot of robots) {
         const minutes = await this.aggregationService.computeMinutes(
@@ -54,7 +64,7 @@ export class RobotStatusRollupService {
         await this.robotStatusDailySummaryRepository.upsert(
           robot.id,
           dayStart,
-          shift,
+          shift.id,
           minutes,
         );
         rolledUp += 1;
@@ -62,7 +72,7 @@ export class RobotStatusRollupService {
     }
 
     this.logger.log(
-      `Rolled up robot status minutes for ${dayStart.toISOString().slice(0, 10)}: ${rolledUp}/${robots.length * SHIFTS.length} robot-shift combination(s) had data`,
+      `Rolled up robot status minutes for ${dayStart.toISOString().slice(0, 10)}: ${rolledUp}/${robots.length * activeShifts.length} robot-shift combination(s) had data`,
     );
   }
 }
