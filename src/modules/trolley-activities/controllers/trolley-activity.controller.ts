@@ -22,6 +22,8 @@ import { TrolleyActivityQueryDto } from '../dto/trolley-activity-query.dto';
 import { TrolleyActivityDashboardQueryDto } from '../dto/trolley-activity-dashboard-query.dto';
 import { TrolleyShiftSummaryQueryDto } from '../dto/trolley-shift-summary-query.dto';
 import { TrolleyShiftMonthlyQueryDto } from '../dto/trolley-shift-monthly-query.dto';
+import { OperatorDurationQueryDto } from '../dto/operator-duration-query.dto';
+import { OperatorDurationMonthlyQueryDto } from '../dto/operator-duration-monthly-query.dto';
 import { LookupTrolleyUseCase } from '../use-cases/lookup-trolley.use-case';
 import { LookupLocationUseCase } from '../use-cases/lookup-location.use-case';
 import { CreateTrolleyActivityUseCase } from '../use-cases/create-trolley-activity.use-case';
@@ -191,9 +193,9 @@ export class TrolleyActivityController {
   @Permissions('trolley-activity.read')
   @ApiOperation({
     summary:
-      'Total/average time (minutes) Warehouse/Operator users spent per Trolley Task, per user, within one Shift on one UTC calendar day',
+      'Total/average time (minutes) Warehouse/Operator users spent per Trolley Task, per user, within one Shift on one UTC calendar day, split by pickup direction (WAREHOUSE = "Dealer Operator", PRODUCTION = "Supply Operator")',
   })
-  async operatorDurationSummary(@Query() query: TrolleyShiftSummaryQueryDto) {
+  async operatorDurationSummary(@Query() query: OperatorDurationQueryDto) {
     const data = await this.getOperatorDurationSummaryUseCase.execute(query);
     return {
       success: true,
@@ -209,7 +211,7 @@ export class TrolleyActivityController {
       'Same as operator-duration-summary, averaged or totaled across a whole UTC calendar month',
   })
   async operatorDurationMonthlySummary(
-    @Query() query: TrolleyShiftMonthlyQueryDto,
+    @Query() query: OperatorDurationMonthlyQueryDto,
   ) {
     const data =
       await this.getOperatorDurationMonthlySummaryUseCase.execute(query);

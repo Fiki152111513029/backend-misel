@@ -8,13 +8,17 @@ import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-
 import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activity-repository.interface';
 import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
-import { TrolleyShiftSummaryQueryDto } from '../dto/trolley-shift-summary-query.dto';
+import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import { OperatorDurationQueryDto } from '../dto/operator-duration-query.dto';
 import {
   parseUtcDateOnly,
   shiftBounds,
 } from '../../robots/utils/robot-status-day';
 import {
   OperatorDurationRow,
+  fetchActiveWarehouseLocationCodes,
+  splitRowsByDirection,
   summarizeOperatorDuration,
 } from '../utils/trolley-shift-summary.util';
 
@@ -25,10 +29,12 @@ export class GetOperatorDurationSummaryUseCase {
     private readonly trolleyActivitiesRepository: ITrolleyActivitiesRepository,
     @Inject(SHIFTS_REPOSITORY)
     private readonly shiftsRepository: IShiftsRepository,
+    @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
+    private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
   ) {}
 
   async execute(
-    query: TrolleyShiftSummaryQueryDto,
+    query: OperatorDurationQueryDto,
   ): Promise<OperatorDurationRow[]> {
     const dayStart = parseUtcDateOnly(query.date);
     if (Number.isNaN(dayStart.getTime())) {
@@ -41,10 +47,11 @@ export class GetOperatorDurationSummaryUseCase {
     }
 
     const { from, to } = shiftBounds(dayStart, shift);
-    const rows = await this.trolleyActivitiesRepository.getShiftActivities(
-      from,
-      to,
-    );
-    return summarizeOperatorDuration(rows);
+    const [rows, warehouseCodes] = await Promise.all([
+      this.trolleyActivitiesRepository.getShiftActivities(from, to),
+      fetchActiveWarehouseLocationCodes(this.warehouseLocationsRepository),
+    ]);
+    const byDirection = splitRowsByDirection(rows, warehouseCodes);
+    return summarizeOperatorDuration(byDirection[query.direction]);
   }
 }

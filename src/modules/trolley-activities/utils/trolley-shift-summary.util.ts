@@ -2,6 +2,7 @@ import { TaskStatus } from '@prisma/client';
 import type { Shift } from '@prisma/client';
 import type { ShiftActivityRow } from '../repositories/trolley-activity-repository.interface';
 import { shiftBounds } from '../../robots/utils/robot-status-day';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 
 // Only these two roles' time is meaningful for the Operator Duration chart
 // — Exim/Super Admin don't run Trolley Task pickups/drops as their job.
@@ -20,6 +21,47 @@ export interface TrolleySupplyFrequencyRow {
   trolleyCode: string;
   trolleyName: string;
   count: number;
+}
+
+export type PickupDirection = 'WAREHOUSE' | 'PRODUCTION';
+
+// Splits activity rows by pickup direction — "Dealer Operator" (WAREHOUSE:
+// pickup scanned from a Warehouse Location, Warehouse -> Production) vs
+// "Supply Operator" (PRODUCTION: everything else, i.e. pickup scanned from
+// a Production Location, Production -> Warehouse). This mirrors the exact
+// classification CreateTrolleyActivityUseCase/LookupLocationUseCase use at
+// scan time — never a code-prefix heuristic — so callers must pass in the
+// same set of currently-active Warehouse Location codes those use-cases
+// resolve against.
+export function splitRowsByDirection(
+  rows: ShiftActivityRow[],
+  warehouseLocationCodes: ReadonlySet<string>,
+): Record<PickupDirection, ShiftActivityRow[]> {
+  const warehouse: ShiftActivityRow[] = [];
+  const production: ShiftActivityRow[] = [];
+  for (const row of rows) {
+    (warehouseLocationCodes.has(row.pickupLocationCode)
+      ? warehouse
+      : production
+    ).push(row);
+  }
+  return { WAREHOUSE: warehouse, PRODUCTION: production };
+}
+
+// The "fetch all" convention used across this codebase for populating a
+// dropdown/lookup set (see useShiftOptions()'s backend counterpart) — a
+// high limit in place of true pagination, since this is an internal
+// classification lookup, not a paginated list endpoint.
+export async function fetchActiveWarehouseLocationCodes(
+  warehouseLocationsRepository: IWarehouseLocationsRepository,
+): Promise<Set<string>> {
+  const { items } = await warehouseLocationsRepository.findAll({
+    page: 1,
+    limit: 1000,
+    sortBy: 'name',
+    sortOrder: 'asc',
+  });
+  return new Set(items.map((item) => item.iRaypleLocationCode));
 }
 
 // Splits [monthStart, monthEnd) into each UTC calendar day's own shift

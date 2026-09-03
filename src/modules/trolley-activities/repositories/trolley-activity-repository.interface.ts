@@ -109,6 +109,12 @@ export interface ShiftActivityRow {
   status: TaskStatus;
   startDate: Date;
   endDate: Date | null;
+  // Which node the operator scanned to start this activity — a Warehouse
+  // Location code ("Dealer" direction, Warehouse -> Production) or a
+  // Production Location code ("Supply" direction, Production ->
+  // Warehouse). See utils/trolley-shift-summary.util.ts's
+  // splitRowsByDirection for how this is classified.
+  pickupLocationCode: string;
 }
 
 export interface ITrolleyActivitiesRepository {
