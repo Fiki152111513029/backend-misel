@@ -12,6 +12,7 @@ export interface CreateUserData {
   password: string;
   fullName: string;
   roleId: string;
+  shiftId?: string | null;
   isActive?: boolean;
   priority?: number;
 }
@@ -22,6 +23,7 @@ export interface UpdateUserData {
   password?: string;
   fullName?: string;
   roleId?: string;
+  shiftId?: string | null;
   isActive?: boolean;
   priority?: number;
 }

@@ -14,6 +14,9 @@ model User {
   password                  String
   fullName                  String
   roleId                    String
+  // Which work Shift this user is assigned to — optional since not every
+  // user (e.g. Super Admin) needs one.
+  shiftId                   String?
   isActive                  Boolean                    @default(true)
   priority                  Int                        @default(6)
   createdAt                 DateTime                   @default(now())
@@ -25,6 +28,7 @@ model User {
   // existing. Related records for that user are cascaded to deletedAt too.
   deletedAt                 DateTime?
   role                      Role                       @relation(fields: [roleId], references: [id])
+  shift                     Shift?                     @relation(fields: [shiftId], references: [id])
   refreshTokens             RefreshToken[]
   warehouseOperatorLocation WarehouseOperatorLocation?
   productionLines           ProductionLine[]
@@ -33,7 +37,32 @@ model User {
   trolleyActivities         TrolleyActivity[]
 
   @@index([roleId])
+  @@index([shiftId])
   @@map("users")
+}
+
+// A configurable work shift (e.g. "Sesi 1", 07:00-16:15) users can be
+// assigned to — distinct from the hardcoded SESI_1/SESI_2 AMR tracking
+// windows (see RobotShift), this is purely for associating a person with
+// their working hours.
+model Shift {
+  id        String    @id @default(uuid())
+  name      String
+  // Plain "HH:mm" 24-hour clock time — no timezone/date component, since a
+  // shift's hours don't change day to day.
+  startTime String
+  endTime   String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  users     User[]
+
+  // `name` uniqueness is enforced by a partial unique index (WHERE
+  // "deletedAt" IS NULL, see migration) so a soft-deleted row's name can be
+  // reused.
+  @@index([name])
+  @@map("shifts")
 }
 
 model Role {

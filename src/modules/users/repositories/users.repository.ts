@@ -18,7 +18,10 @@ export class UsersRepository implements IUsersRepository {
 
   findByIdentifier(identifier: string): Promise<UserWithRole | null> {
     return this.prisma.user.findFirst({
-      where: { OR: [{ username: identifier }, { email: identifier }], ...NOT_DELETED },
+      where: {
+        OR: [{ username: identifier }, { email: identifier }],
+        ...NOT_DELETED,
+      },
       include: ROLE_WITH_PERMISSIONS_INCLUDE,
     });
   }
@@ -58,7 +61,10 @@ export class UsersRepository implements IUsersRepository {
     return count > 0;
   }
 
-  async existsByUsername(username: string, excludeId?: string): Promise<boolean> {
+  async existsByUsername(
+    username: string,
+    excludeId?: string,
+  ): Promise<boolean> {
     const count = await this.prisma.user.count({
       where: {
         username,

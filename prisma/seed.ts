@@ -371,6 +371,27 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Parking Area',
     description: 'Delete parking areas',
   },
+  // Shift
+  {
+    code: 'shift.create',
+    name: 'Create Shift',
+    description: 'Create new work shifts',
+  },
+  {
+    code: 'shift.read',
+    name: 'Read Shift',
+    description: 'View work shifts',
+  },
+  {
+    code: 'shift.update',
+    name: 'Update Shift',
+    description: 'Update work shifts',
+  },
+  {
+    code: 'shift.delete',
+    name: 'Delete Shift',
+    description: 'Delete work shifts',
+  },
   // Trolley
   {
     code: 'trolley.create',

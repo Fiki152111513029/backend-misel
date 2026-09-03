@@ -32,6 +32,7 @@ export class CreateUserUseCase {
       // Full Name isn't required on the form — leave it blank if not given.
       fullName: dto.fullName?.trim() ?? '',
       roleId: dto.roleId,
+      shiftId: dto.shiftId,
       isActive: dto.isActive,
       priority: dto.priority,
     });

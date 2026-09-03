@@ -56,6 +56,7 @@ export class UpdateUserUseCase {
       // Full Name isn't required on the form — leave it blank if cleared.
       fullName: dto.fullName !== undefined ? dto.fullName.trim() : undefined,
       roleId: dto.roleId,
+      shiftId: dto.shiftId,
       isActive: dto.isActive,
       priority: dto.priority,
     });

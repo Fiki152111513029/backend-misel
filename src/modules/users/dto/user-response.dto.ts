@@ -24,6 +24,10 @@ export class UserResponseDto {
   roleId!: string;
 
   @Expose()
+  @ApiProperty({ nullable: true })
+  shiftId!: string | null;
+
+  @Expose()
   @ApiProperty()
   isActive!: boolean;
 

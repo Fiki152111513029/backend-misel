@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateUserDto {
@@ -26,7 +27,10 @@ export class CreateUserDto {
   @MinLength(8)
   password!: string;
 
-  @ApiPropertyOptional({ example: 'John Doe', description: 'Optional — can be left blank' })
+  @ApiPropertyOptional({
+    example: 'John Doe',
+    description: 'Optional — can be left blank',
+  })
   @IsOptional()
   @IsString()
   fullName?: string;
@@ -34,6 +38,17 @@ export class CreateUserDto {
   @ApiProperty({ example: 'b3f1c2e4-...' })
   @IsUUID()
   roleId!: string;
+
+  @ApiPropertyOptional({
+    example: 'b3f1c2e4-...',
+    nullable: true,
+    description:
+      'Optional — the work shift this user is assigned to. Pass null to leave unassigned.',
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  shiftId?: string | null;
 
   @ApiProperty({ example: true, required: false, default: true })
   @IsOptional()
