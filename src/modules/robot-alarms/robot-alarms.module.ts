@@ -6,6 +6,8 @@ import { ROBOT_ALARMS_REPOSITORY } from './repositories/robot-alarm-repository.i
 import { RobotAlarmRepository } from './repositories/robot-alarm.repository';
 import { ReceiveRobotAlarmWebhookUseCase } from './use-cases/receive-robot-alarm-webhook.use-case';
 import { GetAlarmDashboardStatsUseCase } from './use-cases/get-alarm-dashboard-stats.use-case';
+import { GetRobotAlarmsUseCase } from './use-cases/get-robot-alarms.use-case';
+import { RobotAlarmRetentionService } from './services/robot-alarm-retention.service';
 
 @Module({
   imports: [WebhookLogsModule],
@@ -14,6 +16,8 @@ import { GetAlarmDashboardStatsUseCase } from './use-cases/get-alarm-dashboard-s
     { provide: ROBOT_ALARMS_REPOSITORY, useClass: RobotAlarmRepository },
     ReceiveRobotAlarmWebhookUseCase,
     GetAlarmDashboardStatsUseCase,
+    GetRobotAlarmsUseCase,
+    RobotAlarmRetentionService,
   ],
   exports: [ROBOT_ALARMS_REPOSITORY],
 })

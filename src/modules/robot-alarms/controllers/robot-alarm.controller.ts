@@ -2,7 +2,9 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { AlarmDashboardStatsQueryDto } from '../dto/alarm-dashboard-stats-query.dto';
+import { RobotAlarmQueryDto } from '../dto/robot-alarm-query.dto';
 import { GetAlarmDashboardStatsUseCase } from '../use-cases/get-alarm-dashboard-stats.use-case';
+import { GetRobotAlarmsUseCase } from '../use-cases/get-robot-alarms.use-case';
 
 @ApiTags('Robot Alarms')
 @ApiBearerAuth('access-token')
@@ -10,6 +12,7 @@ import { GetAlarmDashboardStatsUseCase } from '../use-cases/get-alarm-dashboard-
 export class RobotAlarmController {
   constructor(
     private readonly getAlarmDashboardStatsUseCase: GetAlarmDashboardStatsUseCase,
+    private readonly getRobotAlarmsUseCase: GetRobotAlarmsUseCase,
   ) {}
 
   @Get('dashboard-stats')
@@ -23,6 +26,21 @@ export class RobotAlarmController {
     return {
       success: true,
       message: 'Alarm dashboard stats retrieved successfully',
+      data,
+    };
+  }
+
+  @Get()
+  @Permissions('robot-alarm.read')
+  @ApiOperation({
+    summary:
+      'List every received robot alarm (pagination), newest first — the Alarm Logs page under ICS Logs',
+  })
+  async findAll(@Query() query: RobotAlarmQueryDto) {
+    const data = await this.getRobotAlarmsUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Robot alarms retrieved successfully',
       data,
     };
   }
