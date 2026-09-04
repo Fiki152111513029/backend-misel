@@ -499,6 +499,19 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Trolley Activity',
     description: 'Delete trolley activities',
   },
+  // Trolley Task pages — distinct from trolley-activity.create (which both
+  // pages' scan flow actually calls) so a role can be given the Warehouse
+  // page without the Operator page, or vice versa.
+  {
+    code: 'warehouse-trolley-task.read',
+    name: 'Access Warehouse Trolley Task',
+    description: 'View the Warehouse Trolley Task page',
+  },
+  {
+    code: 'operator-trolley-task.read',
+    name: 'Access Operator Trolley Task',
+    description: 'View the Operator Trolley Task page',
+  },
 ];
 
 interface BoxTypeSeed {
@@ -551,9 +564,9 @@ const LINE_STAFF_CODES = [
 
 const ROLE_PERMISSION_MAP: Record<(typeof ROLE_NAMES)[number], string[]> = {
   'Super Admin': ALL_PERMISSION_CODES,
-  Operator: LINE_STAFF_CODES,
+  Operator: [...LINE_STAFF_CODES, 'operator-trolley-task.read'],
   Exim: LINE_STAFF_CODES,
-  Warehouse: LINE_STAFF_CODES,
+  Warehouse: [...LINE_STAFF_CODES, 'warehouse-trolley-task.read'],
   // Starts with no permissions — assign what it needs (e.g.
   // trolley-activity.read for the Trolley Activities dashboard) via
   // Role Management, rather than presetting a permission set here.
