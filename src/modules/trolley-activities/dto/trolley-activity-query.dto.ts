@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { TaskStatus } from '@prisma/client';
 
 export class TrolleyActivityQueryDto {
   @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
@@ -16,4 +17,9 @@ export class TrolleyActivityQueryDto {
   @IsInt()
   @Min(1)
   limit: number = 10;
+
+  @ApiPropertyOptional({ enum: TaskStatus, description: 'Filter to one status only' })
+  @IsOptional()
+  @IsEnum(TaskStatus)
+  status?: TaskStatus;
 }

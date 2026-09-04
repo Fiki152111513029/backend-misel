@@ -75,6 +75,7 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
     const where = {
       ...NOT_DELETED,
       ...(params.userId ? { userId: params.userId } : {}),
+      ...(params.status ? { status: params.status } : {}),
     };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.trolleyActivity.findMany({

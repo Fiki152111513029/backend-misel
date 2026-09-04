@@ -48,6 +48,9 @@ export interface FindAllTrolleyActivitiesParams {
   // Operator roles (see GetTrolleyActivitiesUseCase), left unset for roles
   // that get the full audit view (e.g. Super Admin).
   userId?: string;
+  // Filters to one status — used by the Dashboard's Request Queue widget
+  // (status: PENDING) to show only activities still waiting.
+  status?: TaskStatus;
 }
 
 export interface FindAllTrolleyActivitiesResult {
