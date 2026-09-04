@@ -12,6 +12,12 @@ interface PermissionSeed {
 }
 
 const PERMISSIONS: PermissionSeed[] = [
+  // Dashboard — the /dashboard landing page itself
+  {
+    code: 'dashboard.read',
+    name: 'Read Dashboard',
+    description: 'View the main dashboard',
+  },
   // User Management
   { code: 'user.create', name: 'Create User', description: 'Create new users' },
   { code: 'user.read', name: 'Read User', description: 'View users' },
@@ -521,6 +527,7 @@ const ALL_PERMISSION_CODES = PERMISSIONS.map((p) => p.code);
 // Shared by Operator/Exim/Warehouse: line staff can view reference data and
 // create their own request boxes, but only Super Admin gets full CRUD access.
 const LINE_STAFF_CODES = [
+  'dashboard.read',
   'warehouse.read',
   'robot.read',
   'model-code-process.read',
