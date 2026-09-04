@@ -14,7 +14,7 @@ export class GetAlarmDashboardStatsUseCase {
   ) {}
 
   execute(query: AlarmDashboardStatsQueryDto): Promise<AlarmDashboardStats> {
-    const since = new Date(Date.now() - query.hours * 60 * 60 * 1000);
+    const since = new Date(Date.now() - query.minutes * 60 * 1000);
     return this.robotAlarmsRepository.getDashboardStats(since);
   }
 }

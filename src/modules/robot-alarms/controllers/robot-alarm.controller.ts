@@ -19,7 +19,7 @@ export class RobotAlarmController {
   @Permissions('robot-alarm.read')
   @ApiOperation({
     summary:
-      "Critical (Emergency-grade) alarm count and per-zone alarm density within the last N hours — powers the main Dashboard's Critical Alarms stat and Abnormality chart",
+      "Live/current alarm snapshot — Critical (Emergency-grade) alarm count and per-zone alarm density within the last N minutes only, reads 0 once nothing fresh has come in — powers the main Dashboard's Critical Alarms stat and Abnormality chart",
   })
   async dashboardStats(@Query() query: AlarmDashboardStatsQueryDto) {
     const data = await this.getAlarmDashboardStatsUseCase.execute(query);
