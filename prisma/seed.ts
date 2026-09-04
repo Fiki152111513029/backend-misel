@@ -508,7 +508,13 @@ const BOX_TYPE_SEEDS: BoxTypeSeed[] = [
   { name: 'Fragile', ordering: 4, colorCode: '#EF4444' },
 ];
 
-const ROLE_NAMES = ['Super Admin', 'Operator', 'Exim', 'Warehouse'] as const;
+const ROLE_NAMES = [
+  'Super Admin',
+  'Operator',
+  'Exim',
+  'Warehouse',
+  'Supervisor',
+] as const;
 
 const ALL_PERMISSION_CODES = PERMISSIONS.map((p) => p.code);
 
@@ -541,6 +547,10 @@ const ROLE_PERMISSION_MAP: Record<(typeof ROLE_NAMES)[number], string[]> = {
   Operator: LINE_STAFF_CODES,
   Exim: LINE_STAFF_CODES,
   Warehouse: LINE_STAFF_CODES,
+  // Starts with no permissions — assign what it needs (e.g.
+  // trolley-activity.read for the Trolley Activities dashboard) via
+  // Role Management, rather than presetting a permission set here.
+  Supervisor: [],
 };
 
 async function main() {
