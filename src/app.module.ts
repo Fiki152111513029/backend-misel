@@ -26,6 +26,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { WarehouseCartTasksModule } from './modules/warehouse-cart-tasks/warehouse-cart-tasks.module';
 import { IcsLogsAccessModule } from './modules/ics-logs-access/ics-logs-access.module';
 import { WebhookLogsModule } from './modules/webhook-logs/webhook-logs.module';
+import { RobotAlarmsModule } from './modules/robot-alarms/robot-alarms.module';
 import { FactoryMapsModule } from './modules/factory-maps/factory-maps.module';
 import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module';
 import { ParkingAreasModule } from './modules/parking-areas/parking-areas.module';
@@ -72,6 +73,7 @@ import { RcsStockStatusModule } from './modules/rcs-stock-status/rcs-stock-statu
     WarehouseCartTasksModule,
     IcsLogsAccessModule,
     WebhookLogsModule,
+    RobotAlarmsModule,
     FactoryMapsModule,
     ChargerAreasModule,
     ParkingAreasModule,

@@ -512,6 +512,13 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Access Operator Trolley Task',
     description: 'View the Operator Trolley Task page',
   },
+  // Robot Alarms — the Critical Alarms stat and Abnormality-by-zone chart
+  // on the main Dashboard
+  {
+    code: 'robot-alarm.read',
+    name: 'Read Robot Alarms',
+    description: 'View robot alarm stats on the dashboard',
+  },
 ];
 
 interface BoxTypeSeed {
@@ -541,6 +548,7 @@ const ALL_PERMISSION_CODES = PERMISSIONS.map((p) => p.code);
 // create their own request boxes, but only Super Admin gets full CRUD access.
 const LINE_STAFF_CODES = [
   'dashboard.read',
+  'robot-alarm.read',
   'warehouse.read',
   'robot.read',
   'model-code-process.read',

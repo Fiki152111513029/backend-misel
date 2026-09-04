@@ -99,6 +99,41 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+// One row per RCS device-alarm webhook call — an append-only log, no
+// update/delete, so no deletedAt (matches RobotActivityLog's convention).
+// Every field but id/receivedAt is nullable since the payload is entirely
+// RCS-controlled and fields can be missing/malformed (see
+// ReceiveRobotAlarmWebhookUseCase's tolerant parsing).
+model RobotAlarm {
+  id              String   @id @default(uuid())
+  deviceNum       String?
+  deviceName      String?
+  alarmDesc       String?
+  alarmType       Int?
+  // RCS-side zone number — opaque, no local Area/Zone table to resolve it
+  // against (same convention as Robot.areaId), so it's just stored and
+  // displayed as-is ("Zone {areaId}").
+  areaId          Int?
+  alarmReadFlag   Int?
+  channelDeviceId String?
+  alarmSource     String?
+  channelName     String?
+  // Raw "alarmDate" value RCS sends — kept as a string since it doesn't
+  // parse as a normal Unix timestamp and its actual epoch/format isn't
+  // documented; receivedAt below is the reliable "when did we get this"
+  // field for dashboard purposes.
+  alarmDateRaw    String?
+  // RCS's severity scale: 1 = Tip, 2 = Alert, 3 = Emergency. "Critical
+  // Alarms" on the dashboard counts alarmGrade = 3 only.
+  alarmGrade      Int?
+  receivedAt      DateTime @default(now())
+
+  @@index([receivedAt])
+  @@index([alarmGrade])
+  @@index([areaId])
+  @@map("robot_alarms")
+}
+
 model RefreshToken {
   id                  String   @id @default(uuid())
   userId              String
