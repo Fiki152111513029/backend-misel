@@ -47,4 +47,9 @@ export class CreateTrolleyDto {
   @IsOptional()
   @IsUUID()
   modelCodeProcessId?: string;
+
+  @ApiPropertyOptional({ description: 'Customer id' })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
 }

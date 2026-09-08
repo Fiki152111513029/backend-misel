@@ -23,6 +23,9 @@ export class TrolleyEntity {
   @ApiProperty({ nullable: true })
   modelCodeProcessId!: string | null;
 
+  @ApiProperty({ nullable: true })
+  customerId!: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 

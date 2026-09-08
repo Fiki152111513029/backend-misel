@@ -1,17 +1,16 @@
 import { Trolley, TrolleyStatus } from '@prisma/client';
 
 export interface TrolleyWithRelations extends Trolley {
-  category:
-    | {
-        id: string;
-        name: string;
-        // Used to build the RCS task-order payload for the Operator Trolley
-        // Task direction (Production->Warehouse) — see
-        // CreateTrolleyActivityUseCase.
-        modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
-      }
-    | null;
+  category: {
+    id: string;
+    name: string;
+    // Used to build the RCS task-order payload for the Operator Trolley
+    // Task direction (Production->Warehouse) — see
+    // CreateTrolleyActivityUseCase.
+    modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
+  } | null;
   modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
+  customer: { id: string; name: string } | null;
 }
 
 export interface CreateTrolleyData {
@@ -21,6 +20,7 @@ export interface CreateTrolleyData {
   trolleyCategoryId?: string;
   droppingLocationCode?: string;
   modelCodeProcessId?: string;
+  customerId?: string;
 }
 
 export interface UpdateTrolleyData {
@@ -30,6 +30,7 @@ export interface UpdateTrolleyData {
   trolleyCategoryId?: string;
   droppingLocationCode?: string;
   modelCodeProcessId?: string;
+  customerId?: string;
   // Only ever set by ReceiveTaskStatusWebhookUseCase (on a "Placed" event)
   // — not exposed on CreateTrolleyDto/UpdateTrolleyDto, since it reflects
   // physical reality reported by RCS, not something an admin should edit.
@@ -62,6 +63,7 @@ export interface ITrolleysRepository {
   existsByCode(code: string, excludeId?: string): Promise<boolean>;
   existsActiveTrolleyCategoryById(id: string): Promise<boolean>;
   existsActiveModelCodeProcessById(id: string): Promise<boolean>;
+  existsActiveCustomerById(id: string): Promise<boolean>;
   create(data: CreateTrolleyData): Promise<Trolley>;
   update(id: string, data: UpdateTrolleyData): Promise<Trolley>;
   softDelete(id: string): Promise<void>;

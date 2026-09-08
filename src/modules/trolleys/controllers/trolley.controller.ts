@@ -77,6 +77,10 @@ export class TrolleyController {
   @ApiOperation({ summary: 'Soft delete a trolley' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.deleteTrolleyUseCase.execute(id);
-    return { success: true, message: 'Trolley deleted successfully', data: null };
+    return {
+      success: true,
+      message: 'Trolley deleted successfully',
+      data: null,
+    };
   }
 }

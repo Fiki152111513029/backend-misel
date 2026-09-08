@@ -669,6 +669,23 @@ model TrolleyCategory {
   @@map("trolley_categories")
 }
 
+model Customer {
+  id        String    @id @default(uuid())
+  name      String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  trolleys Trolley[]
+
+  // `name` uniqueness is enforced by a partial unique index (WHERE
+  // "deletedAt" IS NULL, see migration) so a soft-deleted row's name can be
+  // reused.
+  @@index([name])
+  @@map("customers")
+}
+
 model Trolley {
   id                   String        @id @default(uuid())
   name                 String
@@ -692,12 +709,16 @@ model Trolley {
   // Used to build the RCS task-order payload (modelProcessCode/fromSystem)
   // when a Trolley Activity is submitted for this trolley.
   modelCodeProcessId   String?
+  // Which Customer this trolley is assigned to — optional, purely
+  // informational (not used anywhere in the RCS task-order flow).
+  customerId           String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   deletedAt            DateTime?
 
   category         TrolleyCategory?  @relation(fields: [trolleyCategoryId], references: [id])
   modelCodeProcess ModelCodeProcess? @relation(fields: [modelCodeProcessId], references: [id])
+  customer         Customer?         @relation(fields: [customerId], references: [id])
   activities       TrolleyActivity[]
 
   // `name`/`code` uniqueness is enforced by partial unique indexes
@@ -708,6 +729,7 @@ model Trolley {
   @@index([trolleyCategoryId])
   @@index([droppingLocationCode])
   @@index([modelCodeProcessId])
+  @@index([customerId])
   @@map("trolleys")
 }
 

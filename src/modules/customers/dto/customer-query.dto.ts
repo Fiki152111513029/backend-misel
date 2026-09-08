@@ -2,11 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import type {
+  CustomerSortBy,
   SortOrder,
-  TrolleySortBy,
-} from '../repositories/trolley-repository.interface';
+} from '../repositories/customer-repository.interface';
 
-export class TrolleyQueryDto {
+export class CustomerQueryDto {
   @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
@@ -29,7 +29,7 @@ export class TrolleyQueryDto {
   @ApiPropertyOptional({ enum: ['name', 'createdAt'], default: 'name' })
   @IsOptional()
   @IsIn(['name', 'createdAt'])
-  sortBy: TrolleySortBy = 'name';
+  sortBy: CustomerSortBy = 'name';
 
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'asc' })
   @IsOptional()

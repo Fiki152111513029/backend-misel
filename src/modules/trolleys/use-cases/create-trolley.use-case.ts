@@ -58,6 +58,14 @@ export class CreateTrolleyUseCase {
       }
     }
 
+    if (dto.customerId) {
+      const customerExists =
+        await this.trolleysRepository.existsActiveCustomerById(dto.customerId);
+      if (!customerExists) {
+        throw new BadRequestException('Customer not found');
+      }
+    }
+
     try {
       return await this.trolleysRepository.create(dto);
     } catch (error) {

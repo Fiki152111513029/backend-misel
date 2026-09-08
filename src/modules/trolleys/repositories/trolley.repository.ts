@@ -19,6 +19,7 @@ const RELATIONS_INCLUDE = {
     },
   },
   modelCodeProcess: { select: { id: true, name: true, fromSystem: true } },
+  customer: { select: { id: true, name: true } },
 } as const;
 
 @Injectable()
@@ -92,6 +93,13 @@ export class TrolleyRepository implements ITrolleysRepository {
 
   async existsActiveModelCodeProcessById(id: string): Promise<boolean> {
     const count = await this.prisma.modelCodeProcess.count({
+      where: { id, deletedAt: null, isActive: true },
+    });
+    return count > 0;
+  }
+
+  async existsActiveCustomerById(id: string): Promise<boolean> {
+    const count = await this.prisma.customer.count({
       where: { id, deletedAt: null, isActive: true },
     });
     return count > 0;

@@ -27,14 +27,20 @@ export class UpdateTrolleyUseCase {
     }
 
     if (dto.name && dto.name !== existing.name) {
-      const nameTaken = await this.trolleysRepository.existsByName(dto.name, id);
+      const nameTaken = await this.trolleysRepository.existsByName(
+        dto.name,
+        id,
+      );
       if (nameTaken) {
         throw new BadRequestException('Trolley name already in use');
       }
     }
 
     if (dto.code && dto.code !== existing.code) {
-      const codeTaken = await this.trolleysRepository.existsByCode(dto.code, id);
+      const codeTaken = await this.trolleysRepository.existsByCode(
+        dto.code,
+        id,
+      );
       if (codeTaken) {
         throw new BadRequestException('Trolley code already in use');
       }
@@ -78,6 +84,14 @@ export class UpdateTrolleyUseCase {
         );
       if (!modelCodeProcessExists) {
         throw new BadRequestException('Model Code Process not found');
+      }
+    }
+
+    if (dto.customerId && dto.customerId !== existing.customerId) {
+      const customerExists =
+        await this.trolleysRepository.existsActiveCustomerById(dto.customerId);
+      if (!customerExists) {
+        throw new BadRequestException('Customer not found');
       }
     }
 

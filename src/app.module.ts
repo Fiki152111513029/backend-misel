@@ -33,6 +33,7 @@ import { ParkingAreasModule } from './modules/parking-areas/parking-areas.module
 import { ShiftsModule } from './modules/shifts/shifts.module';
 import { TrolleysModule } from './modules/trolleys/trolleys.module';
 import { TrolleyCategoriesModule } from './modules/trolley-categories/trolley-categories.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { WarehouseLocationsModule } from './modules/warehouse-locations/warehouse-locations.module';
 import { ProductionLocationsModule } from './modules/production-locations/production-locations.module';
 import { TrolleyActivitiesModule } from './modules/trolley-activities/trolley-activities.module';
@@ -79,6 +80,7 @@ import { RcsStockStatusModule } from './modules/rcs-stock-status/rcs-stock-statu
     ParkingAreasModule,
     ShiftsModule,
     TrolleysModule,
+    CustomersModule,
     TrolleyCategoriesModule,
     WarehouseLocationsModule,
     ProductionLocationsModule,
