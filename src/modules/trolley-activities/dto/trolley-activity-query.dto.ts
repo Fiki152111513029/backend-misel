@@ -18,7 +18,10 @@ export class TrolleyActivityQueryDto {
   @Min(1)
   limit: number = 10;
 
-  @ApiPropertyOptional({ enum: TaskStatus, description: 'Filter to one status only' })
+  @ApiPropertyOptional({
+    enum: TaskStatus,
+    description: 'Filter to one status only',
+  })
   @IsOptional()
   @IsEnum(TaskStatus)
   status?: TaskStatus;

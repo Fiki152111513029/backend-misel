@@ -118,6 +118,14 @@ export interface ShiftActivityRow {
   // Warehouse). See utils/trolley-shift-summary.util.ts's
   // splitRowsByDirection for how this is classified.
   pickupLocationCode: string;
+  // The Shift this operator is actually assigned to (User.shiftId), null if
+  // unassigned. [from, to) only bounds *when* the activity happened, which
+  // isn't enough to tell shifts apart on its own — every shift's window
+  // extends to the same 21:00 WIB overtime cutoff (see shiftBounds), so two
+  // shifts starting close together (e.g. 07:00 vs 07:15) have almost
+  // entirely overlapping windows. The actual "which shift is this" answer
+  // has to come from who the operator is assigned to, not what time it is.
+  userShiftId: string | null;
 }
 
 export interface ITrolleyActivitiesRepository {

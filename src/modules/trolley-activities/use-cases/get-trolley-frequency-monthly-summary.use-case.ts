@@ -16,6 +16,7 @@ import {
 import {
   TrolleySupplyFrequencyRow,
   bucketRowsByShiftDay,
+  filterByAssignedShift,
   summarizeTrolleyFrequency,
 } from '../utils/trolley-shift-summary.util';
 
@@ -44,10 +45,11 @@ export class GetTrolleyFrequencyMonthlySummaryUseCase {
       throw new NotFoundException('Shift not found');
     }
 
-    const rows = await this.trolleyActivitiesRepository.getShiftActivities(
+    const allRows = await this.trolleyActivitiesRepository.getShiftActivities(
       new Date(monthStart.getTime() - ONE_DAY_MS),
       new Date(monthEnd.getTime() + ONE_DAY_MS),
     );
+    const rows = filterByAssignedShift(allRows, query.shiftId);
     const buckets = bucketRowsByShiftDay(rows, monthStart, monthEnd, shift);
 
     const perTrolley = new Map<

@@ -64,6 +64,22 @@ export async function fetchActiveWarehouseLocationCodes(
   return new Set(items.map((item) => item.iRaypleLocationCode));
 }
 
+// The authoritative "does this activity belong to the selected shift"
+// check — who the operator is actually assigned to (User.shiftId), not
+// what time of day the activity happened. Every shift's tracked window
+// extends to the same fixed 21:00 WIB overtime cutoff (see shiftBounds), so
+// two shifts with close-together start times (e.g. 07:00 vs 07:15) have
+// almost entirely overlapping windows — filtering by time-of-day alone
+// barely distinguishes them. This is applied on top of (not instead of)
+// the day/month time window, which still bounds *which calendar day* an
+// activity falls on.
+export function filterByAssignedShift(
+  rows: ShiftActivityRow[],
+  shiftId: string,
+): ShiftActivityRow[] {
+  return rows.filter((row) => row.userShiftId === shiftId);
+}
+
 // Splits [monthStart, monthEnd) into each UTC calendar day's own shift
 // window (see shiftBounds) and buckets the already-fetched rows into
 // whichever day's window their startDate falls in. A row can only belong

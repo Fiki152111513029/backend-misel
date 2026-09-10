@@ -19,6 +19,7 @@ import {
   OperatorDurationRow,
   bucketRowsByShiftDay,
   fetchActiveWarehouseLocationCodes,
+  filterByAssignedShift,
   splitRowsByDirection,
   summarizeOperatorDuration,
 } from '../utils/trolley-shift-summary.util';
@@ -62,7 +63,10 @@ export class GetOperatorDurationMonthlySummaryUseCase {
       ),
       fetchActiveWarehouseLocationCodes(this.warehouseLocationsRepository),
     ]);
-    const rows = splitRowsByDirection(allRows, warehouseCodes)[query.direction];
+    const shiftRows = filterByAssignedShift(allRows, query.shiftId);
+    const rows = splitRowsByDirection(shiftRows, warehouseCodes)[
+      query.direction
+    ];
     const buckets = bucketRowsByShiftDay(rows, monthStart, monthEnd, shift);
 
     const perUser = new Map<

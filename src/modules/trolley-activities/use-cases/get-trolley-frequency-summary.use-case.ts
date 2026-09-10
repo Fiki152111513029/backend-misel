@@ -15,6 +15,7 @@ import {
 } from '../../robots/utils/robot-status-day';
 import {
   TrolleySupplyFrequencyRow,
+  filterByAssignedShift,
   summarizeTrolleyFrequency,
 } from '../utils/trolley-shift-summary.util';
 
@@ -41,10 +42,11 @@ export class GetTrolleyFrequencySummaryUseCase {
     }
 
     const { from, to } = shiftBounds(dayStart, shift);
-    const rows = await this.trolleyActivitiesRepository.getShiftActivities(
+    const allRows = await this.trolleyActivitiesRepository.getShiftActivities(
       from,
       to,
     );
+    const rows = filterByAssignedShift(allRows, query.shiftId);
     return summarizeTrolleyFrequency(rows);
   }
 }

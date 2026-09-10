@@ -277,7 +277,13 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
         endDate: true,
         pickupLocationCode: true,
         trolley: { select: { code: true, name: true } },
-        user: { select: { fullName: true, role: { select: { name: true } } } },
+        user: {
+          select: {
+            fullName: true,
+            shiftId: true,
+            role: { select: { name: true } },
+          },
+        },
       },
     });
     return rows.map((row) => ({
@@ -291,6 +297,7 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       startDate: row.startDate,
       endDate: row.endDate,
       pickupLocationCode: row.pickupLocationCode,
+      userShiftId: row.user.shiftId,
     }));
   }
 }

@@ -18,6 +18,7 @@ import {
 import {
   OperatorDurationRow,
   fetchActiveWarehouseLocationCodes,
+  filterByAssignedShift,
   splitRowsByDirection,
   summarizeOperatorDuration,
 } from '../utils/trolley-shift-summary.util';
@@ -47,10 +48,11 @@ export class GetOperatorDurationSummaryUseCase {
     }
 
     const { from, to } = shiftBounds(dayStart, shift);
-    const [rows, warehouseCodes] = await Promise.all([
+    const [allRows, warehouseCodes] = await Promise.all([
       this.trolleyActivitiesRepository.getShiftActivities(from, to),
       fetchActiveWarehouseLocationCodes(this.warehouseLocationsRepository),
     ]);
+    const rows = filterByAssignedShift(allRows, query.shiftId);
     const byDirection = splitRowsByDirection(rows, warehouseCodes);
     return summarizeOperatorDuration(byDirection[query.direction]);
   }
