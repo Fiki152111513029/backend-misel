@@ -40,8 +40,10 @@ export interface IUsersRepository {
   create(data: CreateUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
   remove(id: string): Promise<void>;
-  // Users with role other than "Super Admin" holding at least one
-  // still-valid (not revoked, not expired) refresh token right now — used
-  // by the Trolley Activity dashboard's "Active Operators" stat.
-  countActiveOperators(): Promise<number>;
+  // Powers the Trolley Activity dashboard's "Active Operators" stat —
+  // `active` counts users with role other than "Super Admin" holding at
+  // least one still-valid (not revoked, not expired) refresh token right
+  // now; `total` is every such user regardless of session state, so the
+  // stat can read as "X / Y currently logged in" rather than just X.
+  getOperatorSessionCounts(): Promise<{ active: number; total: number }>;
 }

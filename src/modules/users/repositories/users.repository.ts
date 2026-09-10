@@ -115,15 +115,25 @@ export class UsersRepository implements IUsersRepository {
     ]);
   }
 
-  countActiveOperators(): Promise<number> {
-    return this.prisma.user.count({
-      where: {
-        ...NOT_DELETED,
-        role: { name: { not: 'Super Admin' } },
-        refreshTokens: {
-          some: { revoked: false, expiresAt: { gt: new Date() } },
+  async getOperatorSessionCounts(): Promise<{
+    active: number;
+    total: number;
+  }> {
+    const NOT_SUPER_ADMIN = {
+      ...NOT_DELETED,
+      role: { name: { not: 'Super Admin' } },
+    } as const;
+    const [active, total] = await Promise.all([
+      this.prisma.user.count({
+        where: {
+          ...NOT_SUPER_ADMIN,
+          refreshTokens: {
+            some: { revoked: false, expiresAt: { gt: new Date() } },
+          },
         },
-      },
-    });
+      }),
+      this.prisma.user.count({ where: NOT_SUPER_ADMIN }),
+    ]);
+    return { active, total };
   }
 }
