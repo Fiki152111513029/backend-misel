@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   CreateUserData,
@@ -115,25 +116,25 @@ export class UsersRepository implements IUsersRepository {
     ]);
   }
 
-  async getOperatorSessionCounts(): Promise<{
-    active: number;
+  async setOnlineStatus(userId: string, isOnline: boolean): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isOnline },
+    });
+  }
+
+  async getOperatorOnlineCounts(): Promise<{
+    online: number;
     total: number;
   }> {
-    const NOT_SUPER_ADMIN = {
+    const LINE_STAFF: Prisma.UserWhereInput = {
       ...NOT_DELETED,
-      role: { name: { not: 'Super Admin' } },
-    } as const;
-    const [active, total] = await Promise.all([
-      this.prisma.user.count({
-        where: {
-          ...NOT_SUPER_ADMIN,
-          refreshTokens: {
-            some: { revoked: false, expiresAt: { gt: new Date() } },
-          },
-        },
-      }),
-      this.prisma.user.count({ where: NOT_SUPER_ADMIN }),
+      role: { name: { in: ['Warehouse', 'Operator'] } },
+    };
+    const [online, total] = await Promise.all([
+      this.prisma.user.count({ where: { ...LINE_STAFF, isOnline: true } }),
+      this.prisma.user.count({ where: LINE_STAFF }),
     ]);
-    return { active, total };
+    return { online, total };
   }
 }

@@ -40,10 +40,13 @@ export interface IUsersRepository {
   create(data: CreateUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
   remove(id: string): Promise<void>;
+  // Explicit online/offline flag, flipped by LoginUseCase/LogoutUseCase —
+  // never exposed on CreateUserDto/UpdateUserDto, since it reflects actual
+  // login/logout events, not something an admin should hand-edit.
+  setOnlineStatus(userId: string, isOnline: boolean): Promise<void>;
   // Powers the Trolley Activity dashboard's "Active Operators" stat —
-  // `active` counts users with role other than "Super Admin" holding at
-  // least one still-valid (not revoked, not expired) refresh token right
-  // now; `total` is every such user regardless of session state, so the
-  // stat can read as "X / Y currently logged in" rather than just X.
-  getOperatorSessionCounts(): Promise<{ active: number; total: number }>;
+  // `online` counts Warehouse/Operator role users currently flagged
+  // isOnline; `total` is every such user regardless of online status, so
+  // the stat can read as "X / Y online" rather than just X.
+  getOperatorOnlineCounts(): Promise<{ online: number; total: number }>;
 }

@@ -28,17 +28,17 @@ export class GetTrolleyActivityDashboardUseCase {
     since.setHours(0, 0, 0, 0);
     since.setDate(since.getDate() - (query.days - 1));
 
-    const [stats, operatorSessions] = await Promise.all([
+    const [stats, operatorOnline] = await Promise.all([
       this.trolleyActivitiesRepository.getDashboardStats({ since, userId }),
-      this.usersRepository.getOperatorSessionCounts(),
+      this.usersRepository.getOperatorOnlineCounts(),
     ]);
 
     // Top Operators is a cross-user leaderboard — meaningless (and a scope
     // leak) once the results are already narrowed to one user's own rows.
     return {
       ...stats,
-      activeOperators: operatorSessions.active,
-      totalOperators: operatorSessions.total,
+      activeOperators: operatorOnline.online,
+      totalOperators: operatorOnline.total,
       ...(userId ? { topOperators: [] } : {}),
     };
   }

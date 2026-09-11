@@ -41,11 +41,14 @@ export class LoginUseCase {
 
     const { token: refreshToken, expiresAt } =
       this.tokenService.signRefreshToken(user.id);
-    await this.refreshTokenRepository.create({
-      userId: user.id,
-      tokenHash: hashToken(refreshToken),
-      expiresAt,
-    });
+    await Promise.all([
+      this.refreshTokenRepository.create({
+        userId: user.id,
+        tokenHash: hashToken(refreshToken),
+        expiresAt,
+      }),
+      this.usersRepository.setOnlineStatus(user.id, true),
+    ]);
 
     return {
       accessToken,

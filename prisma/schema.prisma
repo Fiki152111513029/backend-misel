@@ -18,6 +18,12 @@ model User {
   // user (e.g. Super Admin) needs one.
   shiftId                   String?
   isActive                  Boolean                    @default(true)
+  // Explicit online/offline flag — flipped true by LoginUseCase on a
+  // successful login, flipped false by LogoutUseCase on logout. Not
+  // inferred from token/session freshness (see the Trolley Activity
+  // dashboard's "Active Operators" stat), so it stays true if a session
+  // just expires/closes without an explicit logout call.
+  isOnline                  Boolean                    @default(false)
   priority                  Int                        @default(6)
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
