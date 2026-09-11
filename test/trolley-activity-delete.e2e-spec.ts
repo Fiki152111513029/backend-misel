@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClassSerializerInterceptor, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
@@ -25,6 +29,7 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
   let warehouseToken: string;
 
   let trolleyId: string;
+  let trolleyTypeId: string;
   let activityId: string;
 
   beforeAll(async () => {
@@ -34,9 +39,15 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+    app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
 
@@ -44,9 +55,13 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
 
     const hashedPassword = await bcrypt.hash(testPassword, 10);
 
-    async function createUserWithRole(roleName: string, usernameSuffix: string) {
+    async function createUserWithRole(
+      roleName: string,
+      usernameSuffix: string,
+    ) {
       const role = await prisma.role.findFirst({ where: { name: roleName } });
-      if (!role) throw new Error(`No ${roleName} role seeded — cannot run test`);
+      if (!role)
+        throw new Error(`No ${roleName} role seeded — cannot run test`);
       const username = `${suffix}${usernameSuffix}`;
       const user = await prisma.user.create({
         data: {
@@ -73,8 +88,16 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
     warehouseUserId = warehouse.userId;
     warehouseToken = warehouse.token;
 
-    const mcp = await prisma.modelCodeProcess.findFirst({ where: { deletedAt: null } });
-    if (!mcp) throw new Error('No active ModelCodeProcess seeded — cannot run test');
+    const mcp = await prisma.modelCodeProcess.findFirst({
+      where: { deletedAt: null },
+    });
+    if (!mcp)
+      throw new Error('No active ModelCodeProcess seeded — cannot run test');
+
+    const trolleyType = await prisma.trolleyType.create({
+      data: { name: `${suffix} Type` },
+    });
+    trolleyTypeId = trolleyType.id;
 
     const trolley = await prisma.trolley.create({
       data: {
@@ -82,6 +105,7 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
         code: `${suffix}TRL`,
         status: 'EMPTY',
         modelCodeProcessId: mcp.id,
+        trolleyTypeId,
       },
     });
     trolleyId = trolley.id;
@@ -106,10 +130,13 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { trolleyId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
+    await prisma.trolleyType.deleteMany({ where: { id: trolleyTypeId } });
     await prisma.refreshToken.deleteMany({
       where: { userId: { in: [superAdminUserId, warehouseUserId] } },
     });
-    await prisma.user.deleteMany({ where: { id: { in: [superAdminUserId, warehouseUserId] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [superAdminUserId, warehouseUserId] } },
+    });
     await app.close();
   });
 
@@ -119,7 +146,9 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
       .set('Authorization', `Bearer ${warehouseToken}`)
       .expect(403);
 
-    const activity = await prisma.trolleyActivity.findUnique({ where: { id: activityId } });
+    const activity = await prisma.trolleyActivity.findUnique({
+      where: { id: activityId },
+    });
     expect(activity?.deletedAt).toBeNull();
   });
 
@@ -136,7 +165,9 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
       .set('Authorization', `Bearer ${superAdminToken}`)
       .expect(200);
 
-    const activity = await prisma.trolleyActivity.findUnique({ where: { id: activityId } });
+    const activity = await prisma.trolleyActivity.findUnique({
+      where: { id: activityId },
+    });
     expect(activity).not.toBeNull();
     expect(activity?.deletedAt).not.toBeNull();
 
@@ -145,6 +176,8 @@ describe('DELETE /trolley-activities/:id (e2e)', () => {
       .query({ limit: 100 })
       .set('Authorization', `Bearer ${superAdminToken}`)
       .expect(200);
-    expect(list.body.data.items.map((i: { id: string }) => i.id)).not.toContain(activityId);
+    expect(list.body.data.items.map((i: { id: string }) => i.id)).not.toContain(
+      activityId,
+    );
   });
 });

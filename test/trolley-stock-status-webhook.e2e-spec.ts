@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClassSerializerInterceptor, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
@@ -43,6 +47,7 @@ describe('Trolley stock-status (e2e)', () => {
   const testPassword = 'E2eTestPass123!';
   let trolleyCategoryId: string;
   let trolleyId: string;
+  let trolleyTypeId: string;
   let whPickupCode: string;
   let plDropCode: string;
   let updateStockStatusMock: jest.Mock;
@@ -73,16 +78,25 @@ describe('Trolley stock-status (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+    app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
 
     prisma = app.get(PrismaService);
 
-    const superAdminRole = await prisma.role.findFirst({ where: { name: 'Super Admin' } });
-    if (!superAdminRole) throw new Error('No Super Admin role seeded — cannot run test');
+    const superAdminRole = await prisma.role.findFirst({
+      where: { name: 'Super Admin' },
+    });
+    if (!superAdminRole)
+      throw new Error('No Super Admin role seeded — cannot run test');
     const hashedPassword = await bcrypt.hash(testPassword, 10);
     const testUser = await prisma.user.create({
       data: {
@@ -102,18 +116,30 @@ describe('Trolley stock-status (e2e)', () => {
       .expect(200);
     accessToken = login.body.accessToken;
 
-    const mcp = await prisma.modelCodeProcess.findFirst({ where: { deletedAt: null } });
-    if (!mcp) throw new Error('No active ModelCodeProcess seeded — cannot run test');
+    const mcp = await prisma.modelCodeProcess.findFirst({
+      where: { deletedAt: null },
+    });
+    if (!mcp)
+      throw new Error('No active ModelCodeProcess seeded — cannot run test');
     mcpName = mcp.name;
 
     whPickupCode = `${suffix}WHPICK`;
     await prisma.warehouseLocation.create({
-      data: { name: `${suffix} WH Pickup`, iRaypleLocationCode: whPickupCode, isActive: true, status: 'FULL' },
+      data: {
+        name: `${suffix} WH Pickup`,
+        iRaypleLocationCode: whPickupCode,
+        isActive: true,
+        status: 'FULL',
+      },
     });
 
     plDropCode = `${suffix}PLDROP`;
     await prisma.productionLocation.create({
-      data: { name: `${suffix} PL Drop`, iRaypleLocationCode: plDropCode, isActive: true },
+      data: {
+        name: `${suffix} PL Drop`,
+        iRaypleLocationCode: plDropCode,
+        isActive: true,
+      },
     });
 
     // Production->Warehouse (Operator Trolley Task) resolves
@@ -123,6 +149,11 @@ describe('Trolley stock-status (e2e)', () => {
     });
     trolleyCategoryId = trolleyCategory.id;
 
+    const trolleyType = await prisma.trolleyType.create({
+      data: { name: `${suffix} Type` },
+    });
+    trolleyTypeId = trolleyType.id;
+
     const trolley = await prisma.trolley.create({
       data: {
         name: `${suffix} Trolley`,
@@ -130,6 +161,7 @@ describe('Trolley stock-status (e2e)', () => {
         status: 'EMPTY',
         modelCodeProcessId: mcp.id,
         trolleyCategoryId,
+        trolleyTypeId,
         droppingLocationCode: plDropCode,
       },
     });
@@ -139,16 +171,25 @@ describe('Trolley stock-status (e2e)', () => {
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { trolleyId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
-    await prisma.trolleyCategory.deleteMany({ where: { id: trolleyCategoryId } });
-    await prisma.warehouseLocation.deleteMany({ where: { iRaypleLocationCode: whPickupCode } });
-    await prisma.productionLocation.deleteMany({ where: { iRaypleLocationCode: plDropCode } });
+    await prisma.trolleyType.deleteMany({ where: { id: trolleyTypeId } });
+    await prisma.trolleyCategory.deleteMany({
+      where: { id: trolleyCategoryId },
+    });
+    await prisma.warehouseLocation.deleteMany({
+      where: { iRaypleLocationCode: whPickupCode },
+    });
+    await prisma.productionLocation.deleteMany({
+      where: { iRaypleLocationCode: plDropCode },
+    });
     await prisma.refreshToken.deleteMany({ where: { userId: testUserId } });
     await prisma.user.deleteMany({ where: { id: testUserId } });
     await app.close();
   });
 
   it('before any Trolley Task has ever been submitted, currentLocationCode is still null', async () => {
-    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const trolley = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
     expect(trolley?.currentLocationCode).toBeNull();
   });
 
@@ -182,7 +223,9 @@ describe('Trolley stock-status (e2e)', () => {
     expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '0');
     expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '2');
 
-    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const trolley = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
     expect(trolley?.currentLocationCode).toBe(plDropCode);
   });
 
@@ -232,7 +275,9 @@ describe('Trolley stock-status (e2e)', () => {
     // confirms the task actually finished (see next test).
     expect(res.body.data.activity.droppingLocationCode).toBeNull();
 
-    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const trolley = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
     expect(trolley?.currentLocationCode).toBeTruthy();
     expect(trolley?.currentLocationCode).not.toBe(plDropCode);
 
@@ -249,7 +294,9 @@ describe('Trolley stock-status (e2e)', () => {
   });
 
   it('sets droppingLocationCode from RCS getTaskOrderStatus once it reports the Operator-direction task Completed (status 8) — correcting our own submit-time guess if RCS actually chose differently', async () => {
-    let activity = await prisma.trolleyActivity.findUnique({ where: { id: operatorActivityId } });
+    let activity = await prisma.trolleyActivity.findUnique({
+      where: { id: operatorActivityId },
+    });
     expect(activity?.droppingLocationCode).toBeNull();
 
     // RCS's real answer deliberately differs from our submit-time guess
@@ -263,17 +310,25 @@ describe('Trolley stock-status (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/webhooks-logs')
-      .send({ orderId: operatorTaskId, deviceCode: 'AMR-E2E-STOCK', status: '8' })
+      .send({
+        orderId: operatorTaskId,
+        deviceCode: 'AMR-E2E-STOCK',
+        status: '8',
+      })
       .expect(200);
 
     expect(getTaskOrderStatusMock).toHaveBeenCalledWith(operatorTaskId);
 
-    activity = await prisma.trolleyActivity.findUnique({ where: { id: operatorActivityId } });
+    activity = await prisma.trolleyActivity.findUnique({
+      where: { id: operatorActivityId },
+    });
     expect(activity?.droppingLocationCode).toBe(realDropCode);
     expect(activity?.droppingLocationCode).not.toBe(operatorDropCode);
     expect(activity?.status).toBe('COMPLETED');
 
-    const trolley = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const trolley = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
     expect(trolley?.currentLocationCode).toBe(realDropCode);
 
     // The guessed Warehouse Location (auto-picked and flipped FULL at
@@ -293,13 +348,21 @@ describe('Trolley stock-status (e2e)', () => {
     updateStockStatusMock.mockClear();
     addTaskMock.mockClear();
 
-    const activityCountBefore = await prisma.trolleyActivity.count({ where: { trolleyId } });
-    const trolleyBefore = await prisma.trolley.findUnique({ where: { id: trolleyId } });
+    const activityCountBefore = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
+    const trolleyBefore = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
 
     const res = await request(app.getHttpServer())
       .post('/trolley-activities/take-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ trolleyId, pickupLocationCode: whPickupCode, queueRole: 'Warehouse' })
+      .send({
+        trolleyId,
+        pickupLocationCode: whPickupCode,
+        queueRole: 'Warehouse',
+      })
       .expect(201);
 
     expect(updateStockStatusMock).toHaveBeenCalledWith(whPickupCode, '0');
@@ -315,7 +378,9 @@ describe('Trolley stock-status (e2e)', () => {
     expect(typeof res.body.data.startDate).toBe('string');
 
     // A real open row was created — one more than before, not zero.
-    const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const activityCountAfter = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
     expect(activityCountAfter).toBe(activityCountBefore + 1);
 
     const activity = await prisma.trolleyActivity.findUnique({
@@ -335,13 +400,17 @@ describe('Trolley stock-status (e2e)', () => {
       .get('/trolley-activities/active-mine')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
-    expect(activeMine.body.data.map((a: { activityId: string }) => a.activityId)).not.toContain(
-      res.body.data.activityId,
-    );
+    expect(
+      activeMine.body.data.map((a: { activityId: string }) => a.activityId),
+    ).not.toContain(res.body.data.activityId);
 
     // Take Trolley never touches the trolley's own status/position.
-    const trolleyAfter = await prisma.trolley.findUnique({ where: { id: trolleyId } });
-    expect(trolleyAfter?.currentLocationCode).toBe(trolleyBefore?.currentLocationCode);
+    const trolleyAfter = await prisma.trolley.findUnique({
+      where: { id: trolleyId },
+    });
+    expect(trolleyAfter?.currentLocationCode).toBe(
+      trolleyBefore?.currentLocationCode,
+    );
     expect(trolleyAfter?.status).toBe(trolleyBefore?.status);
   });
 
@@ -353,17 +422,25 @@ describe('Trolley stock-status (e2e)', () => {
     // The previous test left an open row for this trolley (never completed
     // by a Drop Trolley) — Take Trolley doesn't check for that, it always
     // creates its own new row.
-    const activityCountBefore = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const activityCountBefore = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
 
     updateStockStatusMock.mockClear();
 
     const res = await request(app.getHttpServer())
       .post('/trolley-activities/take-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ trolleyId, pickupLocationCode: whPickupCode, queueRole: 'Operator' })
+      .send({
+        trolleyId,
+        pickupLocationCode: whPickupCode,
+        queueRole: 'Operator',
+      })
       .expect(201);
 
-    const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const activityCountAfter = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
     expect(activityCountAfter).toBe(activityCountBefore + 1);
 
     const activity = await prisma.trolleyActivity.findUnique({
@@ -377,16 +454,24 @@ describe('Trolley stock-status (e2e)', () => {
   it('take-trolley rejects a pickup location code that matches neither an active Warehouse Location nor Production Location', async () => {
     updateStockStatusMock.mockClear();
 
-    const activityCountBefore = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const activityCountBefore = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
 
     await request(app.getHttpServer())
       .post('/trolley-activities/take-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ trolleyId, pickupLocationCode: `${suffix}NOPE`, queueRole: 'Warehouse' })
+      .send({
+        trolleyId,
+        pickupLocationCode: `${suffix}NOPE`,
+        queueRole: 'Warehouse',
+      })
       .expect(400);
 
     expect(updateStockStatusMock).not.toHaveBeenCalled();
-    const activityCountAfter = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const activityCountAfter = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
     expect(activityCountAfter).toBe(activityCountBefore);
   });
 
@@ -402,11 +487,17 @@ describe('Trolley stock-status (e2e)', () => {
     const takeRes = await request(app.getHttpServer())
       .post('/trolley-activities/take-trolley')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ trolleyId, pickupLocationCode: pickupCode, queueRole: 'Warehouse' })
+      .send({
+        trolleyId,
+        pickupLocationCode: pickupCode,
+        queueRole: 'Warehouse',
+      })
       .expect(201);
 
     const openActivityId = takeRes.body.data.activityId;
-    const activityCountAfterTake = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const activityCountAfterTake = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 1100));
 
@@ -429,7 +520,9 @@ describe('Trolley stock-status (e2e)', () => {
 
     // Completed the same row Take Trolley opened — not a second one.
     expect(dropRes.body.data.activity.id).toBe(openActivityId);
-    const activityCountAfterDrop = await prisma.trolleyActivity.count({ where: { trolleyId } });
+    const activityCountAfterDrop = await prisma.trolleyActivity.count({
+      where: { trolleyId },
+    });
     expect(activityCountAfterDrop).toBe(activityCountAfterTake);
 
     const completedActivity = await prisma.trolleyActivity.findUnique({
@@ -439,6 +532,8 @@ describe('Trolley stock-status (e2e)', () => {
     expect(completedActivity?.endDate).not.toBeNull();
     // The row's own startDate (from Take Trolley) wins — not overwritten by
     // Drop Trolley's own lookup-trolley timestamp.
-    expect(completedActivity?.startDate.toISOString()).toBe(takeRes.body.data.startDate);
+    expect(completedActivity?.startDate.toISOString()).toBe(
+      takeRes.body.data.startDate,
+    );
   });
 });

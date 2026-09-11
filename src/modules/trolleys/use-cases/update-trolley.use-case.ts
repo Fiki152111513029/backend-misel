@@ -26,23 +26,49 @@ export class UpdateTrolleyUseCase {
       throw new NotFoundException('Trolley not found');
     }
 
-    if (dto.name && dto.name !== existing.name) {
-      const nameTaken = await this.trolleysRepository.existsByName(
-        dto.name,
-        id,
-      );
-      if (nameTaken) {
-        throw new BadRequestException('Trolley name already in use');
+    if (dto.trolleyTypeId && dto.trolleyTypeId !== existing.trolleyTypeId) {
+      const typeExists =
+        await this.trolleysRepository.existsActiveTrolleyTypeById(
+          dto.trolleyTypeId,
+        );
+      if (!typeExists) {
+        throw new BadRequestException('Trolley Type not found');
       }
     }
 
-    if (dto.code && dto.code !== existing.code) {
+    // name/code uniqueness is scoped to (name|code, trolleyTypeId), so a
+    // conflict can appear either from changing the name/code itself, or
+    // from moving this trolley into a Type that already has a matching one.
+    const effectiveTrolleyTypeId = dto.trolleyTypeId ?? existing.trolleyTypeId;
+    const typeChanging =
+      dto.trolleyTypeId !== undefined &&
+      dto.trolleyTypeId !== existing.trolleyTypeId;
+
+    const nameChanging = dto.name !== undefined && dto.name !== existing.name;
+    if (nameChanging || typeChanging) {
+      const nameTaken = await this.trolleysRepository.existsByName(
+        dto.name ?? existing.name,
+        effectiveTrolleyTypeId,
+        id,
+      );
+      if (nameTaken) {
+        throw new BadRequestException(
+          'Trolley name already in use for this Type',
+        );
+      }
+    }
+
+    const codeChanging = dto.code !== undefined && dto.code !== existing.code;
+    if (codeChanging || typeChanging) {
       const codeTaken = await this.trolleysRepository.existsByCode(
-        dto.code,
+        dto.code ?? existing.code,
+        effectiveTrolleyTypeId,
         id,
       );
       if (codeTaken) {
-        throw new BadRequestException('Trolley code already in use');
+        throw new BadRequestException(
+          'Trolley code already in use for this Type',
+        );
       }
     }
 
@@ -100,7 +126,7 @@ export class UpdateTrolleyUseCase {
     } catch (error) {
       if (isUniqueConstraintViolation(error)) {
         throw new BadRequestException(
-          'A Trolley with this name or code is already in use',
+          'A Trolley with this name or code already exists for this Type',
         );
       }
       throw error;

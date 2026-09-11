@@ -1,6 +1,7 @@
 import { Trolley, TrolleyStatus } from '@prisma/client';
 
 export interface TrolleyWithRelations extends Trolley {
+  type: { id: string; name: string };
   category: {
     id: string;
     name: string;
@@ -17,6 +18,7 @@ export interface CreateTrolleyData {
   name: string;
   code: string;
   status?: TrolleyStatus;
+  trolleyTypeId: string;
   trolleyCategoryId?: string;
   droppingLocationCode?: string;
   modelCodeProcessId?: string;
@@ -27,6 +29,7 @@ export interface UpdateTrolleyData {
   name?: string;
   code?: string;
   status?: TrolleyStatus;
+  trolleyTypeId?: string;
   trolleyCategoryId?: string;
   droppingLocationCode?: string;
   modelCodeProcessId?: string;
@@ -59,8 +62,20 @@ export interface ITrolleysRepository {
   findAll(params: FindAllTrolleysParams): Promise<FindAllTrolleysResult>;
   findById(id: string): Promise<TrolleyWithRelations | null>;
   findActiveByCode(code: string): Promise<TrolleyWithRelations | null>;
-  existsByName(name: string, excludeId?: string): Promise<boolean>;
-  existsByCode(code: string, excludeId?: string): Promise<boolean>;
+  // Scoped by trolleyTypeId — name/code only need to be unique within the
+  // same Trolley Type, not globally (see the composite partial unique
+  // indexes on Trolley in the migration).
+  existsByName(
+    name: string,
+    trolleyTypeId: string,
+    excludeId?: string,
+  ): Promise<boolean>;
+  existsByCode(
+    code: string,
+    trolleyTypeId: string,
+    excludeId?: string,
+  ): Promise<boolean>;
+  existsActiveTrolleyTypeById(id: string): Promise<boolean>;
   existsActiveTrolleyCategoryById(id: string): Promise<boolean>;
   existsActiveModelCodeProcessById(id: string): Promise<boolean>;
   existsActiveCustomerById(id: string): Promise<boolean>;

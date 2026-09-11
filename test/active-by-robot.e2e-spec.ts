@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClassSerializerInterceptor, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
@@ -23,6 +27,7 @@ describe('GET /trolley-activities/active-by-robot (e2e)', () => {
   const testPassword = 'E2eTestPass123!';
   let robotId: string;
   let trolleyId: string;
+  let trolleyTypeId: string;
   let activityId: string;
 
   beforeAll(async () => {
@@ -32,16 +37,25 @@ describe('GET /trolley-activities/active-by-robot (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+    app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
 
     prisma = app.get(PrismaService);
 
-    const superAdminRole = await prisma.role.findFirst({ where: { name: 'Super Admin' } });
-    if (!superAdminRole) throw new Error('No Super Admin role seeded — cannot run test');
+    const superAdminRole = await prisma.role.findFirst({
+      where: { name: 'Super Admin' },
+    });
+    if (!superAdminRole)
+      throw new Error('No Super Admin role seeded — cannot run test');
     const hashedPassword = await bcrypt.hash(testPassword, 10);
     const testUser = await prisma.user.create({
       data: {
@@ -61,8 +75,11 @@ describe('GET /trolley-activities/active-by-robot (e2e)', () => {
       .expect(200);
     accessToken = login.body.accessToken;
 
-    const mcp = await prisma.modelCodeProcess.findFirst({ where: { deletedAt: null } });
-    if (!mcp) throw new Error('No active ModelCodeProcess seeded — cannot run test');
+    const mcp = await prisma.modelCodeProcess.findFirst({
+      where: { deletedAt: null },
+    });
+    if (!mcp)
+      throw new Error('No active ModelCodeProcess seeded — cannot run test');
 
     const robot = await prisma.robot.create({
       data: {
@@ -74,9 +91,20 @@ describe('GET /trolley-activities/active-by-robot (e2e)', () => {
     });
     robotId = robot.id;
 
-    const trolley = await prisma.trolley.create({
-      data: { name: `${suffix} Trolley`, code: `${suffix}TRL`, status: 'EMPTY', modelCodeProcessId: mcp.id },
+    const trolleyType = await prisma.trolleyType.create({
+      data: { name: `${suffix} Type` },
     });
+
+    const trolley = await prisma.trolley.create({
+      data: {
+        name: `${suffix} Trolley`,
+        code: `${suffix}TRL`,
+        status: 'EMPTY',
+        modelCodeProcessId: mcp.id,
+        trolleyTypeId: trolleyType.id,
+      },
+    });
+    trolleyTypeId = trolleyType.id;
     trolleyId = trolley.id;
 
     const activity = await prisma.trolleyActivity.create({
@@ -100,6 +128,7 @@ describe('GET /trolley-activities/active-by-robot (e2e)', () => {
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { id: activityId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
+    await prisma.trolleyType.deleteMany({ where: { id: trolleyTypeId } });
     await prisma.robot.deleteMany({ where: { id: robotId } });
     await prisma.refreshToken.deleteMany({ where: { userId: testUserId } });
     await prisma.user.deleteMany({ where: { id: testUserId } });
@@ -120,14 +149,19 @@ describe('GET /trolley-activities/active-by-robot (e2e)', () => {
   });
 
   it('stops appearing once the activity is COMPLETED', async () => {
-    await prisma.trolleyActivity.update({ where: { id: activityId }, data: { status: 'COMPLETED' } });
+    await prisma.trolleyActivity.update({
+      where: { id: activityId },
+      data: { status: 'COMPLETED' },
+    });
 
     const res = await request(app.getHttpServer())
       .get('/trolley-activities/active-by-robot')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    const row = (res.body.data as { robotId: string }[]).find((r) => r.robotId === robotId);
+    const row = (res.body.data as { robotId: string }[]).find(
+      (r) => r.robotId === robotId,
+    );
     expect(row).toBeUndefined();
   });
 });

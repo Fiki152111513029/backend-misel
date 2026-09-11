@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClassSerializerInterceptor, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
@@ -26,6 +30,7 @@ describe('GET /webhooks-logs/latest resolves statusComment for Trolley Activitie
   let mcpId: string;
   let originalComment3: string;
   let trolleyId: string;
+  let trolleyTypeId: string;
   const taskId = `${suffix}TASK`;
 
   beforeAll(async () => {
@@ -35,16 +40,25 @@ describe('GET /webhooks-logs/latest resolves statusComment for Trolley Activitie
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+    app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
 
     prisma = app.get(PrismaService);
 
-    const superAdminRole = await prisma.role.findFirst({ where: { name: 'Super Admin' } });
-    if (!superAdminRole) throw new Error('No Super Admin role seeded — cannot run test');
+    const superAdminRole = await prisma.role.findFirst({
+      where: { name: 'Super Admin' },
+    });
+    if (!superAdminRole)
+      throw new Error('No Super Admin role seeded — cannot run test');
     const hashedPassword = await bcrypt.hash(testPassword, 10);
     const testUser = await prisma.user.create({
       data: {
@@ -64,8 +78,11 @@ describe('GET /webhooks-logs/latest resolves statusComment for Trolley Activitie
       .expect(200);
     accessToken = login.body.accessToken;
 
-    const mcp = await prisma.modelCodeProcess.findFirst({ where: { deletedAt: null } });
-    if (!mcp) throw new Error('No active ModelCodeProcess seeded — cannot run test');
+    const mcp = await prisma.modelCodeProcess.findFirst({
+      where: { deletedAt: null },
+    });
+    if (!mcp)
+      throw new Error('No active ModelCodeProcess seeded — cannot run test');
     mcpId = mcp.id;
     originalComment3 = mcp.statusComment3;
     await prisma.modelCodeProcess.update({
@@ -73,12 +90,18 @@ describe('GET /webhooks-logs/latest resolves statusComment for Trolley Activitie
       data: { statusComment3: 'Carrying Trolley' },
     });
 
+    const trolleyType = await prisma.trolleyType.create({
+      data: { name: `${suffix} Type` },
+    });
+    trolleyTypeId = trolleyType.id;
+
     const trolley = await prisma.trolley.create({
       data: {
         name: `${suffix} Trolley`,
         code: `${suffix}TRL`,
         status: 'EMPTY',
         modelCodeProcessId: mcpId,
+        trolleyTypeId,
       },
     });
     trolleyId = trolley.id;
@@ -102,6 +125,7 @@ describe('GET /webhooks-logs/latest resolves statusComment for Trolley Activitie
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { trolleyId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
+    await prisma.trolleyType.deleteMany({ where: { id: trolleyTypeId } });
     await prisma.modelCodeProcess.update({
       where: { id: mcpId },
       data: { statusComment3: originalComment3 },
@@ -111,12 +135,17 @@ describe('GET /webhooks-logs/latest resolves statusComment for Trolley Activitie
     await app.close();
   });
 
-  it('resolves statusComment from the Trolley\'s Model Code Process, not just Task/WarehouseCartTask', async () => {
+  it("resolves statusComment from the Trolley's Model Code Process, not just Task/WarehouseCartTask", async () => {
     // status '6' (Running) — deliberately not '21'/'23' (Picked/Placed), so
     // this doesn't also trigger a real (unmocked) RCS stock-status call.
     await request(app.getHttpServer())
       .post('/webhooks-logs')
-      .send({ orderId: taskId, deviceCode: 'AMR-E2E-CMT', status: '6', subTaskSeq: '3' })
+      .send({
+        orderId: taskId,
+        deviceCode: 'AMR-E2E-CMT',
+        status: '6',
+        subTaskSeq: '3',
+      })
       .expect(200);
 
     const res = await request(app.getHttpServer())

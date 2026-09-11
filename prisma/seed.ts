@@ -377,6 +377,27 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Customer',
     description: 'Delete customers',
   },
+  // Trolley Type
+  {
+    code: 'trolley-type.create',
+    name: 'Create Trolley Type',
+    description: 'Create new trolley types',
+  },
+  {
+    code: 'trolley-type.read',
+    name: 'Read Trolley Type',
+    description: 'View trolley types',
+  },
+  {
+    code: 'trolley-type.update',
+    name: 'Update Trolley Type',
+    description: 'Update trolley types',
+  },
+  {
+    code: 'trolley-type.delete',
+    name: 'Delete Trolley Type',
+    description: 'Delete trolley types',
+  },
   // Parking Area
   {
     code: 'parking-area.create',

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClassSerializerInterceptor, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
@@ -28,6 +32,7 @@ describe('GET /trolley-activities — own-activities scope for Warehouse/Operato
   let operatorToken: string;
 
   let trolleyId: string;
+  let trolleyTypeId: string;
   let superAdminActivityId: string;
   let warehouseActivityId: string;
   let operatorActivityId: string;
@@ -39,9 +44,15 @@ describe('GET /trolley-activities — own-activities scope for Warehouse/Operato
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+    app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
 
@@ -49,9 +60,13 @@ describe('GET /trolley-activities — own-activities scope for Warehouse/Operato
 
     const hashedPassword = await bcrypt.hash(testPassword, 10);
 
-    async function createUserWithRole(roleName: string, usernameSuffix: string) {
+    async function createUserWithRole(
+      roleName: string,
+      usernameSuffix: string,
+    ) {
       const role = await prisma.role.findFirst({ where: { name: roleName } });
-      if (!role) throw new Error(`No ${roleName} role seeded — cannot run test`);
+      if (!role)
+        throw new Error(`No ${roleName} role seeded — cannot run test`);
       const username = `${suffix}${usernameSuffix}`;
       const user = await prisma.user.create({
         data: {
@@ -82,8 +97,16 @@ describe('GET /trolley-activities — own-activities scope for Warehouse/Operato
     operatorUserId = operator.userId;
     operatorToken = operator.token;
 
-    const mcp = await prisma.modelCodeProcess.findFirst({ where: { deletedAt: null } });
-    if (!mcp) throw new Error('No active ModelCodeProcess seeded — cannot run test');
+    const mcp = await prisma.modelCodeProcess.findFirst({
+      where: { deletedAt: null },
+    });
+    if (!mcp)
+      throw new Error('No active ModelCodeProcess seeded — cannot run test');
+
+    const trolleyType = await prisma.trolleyType.create({
+      data: { name: `${suffix} Type` },
+    });
+    trolleyTypeId = trolleyType.id;
 
     const trolley = await prisma.trolley.create({
       data: {
@@ -91,6 +114,7 @@ describe('GET /trolley-activities — own-activities scope for Warehouse/Operato
         code: `${suffix}TRL`,
         status: 'EMPTY',
         modelCodeProcessId: mcp.id,
+        trolleyTypeId,
       },
     });
     trolleyId = trolley.id;
@@ -121,11 +145,16 @@ describe('GET /trolley-activities — own-activities scope for Warehouse/Operato
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { trolleyId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
+    await prisma.trolleyType.deleteMany({ where: { id: trolleyTypeId } });
     await prisma.refreshToken.deleteMany({
-      where: { userId: { in: [superAdminUserId, warehouseUserId, operatorUserId] } },
+      where: {
+        userId: { in: [superAdminUserId, warehouseUserId, operatorUserId] },
+      },
     });
     await prisma.user.deleteMany({
-      where: { id: { in: [superAdminUserId, warehouseUserId, operatorUserId] } },
+      where: {
+        id: { in: [superAdminUserId, warehouseUserId, operatorUserId] },
+      },
     });
     await app.close();
   });
@@ -160,7 +189,7 @@ describe('GET /trolley-activities — own-activities scope for Warehouse/Operato
     expect(ids).not.toContain(superAdminActivityId);
   });
 
-  it('Super Admin sees everyone\'s activities, unscoped', async () => {
+  it("Super Admin sees everyone's activities, unscoped", async () => {
     const res = await request(app.getHttpServer())
       .get('/trolley-activities')
       .query({ limit: 100 })

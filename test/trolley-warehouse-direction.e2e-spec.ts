@@ -45,6 +45,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
   let mcpId: string;
   let trolleyCategoryId: string;
   let trolleyId: string;
+  let trolleyTypeId: string;
   let whPickupId: string; // WarehouseLocation used as pickup in the Warehouse->Production test
   let whDropId: string; // WarehouseLocation left EMPTY, auto-picked as dropping in the Production->Warehouse test
   let plDropCode: string; // trolley's fixed dropping code (Warehouse->Production); reused as the pickup for the chained Production->Warehouse test
@@ -171,6 +172,11 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
     });
     trolleyCategoryId = trolleyCategory.id;
 
+    const trolleyType = await prisma.trolleyType.create({
+      data: { name: `${suffix} Type` },
+    });
+    trolleyTypeId = trolleyType.id;
+
     const trolley = await prisma.trolley.create({
       data: {
         name: `${suffix} Trolley`,
@@ -178,6 +184,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
         status: 'EMPTY',
         modelCodeProcessId: mcpId,
         trolleyCategoryId,
+        trolleyTypeId,
         droppingLocationCode: plDropCode,
       },
     });
@@ -187,6 +194,7 @@ describe('Trolley Activities — direction auto-detection (e2e)', () => {
   afterAll(async () => {
     await prisma.trolleyActivity.deleteMany({ where: { trolleyId } });
     await prisma.trolley.deleteMany({ where: { id: trolleyId } });
+    await prisma.trolleyType.deleteMany({ where: { id: trolleyTypeId } });
     await prisma.trolleyCategory.deleteMany({
       where: { id: trolleyCategoryId },
     });

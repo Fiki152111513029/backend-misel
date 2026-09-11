@@ -11,6 +11,7 @@ import {
 
 const NOT_DELETED: Prisma.TrolleyWhereInput = { deletedAt: null };
 const RELATIONS_INCLUDE = {
+  type: { select: { id: true, name: true } },
   category: {
     select: {
       id: true,
@@ -62,10 +63,15 @@ export class TrolleyRepository implements ITrolleysRepository {
     });
   }
 
-  async existsByName(name: string, excludeId?: string): Promise<boolean> {
+  async existsByName(
+    name: string,
+    trolleyTypeId: string,
+    excludeId?: string,
+  ): Promise<boolean> {
     const count = await this.prisma.trolley.count({
       where: {
         name,
+        trolleyTypeId,
         ...NOT_DELETED,
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
@@ -73,13 +79,25 @@ export class TrolleyRepository implements ITrolleysRepository {
     return count > 0;
   }
 
-  async existsByCode(code: string, excludeId?: string): Promise<boolean> {
+  async existsByCode(
+    code: string,
+    trolleyTypeId: string,
+    excludeId?: string,
+  ): Promise<boolean> {
     const count = await this.prisma.trolley.count({
       where: {
         code,
+        trolleyTypeId,
         ...NOT_DELETED,
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
+    });
+    return count > 0;
+  }
+
+  async existsActiveTrolleyTypeById(id: string): Promise<boolean> {
+    const count = await this.prisma.trolleyType.count({
+      where: { id, deletedAt: null, isActive: true },
     });
     return count > 0;
   }

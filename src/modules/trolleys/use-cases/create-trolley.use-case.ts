@@ -16,14 +16,32 @@ export class CreateTrolleyUseCase {
   ) {}
 
   async execute(dto: CreateTrolleyDto) {
-    const nameTaken = await this.trolleysRepository.existsByName(dto.name);
-    if (nameTaken) {
-      throw new BadRequestException('Trolley name already in use');
+    const typeExists =
+      await this.trolleysRepository.existsActiveTrolleyTypeById(
+        dto.trolleyTypeId,
+      );
+    if (!typeExists) {
+      throw new BadRequestException('Trolley Type not found');
     }
 
-    const codeTaken = await this.trolleysRepository.existsByCode(dto.code);
+    const nameTaken = await this.trolleysRepository.existsByName(
+      dto.name,
+      dto.trolleyTypeId,
+    );
+    if (nameTaken) {
+      throw new BadRequestException(
+        'Trolley name already in use for this Type',
+      );
+    }
+
+    const codeTaken = await this.trolleysRepository.existsByCode(
+      dto.code,
+      dto.trolleyTypeId,
+    );
     if (codeTaken) {
-      throw new BadRequestException('Trolley code already in use');
+      throw new BadRequestException(
+        'Trolley code already in use for this Type',
+      );
     }
 
     if (dto.trolleyCategoryId) {
@@ -71,7 +89,7 @@ export class CreateTrolleyUseCase {
     } catch (error) {
       if (isUniqueConstraintViolation(error)) {
         throw new BadRequestException(
-          'A Trolley with this name or code is already in use',
+          'A Trolley with this name or code already exists for this Type',
         );
       }
       throw error;

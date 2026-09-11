@@ -27,6 +27,14 @@ export class CreateTrolleyDto {
   @IsEnum(TrolleyStatus)
   status?: TrolleyStatus;
 
+  @ApiProperty({
+    description:
+      'Trolley Type id — name/code only need to be unique within this Type',
+  })
+  @IsNotEmpty()
+  @IsUUID()
+  trolleyTypeId!: string;
+
   @ApiPropertyOptional({ description: 'Trolley Category id' })
   @IsOptional()
   @IsUUID()

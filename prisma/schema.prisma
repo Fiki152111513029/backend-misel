@@ -692,11 +692,34 @@ model Customer {
   @@map("customers")
 }
 
+model TrolleyType {
+  id        String    @id @default(uuid())
+  name      String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  trolleys Trolley[]
+
+  // `name` uniqueness is enforced by a partial unique index (WHERE
+  // "deletedAt" IS NULL, see migration) so a soft-deleted row's name can be
+  // reused. Every Trolley requires one of these — it's what lets two
+  // Trolleys share the same name/code, as long as they're different Types
+  // (see Trolley.trolleyTypeId and the composite unique indexes below).
+  @@index([name])
+  @@map("trolley_types")
+}
+
 model Trolley {
   id                   String        @id @default(uuid())
   name                 String
   code                 String
   status               TrolleyStatus @default(EMPTY)
+  // Every Trolley belongs to exactly one Type — required specifically so
+  // name/code uniqueness can be scoped per-Type (see the composite unique
+  // indexes below) instead of enforced globally.
+  trolleyTypeId        String
   trolleyCategoryId    String?
   // The Production Location this trolley drops off at — stored as the
   // location's iRaypleLocationCode (not a hard FK) so it matches the same
@@ -722,16 +745,19 @@ model Trolley {
   updatedAt            DateTime      @updatedAt
   deletedAt            DateTime?
 
+  type             TrolleyType       @relation(fields: [trolleyTypeId], references: [id])
   category         TrolleyCategory?  @relation(fields: [trolleyCategoryId], references: [id])
   modelCodeProcess ModelCodeProcess? @relation(fields: [modelCodeProcessId], references: [id])
   customer         Customer?         @relation(fields: [customerId], references: [id])
   activities       TrolleyActivity[]
 
-  // `name`/`code` uniqueness is enforced by partial unique indexes
-  // (WHERE "deletedAt" IS NULL, see migration) so a soft-deleted row's
-  // name/code can be reused.
+  // `name`/`code` uniqueness is enforced by composite partial unique
+  // indexes on (name, trolleyTypeId) / (code, trolleyTypeId) (WHERE
+  // "deletedAt" IS NULL, see migration) — two Trolleys may share a
+  // name/code as long as they belong to different Trolley Types.
   @@index([name])
   @@index([code])
+  @@index([trolleyTypeId])
   @@index([trolleyCategoryId])
   @@index([droppingLocationCode])
   @@index([modelCodeProcessId])

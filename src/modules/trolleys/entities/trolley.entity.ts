@@ -14,6 +14,9 @@ export class TrolleyEntity {
   @ApiProperty({ enum: TrolleyStatus })
   status!: TrolleyStatus;
 
+  @ApiProperty()
+  trolleyTypeId!: string;
+
   @ApiProperty({ nullable: true })
   trolleyCategoryId!: string | null;
 
