@@ -19,13 +19,16 @@ CREATE UNIQUE INDEX "trolley_types_name_active_key" ON "trolley_types"("name") W
 
 -- Seed a default Trolley Type and backfill every existing trolley onto it,
 -- so trolleyTypeId can be made NOT NULL below without breaking existing rows.
+-- The id must be a real v4 UUID (matching class-validator's @IsUUID()) since
+-- it's a normal, editable row that clients will send back in request bodies
+-- like any other trolleyTypeId — not just an internal backfill marker.
 INSERT INTO "trolley_types" ("id", "name", "isActive", "updatedAt")
-VALUES ('00000000-0000-0000-0000-000000000001', 'Umum', true, CURRENT_TIMESTAMP);
+VALUES ('05b77db6-3b39-448c-ad5b-a34e6868aac4', 'Umum', true, CURRENT_TIMESTAMP);
 
 -- AlterTable (nullable first so the backfill below can populate it)
 ALTER TABLE "trolleys" ADD COLUMN     "trolleyTypeId" TEXT;
 
-UPDATE "trolleys" SET "trolleyTypeId" = '00000000-0000-0000-0000-000000000001' WHERE "trolleyTypeId" IS NULL;
+UPDATE "trolleys" SET "trolleyTypeId" = '05b77db6-3b39-448c-ad5b-a34e6868aac4' WHERE "trolleyTypeId" IS NULL;
 
 ALTER TABLE "trolleys" ALTER COLUMN "trolleyTypeId" SET NOT NULL;
 
