@@ -17,7 +17,14 @@ import {
 const NOT_DELETED = { deletedAt: null } as const;
 const RELATIONS_INCLUDE = {
   user: { select: { id: true, fullName: true } },
-  trolley: { select: { id: true, code: true, name: true } },
+  trolley: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      type: { select: { id: true, name: true } },
+    },
+  },
   robot: { select: { id: true, name: true } },
 } as const;
 

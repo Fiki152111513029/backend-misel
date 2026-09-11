@@ -2,7 +2,15 @@ import { TaskStatus, TrolleyActivity, TrolleyStatus } from '@prisma/client';
 
 export interface TrolleyActivityWithRelations extends TrolleyActivity {
   user: { id: string; fullName: string };
-  trolley: { id: string; code: string; name: string };
+  // Includes the Trolley's Type — since name/code are only unique per-Type
+  // (see Trolley.trolleyTypeId), the same code can belong to different
+  // trolleys, so the activity log needs the Type to say which one this was.
+  trolley: {
+    id: string;
+    code: string;
+    name: string;
+    type: { id: string; name: string };
+  };
   robot: { id: string; name: string } | null;
 }
 
