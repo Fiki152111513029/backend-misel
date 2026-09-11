@@ -276,7 +276,13 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
         startDate: true,
         endDate: true,
         pickupLocationCode: true,
-        trolley: { select: { code: true, name: true } },
+        trolley: {
+          select: {
+            code: true,
+            name: true,
+            type: { select: { name: true, id: true } },
+          },
+        },
         user: {
           select: {
             fullName: true,
@@ -290,6 +296,8 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       trolleyId: row.trolleyId,
       trolleyCode: row.trolley.code,
       trolleyName: row.trolley.name,
+      trolleyTypeId: row.trolley.type.id,
+      trolleyTypeName: row.trolley.type.name,
       userId: row.userId,
       userFullName: row.user.fullName,
       roleName: row.user.role.name,

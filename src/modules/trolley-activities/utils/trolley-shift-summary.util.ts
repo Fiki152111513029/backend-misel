@@ -20,6 +20,8 @@ export interface TrolleySupplyFrequencyRow {
   trolleyId: string;
   trolleyCode: string;
   trolleyName: string;
+  trolleyTypeId: string;
+  trolleyTypeName: string;
   count: number;
 }
 
@@ -151,12 +153,20 @@ export function summarizeTrolleyFrequency(
 ): TrolleySupplyFrequencyRow[] {
   const map = new Map<
     string,
-    { trolleyCode: string; trolleyName: string; count: number }
+    {
+      trolleyCode: string;
+      trolleyName: string;
+      trolleyTypeId: string;
+      trolleyTypeName: string;
+      count: number;
+    }
   >();
   for (const row of rows) {
     const entry = map.get(row.trolleyId) ?? {
       trolleyCode: row.trolleyCode,
       trolleyName: row.trolleyName,
+      trolleyTypeId: row.trolleyTypeId,
+      trolleyTypeName: row.trolleyTypeName,
       count: 0,
     };
     entry.count += 1;
@@ -169,6 +179,8 @@ export function summarizeTrolleyFrequency(
         trolleyId,
         trolleyCode: value.trolleyCode,
         trolleyName: value.trolleyName,
+        trolleyTypeId: value.trolleyTypeId,
+        trolleyTypeName: value.trolleyTypeName,
         count: Math.round(value.count / divisor),
       };
     })

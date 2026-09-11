@@ -106,6 +106,12 @@ export interface ShiftActivityRow {
   trolleyId: string;
   trolleyCode: string;
   trolleyName: string;
+  // The Trolley's Type — since name/code are now only unique per-Type (see
+  // Trolley.trolleyTypeId), two different physical trolleys can share the
+  // same code, distinguished only by Type. Carried through so the Trolley
+  // Supply Frequency chart can show them as separate, labeled series.
+  trolleyTypeId: string;
+  trolleyTypeName: string;
   userId: string;
   userFullName: string;
   roleName: string;
