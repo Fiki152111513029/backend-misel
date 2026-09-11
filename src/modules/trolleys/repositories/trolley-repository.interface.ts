@@ -62,6 +62,12 @@ export interface ITrolleysRepository {
   findAll(params: FindAllTrolleysParams): Promise<FindAllTrolleysResult>;
   findById(id: string): Promise<TrolleyWithRelations | null>;
   findActiveByCode(code: string): Promise<TrolleyWithRelations | null>;
+  // Same as findActiveByCode but returns every match — name/code are only
+  // unique per-Type now (see Trolley.trolleyTypeId), so a scanned code can
+  // resolve to more than one active trolley when it's shared across Types.
+  // Used by LookupTrolleyUseCase to detect when the operator needs to pick
+  // which Type they mean.
+  findAllActiveByCode(code: string): Promise<TrolleyWithRelations[]>;
   // Scoped by trolleyTypeId — name/code only need to be unique within the
   // same Trolley Type, not globally (see the composite partial unique
   // indexes on Trolley in the migration).

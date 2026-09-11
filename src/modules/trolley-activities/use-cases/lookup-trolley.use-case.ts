@@ -21,9 +21,37 @@ export class LookupTrolleyUseCase {
   ) {}
 
   async execute(dto: LookupTrolleyDto, userId: string) {
-    const trolley = await this.trolleysRepository.findActiveByCode(dto.code);
-    if (!trolley) {
+    const matches = await this.trolleysRepository.findAllActiveByCode(dto.code);
+    if (matches.length === 0) {
       throw new BadRequestException('Trolley not found for this code');
+    }
+
+    // name/code are only unique per-Type now, so the same code can belong to
+    // more than one active trolley — ask the operator which Type they mean
+    // instead of guessing (guessing wrong sends the wrong Category/Model
+    // Code Process to RCS, which then rejects the task order).
+    let trolley = matches[0];
+    if (matches.length > 1) {
+      if (!dto.trolleyTypeId) {
+        return {
+          needsTypeSelection: true as const,
+          trolleyCode: dto.code,
+          options: matches.map((match) => ({
+            trolleyId: match.id,
+            trolleyTypeId: match.trolleyTypeId,
+            trolleyTypeName: match.type.name,
+          })),
+        };
+      }
+      const selected = matches.find(
+        (match) => match.trolleyTypeId === dto.trolleyTypeId,
+      );
+      if (!selected) {
+        throw new BadRequestException(
+          'Trolley not found for this code and Type',
+        );
+      }
+      trolley = selected;
     }
 
     const user = await this.usersRepository.findById(userId);
@@ -32,6 +60,7 @@ export class LookupTrolleyUseCase {
     }
 
     return {
+      needsTypeSelection: false as const,
       trolleyId: trolley.id,
       trolleyCode: trolley.code,
       trolleyName: trolley.name,

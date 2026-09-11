@@ -63,6 +63,13 @@ export class TrolleyRepository implements ITrolleysRepository {
     });
   }
 
+  findAllActiveByCode(code: string) {
+    return this.prisma.trolley.findMany({
+      where: { code, ...NOT_DELETED },
+      include: RELATIONS_INCLUDE,
+    });
+  }
+
   async existsByName(
     name: string,
     trolleyTypeId: string,
