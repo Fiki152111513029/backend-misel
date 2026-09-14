@@ -20,6 +20,7 @@ import {
 } from '../utils/robot-status-day';
 import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
+import { fetchActiveShifts } from '../../shifts/utils/active-shifts.util';
 
 const ZERO_MINUTES: RobotStatusDailyMinutes = {
   runningMinutes: 0,
@@ -62,21 +63,29 @@ export class GetRobotStatusSummaryUseCase {
       throw new NotFoundException('Shift not found');
     }
 
-    const { items: robots } = await this.robotsRepository.findAll({
-      page: 1,
-      limit: 1000,
-      sortBy: 'name',
-      sortOrder: 'asc',
-    });
+    const [{ items: robots }, activeShifts] = await Promise.all([
+      this.robotsRepository.findAll({
+        page: 1,
+        limit: 1000,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      }),
+      fetchActiveShifts(this.shiftsRepository),
+    ]);
 
-    const { from: shiftStart, to: shiftEnd } = shiftBounds(dayStart, shift);
+    const { from: shiftStart, to: shiftEnd } = shiftBounds(
+      dayStart,
+      shift,
+      activeShifts,
+    );
 
     // Today isn't over yet, so it's never in RobotStatusDailySummary —
-    // compute it live. Clamped to the tracked shift window (which already
-    // extends to the 21:00 WIB overtime cutoff): nothing before the shift
-    // starts or after that cutoff counts, so "now" never pushes the window
-    // past shiftEnd, and a query made before the shift has even started for
-    // the day naturally yields an empty (zero-duration) range.
+    // compute it live. Clamped to the tracked shift window (which now
+    // extends until whichever other active shift starts next, not a fixed
+    // cutoff): nothing before the shift starts or after that boundary
+    // counts, so "now" never pushes the window past shiftEnd, and a query
+    // made before the shift has even started for the day naturally yields
+    // an empty (zero-duration) range.
     if (dayStart.getTime() === todayStart.getTime()) {
       const now = new Date();
       const liveEnd =

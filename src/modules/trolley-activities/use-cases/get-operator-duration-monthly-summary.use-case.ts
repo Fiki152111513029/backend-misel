@@ -8,6 +8,7 @@ import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-
 import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activity-repository.interface';
 import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
+import { fetchActiveShifts } from '../../shifts/utils/active-shifts.util';
 import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { OperatorDurationMonthlyQueryDto } from '../dto/operator-duration-monthly-query.dto';
@@ -56,18 +57,25 @@ export class GetOperatorDurationMonthlySummaryUseCase {
     // bucketRowsByShiftDay only assigns rows into the [monthStart,
     // monthEnd) days' own windows anyway, so the padding can't leak a row
     // into the wrong month.
-    const [allRows, warehouseCodes] = await Promise.all([
+    const [allRows, warehouseCodes, activeShifts] = await Promise.all([
       this.trolleyActivitiesRepository.getShiftActivities(
         new Date(monthStart.getTime() - ONE_DAY_MS),
         new Date(monthEnd.getTime() + ONE_DAY_MS),
       ),
       fetchActiveWarehouseLocationCodes(this.warehouseLocationsRepository),
+      fetchActiveShifts(this.shiftsRepository),
     ]);
     const shiftRows = filterByAssignedShift(allRows, query.shiftId);
     const rows = splitRowsByDirection(shiftRows, warehouseCodes)[
       query.direction
     ];
-    const buckets = bucketRowsByShiftDay(rows, monthStart, monthEnd, shift);
+    const buckets = bucketRowsByShiftDay(
+      rows,
+      monthStart,
+      monthEnd,
+      shift,
+      activeShifts,
+    );
 
     const perUser = new Map<
       string,

@@ -9,6 +9,8 @@ import { shiftBounds, startOfUtcDay } from '../utils/robot-status-day';
 import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class RobotStatusRollupService {
   private readonly logger = new Logger(RobotStatusRollupService.name);
@@ -23,15 +25,22 @@ export class RobotStatusRollupService {
     private readonly aggregationService: RobotStatusAggregationService,
   ) {}
 
-  // 14:10 UTC = 21:10 WIB — ten minutes after the fixed overtime cutoff
-  // every shift is tracked up to (21:00 WIB), so today's shifts are always
-  // already complete by the time this runs. That whole window falls inside
-  // one UTC calendar date (00:00-14:00 UTC), so "today" is the right day to
-  // roll up here, not yesterday.
-  @Cron('10 14 * * *')
-  async rollUpToday(): Promise<void> {
+  // 00:00 UTC = 07:00 WIB — the earliest currently configured shift start,
+  // which is also exactly when the LATEST shift's window closes (see
+  // shiftBounds — a shift's window now runs until whichever other shift
+  // starts next, so the last shift of the day always ends exactly when the
+  // first one begins again). That means yesterday's shifts are always fully
+  // complete right as this fires, not today's — an overnight shift (e.g.
+  // 19:00-04:30) starting yesterday only finishes within *today's* UTC
+  // calendar date. Weekly rotation only reassigns which Shift row owns
+  // which hours, not the underlying set of start times, so this stays valid
+  // across rotation. If shifts are ever reconfigured with a different
+  // earliest start, this timing needs revisiting.
+  @Cron('0 0 * * *')
+  async rollUpYesterday(): Promise<void> {
     const todayStart = startOfUtcDay(new Date());
-    await this.rollUpDay(todayStart);
+    const yesterdayStart = new Date(todayStart.getTime() - ONE_DAY_MS);
+    await this.rollUpDay(yesterdayStart);
   }
 
   async rollUpDay(dayStart: Date): Promise<void> {
@@ -53,7 +62,7 @@ export class RobotStatusRollupService {
 
     let rolledUp = 0;
     for (const shift of activeShifts) {
-      const { from, to } = shiftBounds(dayStart, shift);
+      const { from, to } = shiftBounds(dayStart, shift, activeShifts);
       for (const robot of robots) {
         const minutes = await this.aggregationService.computeMinutes(
           robot.id,

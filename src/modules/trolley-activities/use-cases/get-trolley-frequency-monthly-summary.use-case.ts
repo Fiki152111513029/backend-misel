@@ -8,6 +8,7 @@ import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-
 import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activity-repository.interface';
 import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
+import { fetchActiveShifts } from '../../shifts/utils/active-shifts.util';
 import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { TrolleyShiftMonthlyQueryDto } from '../dto/trolley-shift-monthly-query.dto';
@@ -51,19 +52,26 @@ export class GetTrolleyFrequencyMonthlySummaryUseCase {
       throw new NotFoundException('Shift not found');
     }
 
-    const [allRows, warehouseCodes] = await Promise.all([
+    const [allRows, warehouseCodes, activeShifts] = await Promise.all([
       this.trolleyActivitiesRepository.getShiftActivities(
         new Date(monthStart.getTime() - ONE_DAY_MS),
         new Date(monthEnd.getTime() + ONE_DAY_MS),
       ),
       fetchActiveWarehouseLocationCodes(this.warehouseLocationsRepository),
+      fetchActiveShifts(this.shiftsRepository),
     ]);
     const shiftRows = filterByAssignedShift(allRows, query.shiftId);
     // "Supply" is specifically Warehouse Location -> Production Location —
     // pickup scanned from a Warehouse Location — see the daily summary
     // use-case for why this is the WAREHOUSE direction, not PRODUCTION.
     const rows = splitRowsByDirection(shiftRows, warehouseCodes).WAREHOUSE;
-    const buckets = bucketRowsByShiftDay(rows, monthStart, monthEnd, shift);
+    const buckets = bucketRowsByShiftDay(
+      rows,
+      monthStart,
+      monthEnd,
+      shift,
+      activeShifts,
+    );
 
     const perTrolley = new Map<
       string,

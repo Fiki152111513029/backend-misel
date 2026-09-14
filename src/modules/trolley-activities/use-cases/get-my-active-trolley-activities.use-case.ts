@@ -36,6 +36,7 @@ export class GetMyActiveTrolleyActivitiesUseCase {
           taskId: activity.taskId,
           trolleyCode: activity.trolley.code,
           trolleyName: activity.trolley.name,
+          trolleyTypeName: activity.trolley.type.name,
           pickupSource,
         };
       }),

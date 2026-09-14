@@ -1,7 +1,7 @@
 import { TaskStatus } from '@prisma/client';
-import type { Shift } from '@prisma/client';
 import type { ShiftActivityRow } from '../repositories/trolley-activity-repository.interface';
 import { shiftBounds } from '../../robots/utils/robot-status-day';
+import type { ShiftTimeInfo } from '../../robots/utils/robot-status-day';
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 
 // Only these two roles' time is meaningful for the Operator Duration chart
@@ -84,15 +84,16 @@ export function filterByAssignedShift(
 
 // Splits [monthStart, monthEnd) into each UTC calendar day's own shift
 // window (see shiftBounds) and buckets the already-fetched rows into
-// whichever day's window their startDate falls in. A row can only belong
-// to one day's bucket since shift windows for consecutive days never
-// overlap (they run from one day's configured start through the fixed
-// 21:00 WIB cutoff, well short of the next day's start).
+// whichever day's window their startDate falls in. A row can only belong to
+// one day's bucket since a shift's consecutive-day windows never overlap —
+// each one ends when some other active shift starts, strictly before this
+// same shift's own start comes around again the next day.
 export function bucketRowsByShiftDay(
   rows: ShiftActivityRow[],
   monthStart: Date,
   monthEnd: Date,
-  shift: Pick<Shift, 'startTime'>,
+  shift: ShiftTimeInfo,
+  allActiveShifts: ShiftTimeInfo[],
 ): Map<string, ShiftActivityRow[]> {
   const buckets = new Map<string, ShiftActivityRow[]>();
   for (
@@ -100,7 +101,7 @@ export function bucketRowsByShiftDay(
     day.getTime() < monthEnd.getTime();
     day = new Date(day.getTime() + 24 * 60 * 60 * 1000)
   ) {
-    const { from, to } = shiftBounds(day, shift);
+    const { from, to } = shiftBounds(day, shift, allActiveShifts);
     const dayKey = day.toISOString().slice(0, 10);
     const dayRows = rows.filter(
       (row) => row.startDate >= from && row.startDate < to,

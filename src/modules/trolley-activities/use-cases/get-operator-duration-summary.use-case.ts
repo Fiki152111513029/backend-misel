@@ -8,6 +8,7 @@ import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-
 import type { ITrolleyActivitiesRepository } from '../repositories/trolley-activity-repository.interface';
 import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
+import { fetchActiveShifts } from '../../shifts/utils/active-shifts.util';
 import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { OperatorDurationQueryDto } from '../dto/operator-duration-query.dto';
@@ -47,7 +48,8 @@ export class GetOperatorDurationSummaryUseCase {
       throw new NotFoundException('Shift not found');
     }
 
-    const { from, to } = shiftBounds(dayStart, shift);
+    const activeShifts = await fetchActiveShifts(this.shiftsRepository);
+    const { from, to } = shiftBounds(dayStart, shift, activeShifts);
     const [allRows, warehouseCodes] = await Promise.all([
       this.trolleyActivitiesRepository.getShiftActivities(from, to),
       fetchActiveWarehouseLocationCodes(this.warehouseLocationsRepository),
