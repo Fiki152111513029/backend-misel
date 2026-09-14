@@ -6,6 +6,7 @@ import { CreateShiftUseCase } from './use-cases/create-shift.use-case';
 import { DeleteShiftUseCase } from './use-cases/delete-shift.use-case';
 import { GetShiftUseCase } from './use-cases/get-shift.use-case';
 import { GetShiftsUseCase } from './use-cases/get-shifts.use-case';
+import { GetCurrentShiftUseCase } from './use-cases/get-current-shift.use-case';
 import { UpdateShiftUseCase } from './use-cases/update-shift.use-case';
 
 @Module({
@@ -15,6 +16,7 @@ import { UpdateShiftUseCase } from './use-cases/update-shift.use-case';
     CreateShiftUseCase,
     GetShiftsUseCase,
     GetShiftUseCase,
+    GetCurrentShiftUseCase,
     UpdateShiftUseCase,
     DeleteShiftUseCase,
   ],

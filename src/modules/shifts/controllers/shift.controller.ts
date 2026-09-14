@@ -20,6 +20,7 @@ import { CreateShiftUseCase } from '../use-cases/create-shift.use-case';
 import { DeleteShiftUseCase } from '../use-cases/delete-shift.use-case';
 import { GetShiftUseCase } from '../use-cases/get-shift.use-case';
 import { GetShiftsUseCase } from '../use-cases/get-shifts.use-case';
+import { GetCurrentShiftUseCase } from '../use-cases/get-current-shift.use-case';
 import { UpdateShiftUseCase } from '../use-cases/update-shift.use-case';
 
 @ApiTags('Shifts')
@@ -30,6 +31,7 @@ export class ShiftController {
     private readonly createShiftUseCase: CreateShiftUseCase,
     private readonly getShiftsUseCase: GetShiftsUseCase,
     private readonly getShiftUseCase: GetShiftUseCase,
+    private readonly getCurrentShiftUseCase: GetCurrentShiftUseCase,
     private readonly updateShiftUseCase: UpdateShiftUseCase,
     private readonly deleteShiftUseCase: DeleteShiftUseCase,
   ) {}
@@ -50,6 +52,24 @@ export class ShiftController {
   async findAll(@Query() query: ShiftQueryDto) {
     const data = await this.getShiftsUseCase.execute(query);
     return { success: true, message: 'Shifts retrieved successfully', data };
+  }
+
+  // Must come before @Get(':id') — otherwise Nest's route matching would
+  // treat "current" as a literal :id value here (ParseUUIDPipe would then
+  // reject it as an invalid UUID) instead of reaching this route.
+  @Get('current')
+  @Permissions('shift.read')
+  @ApiOperation({
+    summary:
+      'Get the Shift currently active right now (accounts for weekly rotation)',
+  })
+  async findCurrent() {
+    const data = await this.getCurrentShiftUseCase.execute();
+    return {
+      success: true,
+      message: 'Current shift retrieved successfully',
+      data,
+    };
   }
 
   @Get(':id')
