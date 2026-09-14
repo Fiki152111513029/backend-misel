@@ -34,13 +34,24 @@ export class GetFleetStatusUseCase {
       await this.robotTelemetryService.mergeByDevice(robots);
 
     return Promise.all(
-      withTelemetry.map(async (robot) => ({
-        unitId: robot.amrDeviceSerialNo,
-        status: robot.state,
-        mission: await this.resolveMission(robot.id),
-        load: robot.payload,
-        battery: robot.battery,
-      })),
+      withTelemetry.map(async (robot) => {
+        // Mission reflects a DB-tracked task order, which can still be
+        // PENDING/IN_PROGRESS even while the robot itself is momentarily
+        // doing something else (e.g. topping up battery mid-task) — shown
+        // regardless of live state, that read as contradictory ("Carrying
+        // Trolley" next to a Status of "InCharging"). Only surface it while
+        // the robot's own live telemetry state actually says it's running a
+        // task, matching the loose "task" substring match used elsewhere
+        // for this same field (see robot-status-category.ts).
+        const isInTask = (robot.state ?? '').toLowerCase().includes('task');
+        return {
+          unitId: robot.amrDeviceSerialNo,
+          status: robot.state,
+          mission: isInTask ? await this.resolveMission(robot.id) : null,
+          load: robot.payload,
+          battery: robot.battery,
+        };
+      }),
     );
   }
 
