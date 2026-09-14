@@ -5,11 +5,17 @@ import type { IRobotsRepository } from '../repositories/robot-repository.interfa
 import { ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY } from '../repositories/robot-status-daily-summary-repository.interface';
 import type { IRobotStatusDailySummaryRepository } from '../repositories/robot-status-daily-summary-repository.interface';
 import { RobotStatusAggregationService } from './robot-status-aggregation.service';
+import { RobotAlarmAggregationService } from '../../robot-alarms/services/robot-alarm-aggregation.service';
 import { shiftBounds, startOfUtcDay } from '../utils/robot-status-day';
 import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.interface';
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const ZERO_STATE_MINUTES = {
+  runningMinutes: 0,
+  idleMinutes: 0,
+  chargingMinutes: 0,
+};
 
 @Injectable()
 export class RobotStatusRollupService {
@@ -23,6 +29,7 @@ export class RobotStatusRollupService {
     @Inject(SHIFTS_REPOSITORY)
     private readonly shiftsRepository: IShiftsRepository,
     private readonly aggregationService: RobotStatusAggregationService,
+    private readonly alarmAggregationService: RobotAlarmAggregationService,
   ) {}
 
   // 00:00 UTC = 07:00 WIB — the earliest currently configured shift start,
@@ -64,17 +71,23 @@ export class RobotStatusRollupService {
     for (const shift of activeShifts) {
       const { from, to } = shiftBounds(dayStart, shift, activeShifts);
       for (const robot of robots) {
-        const minutes = await this.aggregationService.computeMinutes(
-          robot.id,
-          from,
-          to,
-        );
-        if (!minutes) continue;
+        const [minutes, alarmMinutes] = await Promise.all([
+          this.aggregationService.computeMinutes(robot.id, from, to),
+          this.alarmAggregationService.computeAlarmMinutes(
+            robot.amrDeviceSerialNo,
+            from,
+            to,
+          ),
+        ]);
+        // A robot offline the entire window has no telemetry checkpoints at
+        // all (minutes is null) but can still have real alarm-downtime to
+        // record — only skip when there's truly nothing to report.
+        if (!minutes && alarmMinutes === 0) continue;
         await this.robotStatusDailySummaryRepository.upsert(
           robot.id,
           dayStart,
           shift.id,
-          minutes,
+          { ...(minutes ?? ZERO_STATE_MINUTES), alarmMinutes },
         );
         rolledUp += 1;
       }

@@ -116,6 +116,12 @@ model RobotAlarm {
   deviceName      String?
   alarmDesc       String?
   alarmType       Int?
+  // RCS's own short alarm identifier (e.g. "RobotOffline") — the precise
+  // key used to pair an active (alarmStatus=0) event with the later
+  // resolved (alarmStatus=1) event for the same underlying alarm instance
+  // (see RobotAlarmAggregationService); alarmType alone is too coarse since
+  // more than one distinct alarm can share the same numeric type.
+  alarmCode       String?
   // RCS-side zone number — opaque, no local Area/Zone table to resolve it
   // against (same convention as Robot.areaId), so it's just stored and
   // displayed as-is ("Zone {areaId}").
@@ -132,6 +138,8 @@ model RobotAlarm {
   // RCS's severity scale: 1 = Tip, 2 = Alert, 3 = Emergency. "Critical
   // Alarms" on the dashboard counts alarmGrade = 3 only.
   alarmGrade      Int?
+  // RCS's own field: 0 = active, 1 = resolved.
+  alarmStatus     Int?
   receivedAt      DateTime @default(now())
 
   @@index([receivedAt])
@@ -517,6 +525,11 @@ model RobotStatusDailySummary {
   runningMinutes  Int      @default(0)
   idleMinutes     Int      @default(0)
   chargingMinutes Int      @default(0)
+  // Total minutes this robot had an active RobotAlarm within this
+  // shift/day window (see RobotAlarmAggregationService) — independent of
+  // the three above, since an alarm can be active regardless of the
+  // robot's own reported Running/Idle/Charging state.
+  alarmMinutes    Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -61,4 +61,46 @@ export class RobotAlarmRepository implements IRobotAlarmsRepository {
     });
     return result.count;
   }
+
+  findAllForDeviceNameUpTo(deviceName: string, upTo: Date) {
+    return this.prisma.robotAlarm.findMany({
+      where: { deviceName, receivedAt: { lt: upTo } },
+      orderBy: { receivedAt: 'asc' },
+    });
+  }
+
+  async findActiveDeviceNames(): Promise<string[]> {
+    // Bounded by the 7-day retention window (see RobotAlarmRetentionService)
+    // — no device's latest alarm event can be older than that.
+    const retentionCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.robotAlarm.findMany({
+      where: {
+        receivedAt: { gte: retentionCutoff },
+        deviceName: { not: null },
+      },
+      orderBy: { receivedAt: 'asc' },
+      select: {
+        deviceName: true,
+        alarmCode: true,
+        alarmType: true,
+        alarmStatus: true,
+      },
+    });
+
+    // Ascending order means the last write per (device, alarm) key wins —
+    // that's this alarm's most recent known status.
+    const latestStatusByKey = new Map<string, number | null>();
+    for (const row of rows) {
+      const key = `${row.deviceName}::${row.alarmCode ?? `type:${row.alarmType}`}`;
+      latestStatusByKey.set(key, row.alarmStatus);
+    }
+
+    const activeDeviceNames = new Set<string>();
+    for (const [key, status] of latestStatusByKey) {
+      if (status === 0) {
+        activeDeviceNames.add(key.split('::')[0]);
+      }
+    }
+    return [...activeDeviceNames];
+  }
 }

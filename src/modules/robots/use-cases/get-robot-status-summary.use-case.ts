@@ -9,9 +9,10 @@ import type { IRobotsRepository } from '../repositories/robot-repository.interfa
 import { ROBOT_STATUS_DAILY_SUMMARY_REPOSITORY } from '../repositories/robot-status-daily-summary-repository.interface';
 import type {
   IRobotStatusDailySummaryRepository,
-  RobotStatusDailyMinutes,
+  RobotStatusMinutesWithAlarm,
 } from '../repositories/robot-status-daily-summary-repository.interface';
 import { RobotStatusAggregationService } from '../services/robot-status-aggregation.service';
+import { RobotAlarmAggregationService } from '../../robot-alarms/services/robot-alarm-aggregation.service';
 import { RobotStatusSummaryQueryDto } from '../dto/robot-status-summary-query.dto';
 import {
   parseUtcDateOnly,
@@ -22,13 +23,14 @@ import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.in
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
 import { fetchActiveShifts } from '../../shifts/utils/active-shifts.util';
 
-const ZERO_MINUTES: RobotStatusDailyMinutes = {
+const ZERO_MINUTES: RobotStatusMinutesWithAlarm = {
   runningMinutes: 0,
   idleMinutes: 0,
   chargingMinutes: 0,
+  alarmMinutes: 0,
 };
 
-export interface RobotStatusSummaryRow extends RobotStatusDailyMinutes {
+export interface RobotStatusSummaryRow extends RobotStatusMinutesWithAlarm {
   robotId: string;
   robotName: string;
 }
@@ -43,6 +45,7 @@ export class GetRobotStatusSummaryUseCase {
     @Inject(SHIFTS_REPOSITORY)
     private readonly shiftsRepository: IShiftsRepository,
     private readonly aggregationService: RobotStatusAggregationService,
+    private readonly alarmAggregationService: RobotAlarmAggregationService,
   ) {}
 
   async execute(
@@ -91,15 +94,26 @@ export class GetRobotStatusSummaryUseCase {
       const liveEnd =
         now < shiftStart ? shiftStart : now > shiftEnd ? shiftEnd : now;
       return Promise.all(
-        robots.map(async (robot) => ({
-          robotId: robot.id,
-          robotName: robot.name,
-          ...((await this.aggregationService.computeMinutes(
-            robot.id,
-            shiftStart,
-            liveEnd,
-          )) ?? ZERO_MINUTES),
-        })),
+        robots.map(async (robot) => {
+          const [minutes, alarmMinutes] = await Promise.all([
+            this.aggregationService.computeMinutes(
+              robot.id,
+              shiftStart,
+              liveEnd,
+            ),
+            this.alarmAggregationService.computeAlarmMinutes(
+              robot.amrDeviceSerialNo,
+              shiftStart,
+              liveEnd,
+            ),
+          ]);
+          return {
+            robotId: robot.id,
+            robotName: robot.name,
+            ...(minutes ?? ZERO_MINUTES),
+            alarmMinutes,
+          };
+        }),
       );
     }
 
@@ -127,17 +141,26 @@ export class GetRobotStatusSummaryUseCase {
             runningMinutes: existing.runningMinutes,
             idleMinutes: existing.idleMinutes,
             chargingMinutes: existing.chargingMinutes,
+            alarmMinutes: existing.alarmMinutes,
           };
         }
-        const minutes = await this.aggregationService.computeMinutes(
-          robot.id,
-          shiftStart,
-          shiftEnd,
-        );
+        const [minutes, alarmMinutes] = await Promise.all([
+          this.aggregationService.computeMinutes(
+            robot.id,
+            shiftStart,
+            shiftEnd,
+          ),
+          this.alarmAggregationService.computeAlarmMinutes(
+            robot.amrDeviceSerialNo,
+            shiftStart,
+            shiftEnd,
+          ),
+        ]);
         return {
           robotId: robot.id,
           robotName: robot.name,
           ...(minutes ?? ZERO_MINUTES),
+          alarmMinutes,
         };
       }),
     );

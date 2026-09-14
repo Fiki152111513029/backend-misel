@@ -8,6 +8,8 @@ import { ReceiveRobotAlarmWebhookUseCase } from './use-cases/receive-robot-alarm
 import { GetAlarmDashboardStatsUseCase } from './use-cases/get-alarm-dashboard-stats.use-case';
 import { GetRobotAlarmsUseCase } from './use-cases/get-robot-alarms.use-case';
 import { RobotAlarmRetentionService } from './services/robot-alarm-retention.service';
+import { RobotAlarmAggregationService } from './services/robot-alarm-aggregation.service';
+import { GetActiveAlarmDeviceNamesUseCase } from './use-cases/get-active-alarm-device-names.use-case';
 
 @Module({
   imports: [WebhookLogsModule],
@@ -17,8 +19,10 @@ import { RobotAlarmRetentionService } from './services/robot-alarm-retention.ser
     ReceiveRobotAlarmWebhookUseCase,
     GetAlarmDashboardStatsUseCase,
     GetRobotAlarmsUseCase,
+    GetActiveAlarmDeviceNamesUseCase,
     RobotAlarmRetentionService,
+    RobotAlarmAggregationService,
   ],
-  exports: [ROBOT_ALARMS_REPOSITORY],
+  exports: [ROBOT_ALARMS_REPOSITORY, RobotAlarmAggregationService],
 })
 export class RobotAlarmsModule {}

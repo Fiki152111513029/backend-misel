@@ -68,6 +68,7 @@ export class GetRobotStatusMonthlySummaryUseCase {
             runningMinutes: 0,
             idleMinutes: 0,
             chargingMinutes: 0,
+            alarmMinutes: 0,
           };
         }
 
@@ -76,8 +77,14 @@ export class GetRobotStatusMonthlySummaryUseCase {
             runningMinutes: sum.runningMinutes + day.runningMinutes,
             idleMinutes: sum.idleMinutes + day.idleMinutes,
             chargingMinutes: sum.chargingMinutes + day.chargingMinutes,
+            alarmMinutes: sum.alarmMinutes + day.alarmMinutes,
           }),
-          { runningMinutes: 0, idleMinutes: 0, chargingMinutes: 0 },
+          {
+            runningMinutes: 0,
+            idleMinutes: 0,
+            chargingMinutes: 0,
+            alarmMinutes: 0,
+          },
         );
 
         const divisor = query.mode === 'AVERAGE' ? days.length : 1;
@@ -87,6 +94,7 @@ export class GetRobotStatusMonthlySummaryUseCase {
           runningMinutes: Math.round(totals.runningMinutes / divisor),
           idleMinutes: Math.round(totals.idleMinutes / divisor),
           chargingMinutes: Math.round(totals.chargingMinutes / divisor),
+          alarmMinutes: Math.round(totals.alarmMinutes / divisor),
         };
       }),
     );

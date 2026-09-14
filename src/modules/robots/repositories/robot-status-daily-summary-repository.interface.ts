@@ -4,7 +4,16 @@ export interface RobotStatusDailyMinutes {
   chargingMinutes: number;
 }
 
-export interface RobotStatusDailySummaryRecord extends RobotStatusDailyMinutes {
+// The persisted/output shape — RobotStatusDailyMinutes (from
+// RobotStatusAggregationService, computed off RobotActivityLog only) plus
+// alarmMinutes (from RobotAlarmAggregationService, computed off RobotAlarm
+// — an independent dimension, since a robot can be simultaneously "Idle"
+// and in an active alarm).
+export interface RobotStatusMinutesWithAlarm extends RobotStatusDailyMinutes {
+  alarmMinutes: number;
+}
+
+export interface RobotStatusDailySummaryRecord extends RobotStatusMinutesWithAlarm {
   robotId: string;
   date: Date;
 }
@@ -19,7 +28,7 @@ export interface IRobotStatusDailySummaryRepository {
     robotId: string,
     date: Date,
     shiftId: string,
-    minutes: RobotStatusDailyMinutes,
+    minutes: RobotStatusMinutesWithAlarm,
   ): Promise<void>;
   findAllByDate(
     date: Date,

@@ -5,6 +5,7 @@ import { AlarmDashboardStatsQueryDto } from '../dto/alarm-dashboard-stats-query.
 import { RobotAlarmQueryDto } from '../dto/robot-alarm-query.dto';
 import { GetAlarmDashboardStatsUseCase } from '../use-cases/get-alarm-dashboard-stats.use-case';
 import { GetRobotAlarmsUseCase } from '../use-cases/get-robot-alarms.use-case';
+import { GetActiveAlarmDeviceNamesUseCase } from '../use-cases/get-active-alarm-device-names.use-case';
 
 @ApiTags('Robot Alarms')
 @ApiBearerAuth('access-token')
@@ -13,7 +14,27 @@ export class RobotAlarmController {
   constructor(
     private readonly getAlarmDashboardStatsUseCase: GetAlarmDashboardStatsUseCase,
     private readonly getRobotAlarmsUseCase: GetRobotAlarmsUseCase,
+    private readonly getActiveAlarmDeviceNamesUseCase: GetActiveAlarmDeviceNamesUseCase,
   ) {}
+
+  // Must come before @Get() (the plain list) — not ambiguous today since
+  // that one has no path segment, but keeping every literal route above
+  // any parameterized one is the safer long-term convention (see
+  // ShiftController's :id vs "current").
+  @Get('active-devices')
+  @Permissions('robot-alarm.read')
+  @ApiOperation({
+    summary:
+      'deviceName of every device currently in an active, unresolved alarm — powers the Factory Map alarm badge',
+  })
+  async activeDevices() {
+    const data = await this.getActiveAlarmDeviceNamesUseCase.execute();
+    return {
+      success: true,
+      message: 'Active alarm devices retrieved successfully',
+      data,
+    };
+  }
 
   @Get('dashboard-stats')
   @Permissions('robot-alarm.read')

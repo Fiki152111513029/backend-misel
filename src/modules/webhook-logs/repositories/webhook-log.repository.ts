@@ -110,7 +110,17 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
       WarehouseCartTaskStatus.IN_PROGRESS,
     ];
 
-    const [task, cartTask] = await Promise.all([
+    // Mirrors findModelProcessCodeNameByOrderId below, which already falls
+    // back to TrolleyActivity — a robot currently running a Warehouse/
+    // Operator Trolley Task has its active order tracked there, not in
+    // Task/WarehouseCartTask, so leaving it out here meant Mission never
+    // resolved (always null) for that entire class of task.
+    const ACTIVE_TROLLEY_ACTIVITY_STATUSES: TaskStatus[] = [
+      TaskStatus.PENDING,
+      TaskStatus.IN_PROGRESS,
+    ];
+
+    const [task, cartTask, trolleyActivity] = await Promise.all([
       this.prisma.task.findFirst({
         where: {
           robotId,
@@ -129,14 +139,25 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
         orderBy: { updatedAt: 'desc' },
         select: { taskId: true, updatedAt: true },
       }),
+      this.prisma.trolleyActivity.findFirst({
+        where: {
+          robotId,
+          status: { in: ACTIVE_TROLLEY_ACTIVITY_STATUSES },
+          deletedAt: null,
+        },
+        orderBy: { updatedAt: 'desc' },
+        select: { taskId: true, updatedAt: true },
+      }),
     ]);
 
-    if (task && cartTask) {
-      return task.updatedAt > cartTask.updatedAt
-        ? task.taskId
-        : cartTask.taskId;
-    }
-    return task?.taskId ?? cartTask?.taskId ?? null;
+    const candidates = [task, cartTask, trolleyActivity].filter(
+      (candidate): candidate is { taskId: string; updatedAt: Date } =>
+        candidate !== null,
+    );
+    if (candidates.length === 0) return null;
+    return candidates.reduce((latest, candidate) =>
+      candidate.updatedAt > latest.updatedAt ? candidate : latest,
+    ).taskId;
   }
 
   async findRobotIdByDeviceCode(deviceCode: string): Promise<string | null> {

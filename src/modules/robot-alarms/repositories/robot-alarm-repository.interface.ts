@@ -3,6 +3,7 @@ export interface CreateRobotAlarmData {
   deviceName?: string;
   alarmDesc?: string;
   alarmType?: number;
+  alarmCode?: string;
   areaId?: number;
   alarmReadFlag?: number;
   channelDeviceId?: string;
@@ -10,6 +11,8 @@ export interface CreateRobotAlarmData {
   channelName?: string;
   alarmDateRaw?: string;
   alarmGrade?: number;
+  // RCS's own field: 0 = active, 1 = resolved.
+  alarmStatus?: number;
 }
 
 export interface AlarmZoneCount {
@@ -30,6 +33,7 @@ export interface RobotAlarmRecord {
   deviceName: string | null;
   alarmDesc: string | null;
   alarmType: number | null;
+  alarmCode: string | null;
   areaId: number | null;
   alarmReadFlag: number | null;
   channelDeviceId: string | null;
@@ -37,6 +41,8 @@ export interface RobotAlarmRecord {
   channelName: string | null;
   alarmDateRaw: string | null;
   alarmGrade: number | null;
+  // RCS's own field: 0 = active, 1 = resolved.
+  alarmStatus: number | null;
   receivedAt: Date;
 }
 
@@ -59,4 +65,17 @@ export interface IRobotAlarmsRepository {
   // Used by RobotAlarmRetentionService's weekly purge (7-day retention,
   // same convention as RobotActivityLogRetentionService).
   deleteOlderThan(cutoff: Date): Promise<number>;
+  // Every alarm event for this device (matched by RobotAlarm.deviceName,
+  // which carries the same human-readable "AMR0004"-style value as
+  // Robot.amrDeviceSerialNo) received before `upTo`, oldest first — the
+  // input RobotAlarmAggregationService walks to pair active/resolved
+  // events and compute alarm-downtime minutes.
+  findAllForDeviceNameUpTo(
+    deviceName: string,
+    upTo: Date,
+  ): Promise<RobotAlarmRecord[]>;
+  // deviceName of every device whose most recent event per alarmCode is
+  // still active (alarmStatus=0, no later alarmStatus=1 for that same
+  // code) — powers the Factory Map's live alarm badge.
+  findActiveDeviceNames(): Promise<string[]>;
 }

@@ -26,6 +26,7 @@ export class ReceiveRobotAlarmWebhookUseCase {
         deviceName: this.readString(body, ['deviceName']),
         alarmDesc: this.readString(body, ['alarmDesc']),
         alarmType: this.readNumber(body, ['alarmType']),
+        alarmCode: this.readString(body, ['alarmCode']),
         areaId: this.readNumber(body, ['areaId']),
         alarmReadFlag: this.readNumber(body, ['alarmReadFlag']),
         channelDeviceId: this.readString(body, ['channelDeviceId']),
@@ -33,6 +34,7 @@ export class ReceiveRobotAlarmWebhookUseCase {
         channelName: this.readString(body, ['channelName']),
         alarmDateRaw: this.readString(body, ['alarmDate']),
         alarmGrade: this.readNumber(body, ['alarmGrade']),
+        alarmStatus: this.readNumber(body, ['alarmStatus']),
       });
     } catch {
       // Swallow — the raw payload is logged below regardless, so nothing is

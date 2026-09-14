@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   IRobotStatusDailySummaryRepository,
-  RobotStatusDailyMinutes,
   RobotStatusDailySummaryRecord,
+  RobotStatusMinutesWithAlarm,
 } from './robot-status-daily-summary-repository.interface';
 
 const SELECT_FIELDS = {
@@ -12,6 +12,7 @@ const SELECT_FIELDS = {
   runningMinutes: true,
   idleMinutes: true,
   chargingMinutes: true,
+  alarmMinutes: true,
 } as const;
 
 @Injectable()
@@ -22,7 +23,7 @@ export class RobotStatusDailySummaryRepository implements IRobotStatusDailySumma
     robotId: string,
     date: Date,
     shiftId: string,
-    minutes: RobotStatusDailyMinutes,
+    minutes: RobotStatusMinutesWithAlarm,
   ): Promise<void> {
     await this.prisma.robotStatusDailySummary.upsert({
       where: { robotId_date_shiftId: { robotId, date, shiftId } },
