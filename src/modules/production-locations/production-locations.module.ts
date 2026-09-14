@@ -7,16 +7,23 @@ import { DeleteProductionLocationUseCase } from './use-cases/delete-production-l
 import { GetProductionLocationUseCase } from './use-cases/get-production-location.use-case';
 import { GetProductionLocationsUseCase } from './use-cases/get-production-locations.use-case';
 import { UpdateProductionLocationUseCase } from './use-cases/update-production-location.use-case';
+import { ExportProductionLocationsUseCase } from './use-cases/export-production-locations.use-case';
+import { ImportProductionLocationsUseCase } from './use-cases/import-production-locations.use-case';
 
 @Module({
   controllers: [ProductionLocationController],
   providers: [
-    { provide: PRODUCTION_LOCATIONS_REPOSITORY, useClass: ProductionLocationRepository },
+    {
+      provide: PRODUCTION_LOCATIONS_REPOSITORY,
+      useClass: ProductionLocationRepository,
+    },
     CreateProductionLocationUseCase,
     GetProductionLocationsUseCase,
     GetProductionLocationUseCase,
     UpdateProductionLocationUseCase,
     DeleteProductionLocationUseCase,
+    ExportProductionLocationsUseCase,
+    ImportProductionLocationsUseCase,
   ],
   exports: [PRODUCTION_LOCATIONS_REPOSITORY],
 })

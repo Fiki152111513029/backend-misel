@@ -7,16 +7,25 @@ import { DeleteTrolleyCategoryUseCase } from './use-cases/delete-trolley-categor
 import { GetTrolleyCategoryUseCase } from './use-cases/get-trolley-category.use-case';
 import { GetTrolleyCategoriesUseCase } from './use-cases/get-trolley-categories.use-case';
 import { UpdateTrolleyCategoryUseCase } from './use-cases/update-trolley-category.use-case';
+import { ExportTrolleyCategoriesUseCase } from './use-cases/export-trolley-categories.use-case';
+import { ImportTrolleyCategoriesUseCase } from './use-cases/import-trolley-categories.use-case';
+import { ModelCodeProcessesModule } from '../model-code-processes/model-code-processes.module';
 
 @Module({
+  imports: [ModelCodeProcessesModule],
   controllers: [TrolleyCategoryController],
   providers: [
-    { provide: TROLLEY_CATEGORIES_REPOSITORY, useClass: TrolleyCategoryRepository },
+    {
+      provide: TROLLEY_CATEGORIES_REPOSITORY,
+      useClass: TrolleyCategoryRepository,
+    },
     CreateTrolleyCategoryUseCase,
     GetTrolleyCategoriesUseCase,
     GetTrolleyCategoryUseCase,
     UpdateTrolleyCategoryUseCase,
     DeleteTrolleyCategoryUseCase,
+    ExportTrolleyCategoriesUseCase,
+    ImportTrolleyCategoriesUseCase,
   ],
   exports: [TROLLEY_CATEGORIES_REPOSITORY],
 })

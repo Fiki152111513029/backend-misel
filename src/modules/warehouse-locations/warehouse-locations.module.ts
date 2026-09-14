@@ -7,16 +7,23 @@ import { DeleteWarehouseLocationUseCase } from './use-cases/delete-warehouse-loc
 import { GetWarehouseLocationUseCase } from './use-cases/get-warehouse-location.use-case';
 import { GetWarehouseLocationsUseCase } from './use-cases/get-warehouse-locations.use-case';
 import { UpdateWarehouseLocationUseCase } from './use-cases/update-warehouse-location.use-case';
+import { ExportWarehouseLocationsUseCase } from './use-cases/export-warehouse-locations.use-case';
+import { ImportWarehouseLocationsUseCase } from './use-cases/import-warehouse-locations.use-case';
 
 @Module({
   controllers: [WarehouseLocationController],
   providers: [
-    { provide: WAREHOUSE_LOCATIONS_REPOSITORY, useClass: WarehouseLocationRepository },
+    {
+      provide: WAREHOUSE_LOCATIONS_REPOSITORY,
+      useClass: WarehouseLocationRepository,
+    },
     CreateWarehouseLocationUseCase,
     GetWarehouseLocationsUseCase,
     GetWarehouseLocationUseCase,
     UpdateWarehouseLocationUseCase,
     DeleteWarehouseLocationUseCase,
+    ExportWarehouseLocationsUseCase,
+    ImportWarehouseLocationsUseCase,
   ],
   exports: [WAREHOUSE_LOCATIONS_REPOSITORY],
 })

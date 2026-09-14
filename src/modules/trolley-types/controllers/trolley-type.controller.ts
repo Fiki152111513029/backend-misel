@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,8 +11,19 @@ import {
   Put,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TrolleyTypeQueryDto } from '../dto/trolley-type-query.dto';
 import { CreateTrolleyTypeDto } from '../dto/create-trolley-type.dto';
@@ -21,6 +33,8 @@ import { DeleteTrolleyTypeUseCase } from '../use-cases/delete-trolley-type.use-c
 import { GetTrolleyTypeUseCase } from '../use-cases/get-trolley-type.use-case';
 import { GetTrolleyTypesUseCase } from '../use-cases/get-trolley-types.use-case';
 import { UpdateTrolleyTypeUseCase } from '../use-cases/update-trolley-type.use-case';
+import { ExportTrolleyTypesUseCase } from '../use-cases/export-trolley-types.use-case';
+import { ImportTrolleyTypesUseCase } from '../use-cases/import-trolley-types.use-case';
 
 @ApiTags('Trolley Types')
 @ApiBearerAuth('access-token')
@@ -32,7 +46,45 @@ export class TrolleyTypeController {
     private readonly getTrolleyTypeUseCase: GetTrolleyTypeUseCase,
     private readonly updateTrolleyTypeUseCase: UpdateTrolleyTypeUseCase,
     private readonly deleteTrolleyTypeUseCase: DeleteTrolleyTypeUseCase,
+    private readonly exportTrolleyTypesUseCase: ExportTrolleyTypesUseCase,
+    private readonly importTrolleyTypesUseCase: ImportTrolleyTypesUseCase,
   ) {}
+
+  // Must come before @Get(':id') — otherwise Nest would treat "export" as
+  // a literal :id value here.
+  @Get('export')
+  @Permissions('trolley-type.read')
+  @ApiOperation({ summary: 'Export all trolley types as CSV or XLSX' })
+  async export(
+    @Query('format') format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename, contentType } =
+      await this.exportTrolleyTypesUseCase.execute(
+        format === 'csv' ? 'csv' : 'xlsx',
+      );
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post('import')
+  @Permissions('trolley-type.create')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Import trolley types from an uploaded CSV or XLSX file — upserts by name',
+  })
+  async import(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const data = await this.importTrolleyTypesUseCase.execute(file);
+    return { success: true, message: 'Import completed', data };
+  }
 
   @Post()
   @Permissions('trolley-type.create')

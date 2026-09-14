@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,8 +11,19 @@ import {
   Put,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TrolleyCategoryQueryDto } from '../dto/trolley-category-query.dto';
 import { CreateTrolleyCategoryDto } from '../dto/create-trolley-category.dto';
@@ -21,6 +33,8 @@ import { DeleteTrolleyCategoryUseCase } from '../use-cases/delete-trolley-catego
 import { GetTrolleyCategoryUseCase } from '../use-cases/get-trolley-category.use-case';
 import { GetTrolleyCategoriesUseCase } from '../use-cases/get-trolley-categories.use-case';
 import { UpdateTrolleyCategoryUseCase } from '../use-cases/update-trolley-category.use-case';
+import { ExportTrolleyCategoriesUseCase } from '../use-cases/export-trolley-categories.use-case';
+import { ImportTrolleyCategoriesUseCase } from '../use-cases/import-trolley-categories.use-case';
 
 @ApiTags('Trolley Categories')
 @ApiBearerAuth('access-token')
@@ -32,14 +46,56 @@ export class TrolleyCategoryController {
     private readonly getTrolleyCategoryUseCase: GetTrolleyCategoryUseCase,
     private readonly updateTrolleyCategoryUseCase: UpdateTrolleyCategoryUseCase,
     private readonly deleteTrolleyCategoryUseCase: DeleteTrolleyCategoryUseCase,
+    private readonly exportTrolleyCategoriesUseCase: ExportTrolleyCategoriesUseCase,
+    private readonly importTrolleyCategoriesUseCase: ImportTrolleyCategoriesUseCase,
   ) {}
+
+  // Must come before @Get(':id') — otherwise Nest would treat "export" as
+  // a literal :id value here.
+  @Get('export')
+  @Permissions('trolley-category.read')
+  @ApiOperation({ summary: 'Export all trolley categories as CSV or XLSX' })
+  async export(
+    @Query('format') format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename, contentType } =
+      await this.exportTrolleyCategoriesUseCase.execute(
+        format === 'csv' ? 'csv' : 'xlsx',
+      );
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post('import')
+  @Permissions('trolley-category.create')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Import trolley categories from an uploaded CSV or XLSX file — upserts by name',
+  })
+  async import(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const data = await this.importTrolleyCategoriesUseCase.execute(file);
+    return { success: true, message: 'Import completed', data };
+  }
 
   @Post()
   @Permissions('trolley-category.create')
   @ApiOperation({ summary: 'Create a new trolley category' })
   async create(@Body() dto: CreateTrolleyCategoryDto) {
     const data = await this.createTrolleyCategoryUseCase.execute(dto);
-    return { success: true, message: 'Trolley Category created successfully', data };
+    return {
+      success: true,
+      message: 'Trolley Category created successfully',
+      data,
+    };
   }
 
   @Get()
@@ -49,7 +105,11 @@ export class TrolleyCategoryController {
   })
   async findAll(@Query() query: TrolleyCategoryQueryDto) {
     const data = await this.getTrolleyCategoriesUseCase.execute(query);
-    return { success: true, message: 'Trolley Categories retrieved successfully', data };
+    return {
+      success: true,
+      message: 'Trolley Categories retrieved successfully',
+      data,
+    };
   }
 
   @Get(':id')
@@ -57,7 +117,11 @@ export class TrolleyCategoryController {
   @ApiOperation({ summary: 'Get a trolley category by id' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const data = await this.getTrolleyCategoryUseCase.execute(id);
-    return { success: true, message: 'Trolley Category retrieved successfully', data };
+    return {
+      success: true,
+      message: 'Trolley Category retrieved successfully',
+      data,
+    };
   }
 
   @Put(':id')
@@ -68,7 +132,11 @@ export class TrolleyCategoryController {
     @Body() dto: UpdateTrolleyCategoryDto,
   ) {
     const data = await this.updateTrolleyCategoryUseCase.execute(id, dto);
-    return { success: true, message: 'Trolley Category updated successfully', data };
+    return {
+      success: true,
+      message: 'Trolley Category updated successfully',
+      data,
+    };
   }
 
   @Delete(':id')
@@ -77,6 +145,10 @@ export class TrolleyCategoryController {
   @ApiOperation({ summary: 'Soft delete a trolley category' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.deleteTrolleyCategoryUseCase.execute(id);
-    return { success: true, message: 'Trolley Category deleted successfully', data: null };
+    return {
+      success: true,
+      message: 'Trolley Category deleted successfully',
+      data: null,
+    };
   }
 }

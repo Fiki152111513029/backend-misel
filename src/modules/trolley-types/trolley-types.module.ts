@@ -7,6 +7,8 @@ import { DeleteTrolleyTypeUseCase } from './use-cases/delete-trolley-type.use-ca
 import { GetTrolleyTypeUseCase } from './use-cases/get-trolley-type.use-case';
 import { GetTrolleyTypesUseCase } from './use-cases/get-trolley-types.use-case';
 import { UpdateTrolleyTypeUseCase } from './use-cases/update-trolley-type.use-case';
+import { ExportTrolleyTypesUseCase } from './use-cases/export-trolley-types.use-case';
+import { ImportTrolleyTypesUseCase } from './use-cases/import-trolley-types.use-case';
 
 @Module({
   controllers: [TrolleyTypeController],
@@ -17,6 +19,8 @@ import { UpdateTrolleyTypeUseCase } from './use-cases/update-trolley-type.use-ca
     GetTrolleyTypeUseCase,
     UpdateTrolleyTypeUseCase,
     DeleteTrolleyTypeUseCase,
+    ExportTrolleyTypesUseCase,
+    ImportTrolleyTypesUseCase,
   ],
   exports: [TROLLEY_TYPES_REPOSITORY],
 })

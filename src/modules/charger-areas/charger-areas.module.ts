@@ -7,6 +7,8 @@ import { DeleteChargerAreaUseCase } from './use-cases/delete-charger-area.use-ca
 import { GetChargerAreaUseCase } from './use-cases/get-charger-area.use-case';
 import { GetChargerAreasUseCase } from './use-cases/get-charger-areas.use-case';
 import { UpdateChargerAreaUseCase } from './use-cases/update-charger-area.use-case';
+import { ExportChargerAreasUseCase } from './use-cases/export-charger-areas.use-case';
+import { ImportChargerAreasUseCase } from './use-cases/import-charger-areas.use-case';
 
 @Module({
   controllers: [ChargerAreaController],
@@ -17,6 +19,8 @@ import { UpdateChargerAreaUseCase } from './use-cases/update-charger-area.use-ca
     GetChargerAreaUseCase,
     UpdateChargerAreaUseCase,
     DeleteChargerAreaUseCase,
+    ExportChargerAreasUseCase,
+    ImportChargerAreasUseCase,
   ],
   exports: [CHARGER_AREAS_REPOSITORY],
 })

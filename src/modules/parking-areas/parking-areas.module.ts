@@ -7,6 +7,8 @@ import { DeleteParkingAreaUseCase } from './use-cases/delete-parking-area.use-ca
 import { GetParkingAreaUseCase } from './use-cases/get-parking-area.use-case';
 import { GetParkingAreasUseCase } from './use-cases/get-parking-areas.use-case';
 import { UpdateParkingAreaUseCase } from './use-cases/update-parking-area.use-case';
+import { ExportParkingAreasUseCase } from './use-cases/export-parking-areas.use-case';
+import { ImportParkingAreasUseCase } from './use-cases/import-parking-areas.use-case';
 
 @Module({
   controllers: [ParkingAreaController],
@@ -17,6 +19,8 @@ import { UpdateParkingAreaUseCase } from './use-cases/update-parking-area.use-ca
     GetParkingAreaUseCase,
     UpdateParkingAreaUseCase,
     DeleteParkingAreaUseCase,
+    ExportParkingAreasUseCase,
+    ImportParkingAreasUseCase,
   ],
   exports: [PARKING_AREAS_REPOSITORY],
 })

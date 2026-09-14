@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,8 +11,19 @@ import {
   Put,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TrolleyQueryDto } from '../dto/trolley-query.dto';
 import { CreateTrolleyDto } from '../dto/create-trolley.dto';
@@ -21,6 +33,8 @@ import { DeleteTrolleyUseCase } from '../use-cases/delete-trolley.use-case';
 import { GetTrolleyUseCase } from '../use-cases/get-trolley.use-case';
 import { GetTrolleysUseCase } from '../use-cases/get-trolleys.use-case';
 import { UpdateTrolleyUseCase } from '../use-cases/update-trolley.use-case';
+import { ExportTrolleysUseCase } from '../use-cases/export-trolleys.use-case';
+import { ImportTrolleysUseCase } from '../use-cases/import-trolleys.use-case';
 
 @ApiTags('Trolleys')
 @ApiBearerAuth('access-token')
@@ -32,7 +46,45 @@ export class TrolleyController {
     private readonly getTrolleyUseCase: GetTrolleyUseCase,
     private readonly updateTrolleyUseCase: UpdateTrolleyUseCase,
     private readonly deleteTrolleyUseCase: DeleteTrolleyUseCase,
+    private readonly exportTrolleysUseCase: ExportTrolleysUseCase,
+    private readonly importTrolleysUseCase: ImportTrolleysUseCase,
   ) {}
+
+  // Must come before @Get(':id') — otherwise Nest would treat "export" as
+  // a literal :id value here.
+  @Get('export')
+  @Permissions('trolley.read')
+  @ApiOperation({ summary: 'Export all trolleys as CSV or XLSX' })
+  async export(
+    @Query('format') format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename, contentType } =
+      await this.exportTrolleysUseCase.execute(
+        format === 'csv' ? 'csv' : 'xlsx',
+      );
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post('import')
+  @Permissions('trolley.create')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Import trolleys from an uploaded CSV or XLSX file — upserts by name within the same Trolley Type',
+  })
+  async import(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const data = await this.importTrolleysUseCase.execute(file);
+    return { success: true, message: 'Import completed', data };
+  }
 
   @Post()
   @Permissions('trolley.create')

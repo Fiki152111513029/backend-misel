@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,8 +11,19 @@ import {
   Put,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { ParkingAreaQueryDto } from '../dto/parking-area-query.dto';
 import { CreateParkingAreaDto } from '../dto/create-parking-area.dto';
@@ -21,6 +33,8 @@ import { DeleteParkingAreaUseCase } from '../use-cases/delete-parking-area.use-c
 import { GetParkingAreaUseCase } from '../use-cases/get-parking-area.use-case';
 import { GetParkingAreasUseCase } from '../use-cases/get-parking-areas.use-case';
 import { UpdateParkingAreaUseCase } from '../use-cases/update-parking-area.use-case';
+import { ExportParkingAreasUseCase } from '../use-cases/export-parking-areas.use-case';
+import { ImportParkingAreasUseCase } from '../use-cases/import-parking-areas.use-case';
 
 @ApiTags('Parking Areas')
 @ApiBearerAuth('access-token')
@@ -32,7 +46,45 @@ export class ParkingAreaController {
     private readonly getParkingAreaUseCase: GetParkingAreaUseCase,
     private readonly updateParkingAreaUseCase: UpdateParkingAreaUseCase,
     private readonly deleteParkingAreaUseCase: DeleteParkingAreaUseCase,
+    private readonly exportParkingAreasUseCase: ExportParkingAreasUseCase,
+    private readonly importParkingAreasUseCase: ImportParkingAreasUseCase,
   ) {}
+
+  // Must come before @Get(':id') — otherwise Nest would treat "export" as
+  // a literal :id value here.
+  @Get('export')
+  @Permissions('parking-area.read')
+  @ApiOperation({ summary: 'Export all parking areas as CSV or XLSX' })
+  async export(
+    @Query('format') format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename, contentType } =
+      await this.exportParkingAreasUseCase.execute(
+        format === 'csv' ? 'csv' : 'xlsx',
+      );
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post('import')
+  @Permissions('parking-area.create')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Import parking areas from an uploaded CSV or XLSX file — upserts by name',
+  })
+  async import(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const data = await this.importParkingAreasUseCase.execute(file);
+    return { success: true, message: 'Import completed', data };
+  }
 
   @Post()
   @Permissions('parking-area.create')
