@@ -31,6 +31,8 @@ export const WEBHOOK_LOGS_REPOSITORY = 'WEBHOOK_LOGS_REPOSITORY';
 export interface IWebhookLogsRepository {
   createLog(data: CreateWebhookLogData): Promise<void>;
   findAll(params: FindAllWebhookLogsParams): Promise<FindAllWebhookLogsResult>;
+  /** Returns the number of rows deleted — used by WebhookLogRetentionService. */
+  deleteOlderThan(cutoff: Date): Promise<number>;
   /**
    * Most recent webhook call whose payload's orderId (or the "ordeId" typo
    * variant) matches — read live off the raw JSON, nothing is denormalized

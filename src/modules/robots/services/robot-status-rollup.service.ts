@@ -71,14 +71,20 @@ export class RobotStatusRollupService {
     for (const shift of activeShifts) {
       const { from, to } = shiftBounds(dayStart, shift, activeShifts);
       for (const robot of robots) {
-        const [minutes, alarmMinutes] = await Promise.all([
-          this.aggregationService.computeMinutes(robot.id, from, to),
-          this.alarmAggregationService.computeAlarmMinutes(
+        const alarmIntervals =
+          await this.alarmAggregationService.computeAlarmIntervals(
             robot.amrDeviceSerialNo,
             from,
             to,
-          ),
-        ]);
+          );
+        const minutes = await this.aggregationService.computeMinutes(
+          robot.id,
+          from,
+          to,
+          alarmIntervals,
+        );
+        const alarmMinutes =
+          this.alarmAggregationService.totalMinutes(alarmIntervals);
         // A robot offline the entire window has no telemetry checkpoints at
         // all (minutes is null) but can still have real alarm-downtime to
         // record — only skip when there's truly nothing to report.

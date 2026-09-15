@@ -4,8 +4,10 @@ import { ROBOT_ALARMS_REPOSITORY } from '../repositories/robot-alarm-repository.
 import type { IRobotAlarmsRepository } from '../repositories/robot-alarm-repository.interface';
 
 // robot_alarms grows without bound as RCS keeps sending alarms — capped by
-// age, same convention/window as RobotActivityLogRetentionService.
-const RETENTION_DAYS = 7;
+// age. Part of the "ICS Logs" retention set alongside WebhookLogRetentionService
+// (Webhook/API Logs) — same 4-day window, checked daily rather than weekly so
+// the cutoff is actually enforced close to 4 days, not up to a week late.
+const RETENTION_DAYS = 4;
 
 @Injectable()
 export class RobotAlarmRetentionService {
@@ -16,8 +18,7 @@ export class RobotAlarmRetentionService {
     private readonly robotAlarmsRepository: IRobotAlarmsRepository,
   ) {}
 
-  // Every Sunday at midnight.
-  @Cron(CronExpression.EVERY_WEEK)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async purgeOldAlarms(): Promise<void> {
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const deleted = await this.robotAlarmsRepository.deleteOlderThan(cutoff);

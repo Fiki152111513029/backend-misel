@@ -24,6 +24,13 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     });
   }
 
+  async deleteOlderThan(cutoff: Date): Promise<number> {
+    const result = await this.prisma.webhookLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+    return result.count;
+  }
+
   async findAll(
     params: FindAllWebhookLogsParams,
   ): Promise<FindAllWebhookLogsResult> {

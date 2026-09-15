@@ -9,7 +9,9 @@ import { GetAlarmDashboardStatsUseCase } from './use-cases/get-alarm-dashboard-s
 import { GetRobotAlarmsUseCase } from './use-cases/get-robot-alarms.use-case';
 import { RobotAlarmRetentionService } from './services/robot-alarm-retention.service';
 import { RobotAlarmAggregationService } from './services/robot-alarm-aggregation.service';
+import { RobotAlarmDetailService } from './services/robot-alarm-detail.service';
 import { GetActiveAlarmDeviceNamesUseCase } from './use-cases/get-active-alarm-device-names.use-case';
+import { GetRobotAlarmDetailUseCase } from './use-cases/get-robot-alarm-detail.use-case';
 
 @Module({
   imports: [WebhookLogsModule],
@@ -22,6 +24,8 @@ import { GetActiveAlarmDeviceNamesUseCase } from './use-cases/get-active-alarm-d
     GetActiveAlarmDeviceNamesUseCase,
     RobotAlarmRetentionService,
     RobotAlarmAggregationService,
+    RobotAlarmDetailService,
+    GetRobotAlarmDetailUseCase,
   ],
   exports: [ROBOT_ALARMS_REPOSITORY, RobotAlarmAggregationService],
 })

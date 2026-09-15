@@ -6,6 +6,7 @@ import { WebhookLogRepository } from './repositories/webhook-log.repository';
 import { GetLatestWebhookStatusUseCase } from './use-cases/get-latest-webhook-status.use-case';
 import { GetWebhookLogsUseCase } from './use-cases/get-webhook-logs.use-case';
 import { ReceiveTaskStatusWebhookUseCase } from './use-cases/receive-task-status-webhook.use-case';
+import { WebhookLogRetentionService } from './services/webhook-log-retention.service';
 
 @Module({
   imports: [TasksModule],
@@ -15,6 +16,7 @@ import { ReceiveTaskStatusWebhookUseCase } from './use-cases/receive-task-status
     ReceiveTaskStatusWebhookUseCase,
     GetWebhookLogsUseCase,
     GetLatestWebhookStatusUseCase,
+    WebhookLogRetentionService,
   ],
   exports: [WEBHOOK_LOGS_REPOSITORY],
 })

@@ -95,18 +95,20 @@ export class GetRobotStatusSummaryUseCase {
         now < shiftStart ? shiftStart : now > shiftEnd ? shiftEnd : now;
       return Promise.all(
         robots.map(async (robot) => {
-          const [minutes, alarmMinutes] = await Promise.all([
-            this.aggregationService.computeMinutes(
-              robot.id,
-              shiftStart,
-              liveEnd,
-            ),
-            this.alarmAggregationService.computeAlarmMinutes(
+          const alarmIntervals =
+            await this.alarmAggregationService.computeAlarmIntervals(
               robot.amrDeviceSerialNo,
               shiftStart,
               liveEnd,
-            ),
-          ]);
+            );
+          const minutes = await this.aggregationService.computeMinutes(
+            robot.id,
+            shiftStart,
+            liveEnd,
+            alarmIntervals,
+          );
+          const alarmMinutes =
+            this.alarmAggregationService.totalMinutes(alarmIntervals);
           return {
             robotId: robot.id,
             robotName: robot.name,
@@ -144,18 +146,20 @@ export class GetRobotStatusSummaryUseCase {
             alarmMinutes: existing.alarmMinutes,
           };
         }
-        const [minutes, alarmMinutes] = await Promise.all([
-          this.aggregationService.computeMinutes(
-            robot.id,
-            shiftStart,
-            shiftEnd,
-          ),
-          this.alarmAggregationService.computeAlarmMinutes(
+        const alarmIntervals =
+          await this.alarmAggregationService.computeAlarmIntervals(
             robot.amrDeviceSerialNo,
             shiftStart,
             shiftEnd,
-          ),
-        ]);
+          );
+        const minutes = await this.aggregationService.computeMinutes(
+          robot.id,
+          shiftStart,
+          shiftEnd,
+          alarmIntervals,
+        );
+        const alarmMinutes =
+          this.alarmAggregationService.totalMinutes(alarmIntervals);
         return {
           robotId: robot.id,
           robotName: robot.name,

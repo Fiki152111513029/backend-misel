@@ -5,6 +5,7 @@ import type {
   RobotStatusPoint,
 } from '../repositories/robot-activity-log-repository.interface';
 import type { RobotStatusDailyMinutes } from '../repositories/robot-status-daily-summary-repository.interface';
+import type { AlarmInterval } from '../../robot-alarms/services/robot-alarm-aggregation.service';
 import {
   RobotStatusCategory,
   toRobotStatusCategory,
@@ -27,11 +28,20 @@ export class RobotStatusAggregationService {
    * for a still-in-progress day. Returns null if there's no telemetry data
    * at all for this robot before `to` (nothing to report, as opposed to a
    * legitimately all-zero day).
+   *
+   * `alarmIntervals` (merged, non-overlapping — see
+   * RobotAlarmAggregationService.computeAlarmIntervals) is subtracted from
+   * every checkpoint gap before it's attributed to a category: any time the
+   * robot is under an active alarm no longer counts toward Running/Idle/
+   * Charging, only toward Alarm — counting resumes automatically once the
+   * alarm is reported resolved, since that's exactly where the interval
+   * ends.
    */
   async computeMinutes(
     robotId: string,
     from: Date,
     to: Date,
+    alarmIntervals: AlarmInterval[] = [],
   ): Promise<RobotStatusDailyMinutes | null> {
     const [priorPoint, rangePoints] = await Promise.all([
       this.robotActivityLogRepository.findLastBefore(robotId, from),
@@ -59,14 +69,20 @@ export class RobotStatusAggregationService {
     };
 
     for (let i = 0; i < checkpoints.length - 1; i++) {
-      const durationMs =
-        checkpoints[i + 1].recordedAt.getTime() -
-        checkpoints[i].recordedAt.getTime();
-      if (durationMs <= 0) continue;
+      const segmentStart = checkpoints[i].recordedAt.getTime();
+      const segmentEnd = checkpoints[i + 1].recordedAt.getTime();
+      if (segmentEnd <= segmentStart) continue;
       const category = toRobotStatusCategory(checkpoints[i].state);
       // Offline — not counted toward any bucket at all.
       if (category === null) continue;
-      totalsMs[category] += durationMs;
+
+      const alarmOverlapMs = this.sumOverlapMs(
+        segmentStart,
+        segmentEnd,
+        alarmIntervals,
+      );
+      const effectiveMs = segmentEnd - segmentStart - alarmOverlapMs;
+      if (effectiveMs > 0) totalsMs[category] += effectiveMs;
     }
 
     return {
@@ -74,5 +90,19 @@ export class RobotStatusAggregationService {
       idleMinutes: Math.round(totalsMs.IDLE / MS_PER_MINUTE),
       chargingMinutes: Math.round(totalsMs.CHARGING / MS_PER_MINUTE),
     };
+  }
+
+  private sumOverlapMs(
+    segmentStart: number,
+    segmentEnd: number,
+    intervals: AlarmInterval[],
+  ): number {
+    let sum = 0;
+    for (const interval of intervals) {
+      const overlapStart = Math.max(segmentStart, interval.start);
+      const overlapEnd = Math.min(segmentEnd, interval.end);
+      if (overlapEnd > overlapStart) sum += overlapEnd - overlapStart;
+    }
+    return sum;
   }
 }

@@ -1,11 +1,13 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { AlarmDashboardStatsQueryDto } from '../dto/alarm-dashboard-stats-query.dto';
 import { RobotAlarmQueryDto } from '../dto/robot-alarm-query.dto';
+import { RobotAlarmDetailRequestDto } from '../dto/robot-alarm-detail-request.dto';
 import { GetAlarmDashboardStatsUseCase } from '../use-cases/get-alarm-dashboard-stats.use-case';
 import { GetRobotAlarmsUseCase } from '../use-cases/get-robot-alarms.use-case';
 import { GetActiveAlarmDeviceNamesUseCase } from '../use-cases/get-active-alarm-device-names.use-case';
+import { GetRobotAlarmDetailUseCase } from '../use-cases/get-robot-alarm-detail.use-case';
 
 @ApiTags('Robot Alarms')
 @ApiBearerAuth('access-token')
@@ -15,12 +17,28 @@ export class RobotAlarmController {
     private readonly getAlarmDashboardStatsUseCase: GetAlarmDashboardStatsUseCase,
     private readonly getRobotAlarmsUseCase: GetRobotAlarmsUseCase,
     private readonly getActiveAlarmDeviceNamesUseCase: GetActiveAlarmDeviceNamesUseCase,
+    private readonly getRobotAlarmDetailUseCase: GetRobotAlarmDetailUseCase,
   ) {}
 
   // Must come before @Get() (the plain list) — not ambiguous today since
   // that one has no path segment, but keeping every literal route above
   // any parameterized one is the safer long-term convention (see
   // ShiftController's :id vs "current").
+  @Post('detail')
+  @Permissions('robot-alarm.read')
+  @ApiOperation({
+    summary:
+      "Alarm abnormality detail (task/materiel context) for a device, proxied from the third-party lookup configured via ROBOT_ALARM_DETAIL_URL — powers the Alarm Logs 'Detail' button",
+  })
+  async detail(@Body() dto: RobotAlarmDetailRequestDto) {
+    const data = await this.getRobotAlarmDetailUseCase.execute(dto.deviceCode);
+    return {
+      success: true,
+      message: 'Alarm detail retrieved successfully',
+      data,
+    };
+  }
+
   @Get('active-devices')
   @Permissions('robot-alarm.read')
   @ApiOperation({
