@@ -15,8 +15,22 @@ const EMERGENCY_GRADE = 3;
 export class RobotAlarmRepository implements IRobotAlarmsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateRobotAlarmData): Promise<void> {
-    await this.prisma.robotAlarm.create({ data });
+  async create(data: CreateRobotAlarmData): Promise<{ id: string }> {
+    const created = await this.prisma.robotAlarm.create({
+      data,
+      select: { id: true },
+    });
+    return created;
+  }
+
+  async updateAlarmDetail(id: string, detail: unknown): Promise<void> {
+    await this.prisma.robotAlarm.update({
+      where: { id },
+      data: {
+        alarmDetail: detail as never,
+        alarmDetailFetchedAt: new Date(),
+      },
+    });
   }
 
   async getDashboardStats(since: Date): Promise<AlarmDashboardStats> {
@@ -70,9 +84,9 @@ export class RobotAlarmRepository implements IRobotAlarmsRepository {
   }
 
   async findActiveDeviceNames(): Promise<string[]> {
-    // Bounded by the 7-day retention window (see RobotAlarmRetentionService)
+    // Bounded by the 4-day retention window (see RobotAlarmRetentionService)
     // — no device's latest alarm event can be older than that.
-    const retentionCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const retentionCutoff = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
     const rows = await this.prisma.robotAlarm.findMany({
       where: {
         receivedAt: { gte: retentionCutoff },
