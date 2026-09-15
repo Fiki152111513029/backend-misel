@@ -140,16 +140,6 @@ model RobotAlarm {
   alarmGrade      Int?
   // RCS's own field: 0 = active, 1 = resolved.
   alarmStatus     Int?
-  // Extended abnormality detail (task/materiel context) — fetched
-  // automatically right after this event is received (see
-  // ReceiveRobotAlarmWebhookUseCase, fire-and-forget so it never delays the
-  // ack RCS is waiting on) from the third-party lookup configured via
-  // ROBOT_ALARM_DETAIL_URL. Stores the already-parsed RobotAlarmDetailData
-  // shape (not RCS's raw {code,data,desc} envelope). Null until that fetch
-  // completes, or if it failed / the endpoint isn't configured — the Alarm
-  // Logs "Detail" button shows whatever is here, it doesn't call out itself.
-  alarmDetail          Json?
-  alarmDetailFetchedAt DateTime?
   receivedAt      DateTime @default(now())
 
   @@index([receivedAt])

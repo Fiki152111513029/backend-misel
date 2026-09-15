@@ -15,22 +15,8 @@ const EMERGENCY_GRADE = 3;
 export class RobotAlarmRepository implements IRobotAlarmsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateRobotAlarmData): Promise<{ id: string }> {
-    const created = await this.prisma.robotAlarm.create({
-      data,
-      select: { id: true },
-    });
-    return created;
-  }
-
-  async updateAlarmDetail(id: string, detail: unknown): Promise<void> {
-    await this.prisma.robotAlarm.update({
-      where: { id },
-      data: {
-        alarmDetail: detail as never,
-        alarmDetailFetchedAt: new Date(),
-      },
-    });
+  async create(data: CreateRobotAlarmData): Promise<void> {
+    await this.prisma.robotAlarm.create({ data });
   }
 
   async getDashboardStats(since: Date): Promise<AlarmDashboardStats> {

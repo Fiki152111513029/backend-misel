@@ -58,12 +58,6 @@ export default () => ({
       process.env.TASK_LOCATION ??
       'http://172.18.101.10:7000/ics/out/task/getTaskOrderStatus',
   },
-  // Third-party lookup for the extended detail (task/materiel context) behind
-  // one alarm — called on demand from the Alarm Logs "Detail" button, keyed
-  // by deviceCode. See RobotAlarmDetailService.
-  robotAlarmDetail: {
-    url: process.env.ROBOT_ALARM_DETAIL_URL,
-  },
   // RCS's own stock/bin tracking for Warehouse/Production Location nodes —
   // separate from our own DB (see Trolley.currentLocationCode) since RCS is
   // the system of record other integrations may also read/write.

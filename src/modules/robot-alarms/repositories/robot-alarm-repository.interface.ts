@@ -43,12 +43,6 @@ export interface RobotAlarmRecord {
   alarmGrade: number | null;
   // RCS's own field: 0 = active, 1 = resolved.
   alarmStatus: number | null;
-  // Extended abnormality detail (task/materiel context), fetched
-  // automatically right after this event is received — see
-  // ReceiveRobotAlarmWebhookUseCase and RobotAlarmDetailService. Null until
-  // that fetch completes, or if it failed / the endpoint isn't configured.
-  alarmDetail: unknown;
-  alarmDetailFetchedAt: Date | null;
   receivedAt: Date;
 }
 
@@ -65,13 +59,7 @@ export interface FindAllRobotAlarmsResult {
 export const ROBOT_ALARMS_REPOSITORY = 'ROBOT_ALARMS_REPOSITORY';
 
 export interface IRobotAlarmsRepository {
-  // Returns the created row's id so the caller can attach the
-  // asynchronously-fetched alarm detail once it resolves (see
-  // ReceiveRobotAlarmWebhookUseCase).
-  create(data: CreateRobotAlarmData): Promise<{ id: string }>;
-  // Fire-and-forget target for the automatic detail fetch — stores whatever
-  // RobotAlarmDetailService returned (or leaves it null on failure).
-  updateAlarmDetail(id: string, detail: unknown): Promise<void>;
+  create(data: CreateRobotAlarmData): Promise<void>;
   getDashboardStats(since: Date): Promise<AlarmDashboardStats>;
   findAll(params: FindAllRobotAlarmsParams): Promise<FindAllRobotAlarmsResult>;
   // Used by RobotAlarmRetentionService's daily purge (4-day retention,
