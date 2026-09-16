@@ -1,7 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { AlarmDashboardStatsQueryDto } from '../dto/alarm-dashboard-stats-query.dto';
 import { RobotAlarmQueryDto } from '../dto/robot-alarm-query.dto';
 import { GetAlarmDashboardStatsUseCase } from '../use-cases/get-alarm-dashboard-stats.use-case';
 import { GetRobotAlarmsUseCase } from '../use-cases/get-robot-alarms.use-case';
@@ -40,10 +39,10 @@ export class RobotAlarmController {
   @Permissions('robot-alarm.read')
   @ApiOperation({
     summary:
-      "Live/current alarm snapshot — Critical (Emergency-grade) alarm count and per-zone alarm density within the last N minutes only, reads 0 once nothing fresh has come in — powers the main Dashboard's Critical Alarms stat and Abnormality chart",
+      "Currently-active alarm snapshot, based on alarmStatus (0=active, 1=resolved) rather than a time window — an alarm counts from the moment it's reported active until RCS reports it resolved. Critical (Emergency-grade) count, per-zone density, and the raw device/desc list all derive from the same active set — powers the main Dashboard's Critical Alarms stat and Abnormality panel",
   })
-  async dashboardStats(@Query() query: AlarmDashboardStatsQueryDto) {
-    const data = await this.getAlarmDashboardStatsUseCase.execute(query);
+  async dashboardStats() {
+    const data = await this.getAlarmDashboardStatsUseCase.execute();
     return {
       success: true,
       message: 'Alarm dashboard stats retrieved successfully',

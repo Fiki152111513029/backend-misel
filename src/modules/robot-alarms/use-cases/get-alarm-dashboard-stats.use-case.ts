@@ -4,7 +4,6 @@ import type {
   AlarmDashboardStats,
   IRobotAlarmsRepository,
 } from '../repositories/robot-alarm-repository.interface';
-import { AlarmDashboardStatsQueryDto } from '../dto/alarm-dashboard-stats-query.dto';
 
 @Injectable()
 export class GetAlarmDashboardStatsUseCase {
@@ -13,8 +12,7 @@ export class GetAlarmDashboardStatsUseCase {
     private readonly robotAlarmsRepository: IRobotAlarmsRepository,
   ) {}
 
-  execute(query: AlarmDashboardStatsQueryDto): Promise<AlarmDashboardStats> {
-    const since = new Date(Date.now() - query.minutes * 60 * 1000);
-    return this.robotAlarmsRepository.getDashboardStats(since);
+  execute(): Promise<AlarmDashboardStats> {
+    return this.robotAlarmsRepository.getDashboardStats();
   }
 }

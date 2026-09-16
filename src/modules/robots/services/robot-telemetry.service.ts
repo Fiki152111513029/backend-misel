@@ -374,6 +374,34 @@ export class RobotTelemetryService {
           .catch((error) =>
             this.logger.warn(`Failed to record activity log: ${error}`),
           );
+      } else {
+        // The device didn't appear in this poll's telemetry at all — RCS
+        // unreachable, or this robot specifically dropped out of its
+        // response — so no real reading exists to log. Without an explicit
+        // checkpoint here, RobotStatusAggregationService would just keep
+        // attributing the ensuing silence to whatever state this robot was
+        // last actually seen in (e.g. counting it as "Running" forever once
+        // it goes dark mid-task), since it has no way to tell "no data" apart
+        // from "still in that state". Logging a literal "Offline" state
+        // closes that gap correctly — toRobotStatusCategory() excludes it
+        // from every bucket. createLog()'s 15s unchanged-throttle collapses
+        // repeated Offline polls into one row instead of spamming the table.
+        this.robotActivityLogRepository
+          .createLog({
+            robotId: robot.id,
+            deviceCode: serialNo,
+            deviceName: deviceNo,
+            speed: null,
+            battery: null,
+            status: null,
+            state: 'Offline',
+            position: null,
+            payload: null,
+            orientation: null,
+          })
+          .catch((error) =>
+            this.logger.warn(`Failed to record offline activity log: ${error}`),
+          );
       }
 
       return { ...robot, ...telemetry };

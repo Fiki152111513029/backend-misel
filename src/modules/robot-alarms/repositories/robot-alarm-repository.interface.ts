@@ -20,11 +20,30 @@ export interface AlarmZoneCount {
   count: number;
 }
 
+// One currently-active alarm — the raw device/desc fields the Dashboard's
+// Abnormality panel lists per zone, not just an abstract count.
+export interface ActiveAlarmInfo {
+  deviceNum: string | null;
+  deviceName: string | null;
+  alarmType: number | null;
+  alarmDesc: string | null;
+  alarmGrade: number | null;
+  areaId: number | null;
+}
+
 export interface AlarmDashboardStats {
-  // Count of alarmGrade = 3 (Emergency) alarms received within the window.
+  // Count of currently-ACTIVE alarms (see activeAlarms below) that are
+  // alarmGrade = 3 (Emergency) — not a time window. An alarm counts here
+  // from the moment it's reported active until RCS reports it resolved,
+  // however long that takes.
   criticalCount: number;
-  // Alarm counts grouped by areaId within the window, sorted highest first.
+  // Currently-active alarm counts grouped by areaId, sorted highest first.
   byZone: AlarmZoneCount[];
+  // Every currently-active alarm (one per device+alarmCode/alarmType key,
+  // whichever alarmStatus was reported most recently) — the same
+  // "latest write per key wins" rule as findActiveDeviceNames(), just
+  // returning the full row instead of only the device name.
+  activeAlarms: ActiveAlarmInfo[];
 }
 
 export interface RobotAlarmRecord {
@@ -60,7 +79,7 @@ export const ROBOT_ALARMS_REPOSITORY = 'ROBOT_ALARMS_REPOSITORY';
 
 export interface IRobotAlarmsRepository {
   create(data: CreateRobotAlarmData): Promise<void>;
-  getDashboardStats(since: Date): Promise<AlarmDashboardStats>;
+  getDashboardStats(): Promise<AlarmDashboardStats>;
   findAll(params: FindAllRobotAlarmsParams): Promise<FindAllRobotAlarmsResult>;
   // Used by RobotAlarmRetentionService's daily purge (4-day retention,
   // same convention as RobotActivityLogRetentionService/WebhookLogRetentionService).
