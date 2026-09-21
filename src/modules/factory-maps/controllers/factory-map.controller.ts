@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   ParseUUIDPipe,
   Put,
@@ -34,6 +35,10 @@ import { GetFactoryMapUseCase } from '../use-cases/get-factory-map.use-case';
 import { GetFactoryMapsUseCase } from '../use-cases/get-factory-maps.use-case';
 import { GetLocationCodesUseCase } from '../use-cases/get-location-codes.use-case';
 import { GetStockStatusUseCase } from '../use-cases/get-stock-status.use-case';
+import {
+  RackAssignment,
+  SyncTopologyLocationsUseCase,
+} from '../use-cases/sync-topology-locations.use-case';
 import { UpdateFactoryMapUseCase } from '../use-cases/update-factory-map.use-case';
 import {
   deleteUploadedFile,
@@ -59,6 +64,8 @@ const FILE_FIELDS = FileFieldsInterceptor(
 @ApiBearerAuth('access-token')
 @Controller('factory-maps')
 export class FactoryMapController {
+  private readonly logger = new Logger(FactoryMapController.name);
+
   constructor(
     private readonly createFactoryMapUseCase: CreateFactoryMapUseCase,
     private readonly getFactoryMapsUseCase: GetFactoryMapsUseCase,
@@ -67,6 +74,7 @@ export class FactoryMapController {
     private readonly deleteFactoryMapUseCase: DeleteFactoryMapUseCase,
     private readonly getLocationCodesUseCase: GetLocationCodesUseCase,
     private readonly getStockStatusUseCase: GetStockStatusUseCase,
+    private readonly syncTopologyLocationsUseCase: SyncTopologyLocationsUseCase,
     private readonly configService: ConfigService,
   ) {}
 
@@ -82,6 +90,32 @@ export class FactoryMapController {
       updatedAt: map.updatedAt,
       deletedAt: map.deletedAt,
     };
+  }
+
+  private parseRackAssignments(raw?: string): RackAssignment[] {
+    if (!raw) return [];
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new BadRequestException('rackAssignments must be valid JSON');
+    }
+    if (!Array.isArray(parsed)) {
+      throw new BadRequestException('rackAssignments must be a JSON array');
+    }
+    return parsed.map((item: unknown) => {
+      const { code, target } = (item ?? {}) as Record<string, unknown>;
+      if (
+        typeof code !== 'string' ||
+        !code.trim() ||
+        (target !== 'PRODUCTION' && target !== 'WAREHOUSE')
+      ) {
+        throw new BadRequestException(
+          'Each rackAssignments entry needs a code and a target of PRODUCTION or WAREHOUSE',
+        );
+      }
+      return { code: code.trim(), target };
+    });
   }
 
   @Post()
@@ -106,16 +140,35 @@ export class FactoryMapController {
     const topologyPath = toRelativePath(topology);
 
     try {
+      const rackAssignments = this.parseRackAssignments(dto.rackAssignments);
       const data = await this.createFactoryMapUseCase.execute({
         name: dto.name,
         areaNumber: dto.areaNumber,
         imagePath,
         topologyPath,
       });
+
+      // The map itself is already saved at this point — a problem importing
+      // its locations must not undo that, so it's reported (or logged) but
+      // never thrown.
+      let locationSync: Awaited<
+        ReturnType<SyncTopologyLocationsUseCase['execute']>
+      > | null = null;
+      try {
+        locationSync = await this.syncTopologyLocationsUseCase.execute(
+          topology.path,
+          rackAssignments,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to import locations from topology of "${dto.name}": ${error}`,
+        );
+      }
+
       return {
         success: true,
         message: 'Factory Map created successfully',
-        data: this.toEntity(data),
+        data: { ...this.toEntity(data), locationSync },
       };
     } catch (error) {
       if (imagePath) deleteUploadedFile(imagePath);

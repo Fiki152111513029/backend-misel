@@ -27,7 +27,10 @@ export const factoryMapMulterOptions = {
     file: Express.Multer.File,
     callback: (error: Error | null, accept: boolean) => void,
   ) => {
-    if (file.fieldname === 'image' && !ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+    if (
+      file.fieldname === 'image' &&
+      !ALLOWED_IMAGE_TYPES.includes(file.mimetype)
+    ) {
       callback(
         new BadRequestException('Image must be JPEG, PNG, or WebP'),
         false,
@@ -47,7 +50,10 @@ export function toRelativePath(file: Express.Multer.File): string {
   return `/uploads/${UPLOAD_SUBDIR}/${file.filename}`;
 }
 
-export function toPublicUrl(publicBaseUrl: string, relativePath: string): string;
+export function toPublicUrl(
+  publicBaseUrl: string,
+  relativePath: string,
+): string;
 export function toPublicUrl(
   publicBaseUrl: string,
   relativePath: string | null | undefined,
@@ -60,7 +66,9 @@ export function toPublicUrl(
 }
 
 /** Best-effort delete — a missing file (already cleaned up, moved, etc.) is not an error here. */
-export function deleteUploadedFile(relativePath: string | null | undefined): void {
+export function deleteUploadedFile(
+  relativePath: string | null | undefined,
+): void {
   const filename = relativePath?.split('/').pop();
   if (!filename) return;
   const fullPath = join(UPLOAD_ROOT, filename);

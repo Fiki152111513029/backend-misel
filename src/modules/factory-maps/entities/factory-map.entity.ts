@@ -9,13 +9,15 @@ export class FactoryMapEntity {
 
   @ApiProperty({
     nullable: true,
-    description: 'The areaId Robots in this area use to talk to the AMR fleet API',
+    description:
+      'The areaId Robots in this area use to talk to the AMR fleet API',
   })
   areaNumber!: number | null;
 
   @ApiProperty({
     nullable: true,
-    description: 'Absolute URL to the map image file, null if this map has no image',
+    description:
+      'Absolute URL to the map image file, null if this map has no image',
   })
   imageUrl!: string | null;
 

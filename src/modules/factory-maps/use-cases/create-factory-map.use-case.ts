@@ -20,9 +20,7 @@ export class CreateFactoryMapUseCase {
   ) {}
 
   async execute(input: CreateFactoryMapInput) {
-    const nameTaken = await this.factoryMapsRepository.existsByName(
-      input.name,
-    );
+    const nameTaken = await this.factoryMapsRepository.existsByName(input.name);
     if (nameTaken) {
       throw new BadRequestException('Factory Map name already in use');
     }
