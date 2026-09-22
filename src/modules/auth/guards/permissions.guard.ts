@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { AuthRequestUser } from '../types/auth-request-user.type';
+import { resolveEffectivePermissions } from '../utils/effective-permissions';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -21,7 +22,12 @@ export class PermissionsGuard implements CanActivate {
     const request = context
       .switchToHttp()
       .getRequest<Request & { user: AuthRequestUser }>();
-    const userPermissions = request.user?.permissions ?? [];
+    // Re-resolved here rather than trusted from the token: tokens issued
+    // before these rules existed (or before a role was edited) still carry
+    // the raw granted list, and this guard is the last word either way.
+    const userPermissions = resolveEffectivePermissions(
+      request.user?.permissions ?? [],
+    );
     return requiredPermissions.every((permission) =>
       userPermissions.includes(permission),
     );

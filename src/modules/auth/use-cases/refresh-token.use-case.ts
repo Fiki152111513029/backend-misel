@@ -6,6 +6,7 @@ import { REFRESH_TOKEN_REPOSITORY } from '../repositories/refresh-token-reposito
 import type { IRefreshTokenRepository } from '../repositories/refresh-token-repository.interface';
 import { TokenService } from '../services/token.service';
 import { hashToken } from '../utils/hash-token.util';
+import { resolveEffectivePermissions } from '../utils/effective-permissions';
 
 @Injectable()
 export class RefreshTokenUseCase {
@@ -41,7 +42,12 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    const permissions = user.role.permissions.map((rp) => rp.permission.code);
+    // Resolved, not raw — so the token and the permission list the frontend
+    // uses to decide which buttons to render match what PermissionsGuard
+    // will actually allow.
+    const permissions = resolveEffectivePermissions(
+      user.role.permissions.map((rp) => rp.permission.code),
+    );
 
     const accessToken = this.tokenService.signAccessToken({
       userId: user.id,

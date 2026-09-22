@@ -6,8 +6,18 @@ import {
   FindAllWebhookLogsParams,
   FindAllWebhookLogsResult,
   IWebhookLogsRepository,
+  TaskStatusSummary,
   WebhookLogRecord,
 } from './webhook-log-repository.interface';
+
+// RCS's own subTaskStatus codes on the task-status webhook payload.
+const SUB_TASK_STATUS_BUCKET: Record<string, keyof TaskStatusSummary> = {
+  '1': 'notStarted',
+  '2': 'running',
+  '3': 'completing',
+  '4': 'failed',
+  '5': 'cancelled',
+};
 
 @Injectable()
 export class WebhookLogRepository implements IWebhookLogsRepository {
@@ -22,6 +32,60 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
         responsePayload: data.responsePayload as never,
       },
     });
+  }
+
+  async getTaskStatusSummary(since: Date): Promise<TaskStatusSummary> {
+    const rows = await this.prisma.webhookLog.findMany({
+      where: { endpoint: '/webhooks-logs', createdAt: { gte: since } },
+      orderBy: { createdAt: 'asc' },
+      select: { requestPayload: true },
+    });
+
+    // Ascending order means the last write per order wins — that order's
+    // most recently reported status. RCS spells the id "ordeId" in one
+    // place (see docs/apiwebhook.md), so both spellings are accepted.
+    const latestStatusByOrder = new Map<string, string | null>();
+    for (const row of rows) {
+      const payload = (row.requestPayload ?? {}) as Record<string, unknown>;
+      const orderId = this.readPayloadString(payload, ['orderId', 'ordeId']);
+      if (!orderId) continue;
+      latestStatusByOrder.set(
+        orderId,
+        this.readPayloadString(payload, ['subTaskStatus']),
+      );
+    }
+
+    const summary: TaskStatusSummary = {
+      notStarted: 0,
+      running: 0,
+      completing: 0,
+      failed: 0,
+      cancelled: 0,
+      total: 0,
+      unknown: 0,
+    };
+    for (const status of latestStatusByOrder.values()) {
+      const bucket = status ? SUB_TASK_STATUS_BUCKET[status] : undefined;
+      if (!bucket) {
+        summary.unknown += 1;
+        continue;
+      }
+      summary[bucket] += 1;
+      summary.total += 1;
+    }
+    return summary;
+  }
+
+  private readPayloadString(
+    payload: Record<string, unknown>,
+    keys: string[],
+  ): string | null {
+    for (const key of keys) {
+      const value = payload[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (typeof value === 'number') return String(value);
+    }
+    return null;
   }
 
   async deleteOlderThan(cutoff: Date): Promise<number> {

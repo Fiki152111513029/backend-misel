@@ -4,6 +4,7 @@ import { WebhookLogController } from './controllers/webhook-log.controller';
 import { WEBHOOK_LOGS_REPOSITORY } from './repositories/webhook-log-repository.interface';
 import { WebhookLogRepository } from './repositories/webhook-log.repository';
 import { GetLatestWebhookStatusUseCase } from './use-cases/get-latest-webhook-status.use-case';
+import { GetTaskStatusSummaryUseCase } from './use-cases/get-task-status-summary.use-case';
 import { GetWebhookLogsUseCase } from './use-cases/get-webhook-logs.use-case';
 import { ReceiveTaskStatusWebhookUseCase } from './use-cases/receive-task-status-webhook.use-case';
 import { WebhookLogRetentionService } from './services/webhook-log-retention.service';
@@ -16,6 +17,7 @@ import { WebhookLogRetentionService } from './services/webhook-log-retention.ser
     ReceiveTaskStatusWebhookUseCase,
     GetWebhookLogsUseCase,
     GetLatestWebhookStatusUseCase,
+    GetTaskStatusSummaryUseCase,
     WebhookLogRetentionService,
   ],
   exports: [WEBHOOK_LOGS_REPOSITORY],

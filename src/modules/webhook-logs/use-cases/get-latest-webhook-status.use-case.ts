@@ -51,7 +51,10 @@ export class GetLatestWebhookStatusUseCase {
     };
   }
 
-  private readString(payload: Record<string, unknown>, key: string): string | null {
+  private readString(
+    payload: Record<string, unknown>,
+    key: string,
+  ): string | null {
     const value = payload[key];
     return value != null && value !== '' ? String(value) : null;
   }
