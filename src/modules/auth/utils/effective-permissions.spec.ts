@@ -1,4 +1,24 @@
-import { resolveEffectivePermissions } from './effective-permissions';
+import {
+  resolveEffectivePermissions,
+  resolveGrantedPermissions,
+} from './effective-permissions';
+
+describe('resolveGrantedPermissions', () => {
+  it('drops writes whose resource read was not granted', () => {
+    expect(
+      resolveGrantedPermissions([
+        'production-location.create',
+        'production-location.update',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('leaves a dashboard-only role with exactly what was ticked, so no extra sidebar menus appear', () => {
+    expect(resolveGrantedPermissions(['dashboard.read'])).toEqual([
+      'dashboard.read',
+    ]);
+  });
+});
 
 describe('resolveEffectivePermissions', () => {
   it('drops writes whose resource read was not granted', () => {

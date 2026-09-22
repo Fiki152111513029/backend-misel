@@ -6,7 +6,7 @@ import { REFRESH_TOKEN_REPOSITORY } from '../repositories/refresh-token-reposito
 import type { IRefreshTokenRepository } from '../repositories/refresh-token-repository.interface';
 import { TokenService } from '../services/token.service';
 import { hashToken } from '../utils/hash-token.util';
-import { resolveEffectivePermissions } from '../utils/effective-permissions';
+import { resolveGrantedPermissions } from '../utils/effective-permissions';
 
 @Injectable()
 export class RefreshTokenUseCase {
@@ -42,10 +42,11 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    // Resolved, not raw — so the token and the permission list the frontend
-    // uses to decide which buttons to render match what PermissionsGuard
-    // will actually allow.
-    const permissions = resolveEffectivePermissions(
+    // What the role really holds — writes without their own read are
+    // dropped. Deliberately NOT the effective set: the reads the Dashboard
+    // implicitly needs are an API-side concern (see PermissionsGuard), and
+    // leaking them here would light up sidebar menus nobody ticked.
+    const permissions = resolveGrantedPermissions(
       user.role.permissions.map((rp) => rp.permission.code),
     );
 
