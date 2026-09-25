@@ -210,6 +210,7 @@ model ModelCodeProcess {
   quarantineLines        QuarantineLine[]
   trolleys               Trolley[]
   trolleyCategories      TrolleyCategory[]
+  controlTasks           ControlTask[]
 
   // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
   // IS NULL, see migration) so a soft-deleted row's name can be reused.
@@ -898,4 +899,66 @@ model WebhookLog {
 
   @@index([createdAt])
   @@map("webhook_logs")
+}
+
+// A physical rack that a Control Task can carry, alongside pallets and
+// trolleys (see ControlTask.typeOfGoods). Occupancy only — the same
+// FULL/EMPTY shape the locations and trolleys already use.
+model Rack {
+  id        String     @id @default(uuid())
+  name      String
+  status    RackStatus @default(EMPTY)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  // `name` uniqueness is enforced by a partial unique index (WHERE "deletedAt"
+  // IS NULL, see migration) so a soft-deleted row's name can be reused.
+  @@index([name])
+  @@map("racks")
+}
+
+enum RackStatus {
+  FULL
+  EMPTY
+}
+
+// What a Control Task moves. Each value maps to one of the master tables the
+// goods are registered in (BoxType/pallets, Trolley, Rack).
+enum TypeOfGoods {
+  PALLET
+  TROLLEY
+  RACK
+}
+
+// A named, reusable route an operator can trigger from the floor: scan the
+// task's QR (which encodes `abjad`) and the RCS order is built from `route`
+// joined into a taskPath, under this task's modelCodeProcess.
+model ControlTask {
+  id                 String      @id @default(uuid())
+  // Short letter designation printed on the QR label, e.g. "A", "B1".
+  abjad              String
+  name               String
+  typeOfGoods        TypeOfGoods
+  modelCodeProcessId String
+  // The iRayple location codes to visit, in the order the operator chose.
+  // Stored as an ordered list rather than a set: a route may legitimately
+  // come back to a code it already visited (e.g. L3CPA,FGA,EPA,L3CPA), and
+  // there is no limit on how many legs it has. Joined with "," to form the
+  // RCS `taskPath` (see docs/feature.md).
+  route              String[]
+  isActive           Boolean     @default(true)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  deletedAt          DateTime?
+
+  modelCodeProcess ModelCodeProcess @relation(fields: [modelCodeProcessId], references: [id])
+
+  // `abjad`/`name` uniqueness is enforced by partial unique indexes (WHERE
+  // "deletedAt" IS NULL, see migration) so a soft-deleted row can be reused.
+  @@index([abjad])
+  @@index([name])
+  @@index([modelCodeProcessId])
+  @@map("control_tasks")
 }

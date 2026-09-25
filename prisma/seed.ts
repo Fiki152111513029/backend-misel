@@ -335,6 +335,48 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Factory Map',
     description: 'Delete factory maps',
   },
+  // Rack
+  {
+    code: 'rack.create',
+    name: 'Create Rack',
+    description: 'Create new racks',
+  },
+  {
+    code: 'rack.read',
+    name: 'Read Rack',
+    description: 'View racks',
+  },
+  {
+    code: 'rack.update',
+    name: 'Update Rack',
+    description: 'Update racks',
+  },
+  {
+    code: 'rack.delete',
+    name: 'Delete Rack',
+    description: 'Delete racks',
+  },
+  // Control Task (Settings > Customize Control Task)
+  {
+    code: 'control-task.create',
+    name: 'Create Control Task',
+    description: 'Create new control tasks',
+  },
+  {
+    code: 'control-task.read',
+    name: 'Read Control Task',
+    description: 'View control tasks',
+  },
+  {
+    code: 'control-task.update',
+    name: 'Update Control Task',
+    description: 'Update control tasks',
+  },
+  {
+    code: 'control-task.delete',
+    name: 'Delete Control Task',
+    description: 'Delete control tasks',
+  },
   // Charger Area
   {
     code: 'charger-area.create',
@@ -553,6 +595,19 @@ const PERMISSIONS: PermissionSeed[] = [
     code: 'operator-trolley-task.read',
     name: 'Access Operator Trolley Task',
     description: 'View the Operator Trolley Task page',
+  },
+  // Custom Task page — scanning a Control Task abjad and releasing it to
+  // RCS. Kept apart from control-task.* (the admin CRUD) so an operator can
+  // run a Control Task without being able to edit one.
+  {
+    code: 'custom-task.read',
+    name: 'Access Custom Task',
+    description: 'View the Custom Task page and look up a scanned abjad',
+  },
+  {
+    code: 'custom-task.create',
+    name: 'Release Custom Task',
+    description: 'Send a scanned Control Task to RCS as a task order',
   },
   // Robot Alarms — the Critical Alarms stat and Abnormality-by-zone chart
   // on the main Dashboard
