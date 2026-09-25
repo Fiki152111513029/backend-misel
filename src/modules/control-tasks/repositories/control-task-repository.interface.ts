@@ -1,4 +1,4 @@
-import { ControlTask, ModelCodeProcess, TypeOfGoods } from '@prisma/client';
+import { ControlTask, ModelCodeProcess } from '@prisma/client';
 
 export type ControlTaskWithRelations = ControlTask & {
   modelCodeProcess: Pick<
@@ -10,7 +10,6 @@ export type ControlTaskWithRelations = ControlTask & {
 export interface CreateControlTaskData {
   abjad: string;
   name: string;
-  typeOfGoods: TypeOfGoods;
   modelCodeProcessId: string;
   route: string[];
   isActive?: boolean;
@@ -19,7 +18,6 @@ export interface CreateControlTaskData {
 export interface UpdateControlTaskData {
   abjad?: string;
   name?: string;
-  typeOfGoods?: TypeOfGoods;
   modelCodeProcessId?: string;
   route?: string[];
   isActive?: boolean;
@@ -32,7 +30,6 @@ export interface FindAllControlTasksParams {
   page: number;
   limit: number;
   search?: string;
-  typeOfGoods?: TypeOfGoods;
   sortBy: ControlTaskSortBy;
   sortOrder: SortOrder;
 }

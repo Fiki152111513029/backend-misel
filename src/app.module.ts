@@ -29,7 +29,6 @@ import { WebhookLogsModule } from './modules/webhook-logs/webhook-logs.module';
 import { RobotAlarmsModule } from './modules/robot-alarms/robot-alarms.module';
 import { FactoryMapsModule } from './modules/factory-maps/factory-maps.module';
 import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module';
-import { RacksModule } from './modules/racks/racks.module';
 import { ControlTasksModule } from './modules/control-tasks/control-tasks.module';
 import { CustomTasksModule } from './modules/custom-tasks/custom-tasks.module';
 import { ParkingAreasModule } from './modules/parking-areas/parking-areas.module';
@@ -81,7 +80,6 @@ import { RcsStockStatusModule } from './modules/rcs-stock-status/rcs-stock-statu
     RobotAlarmsModule,
     FactoryMapsModule,
     ChargerAreasModule,
-    RacksModule,
     ControlTasksModule,
     CustomTasksModule,
     ParkingAreasModule,

@@ -335,27 +335,6 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Delete Factory Map',
     description: 'Delete factory maps',
   },
-  // Rack
-  {
-    code: 'rack.create',
-    name: 'Create Rack',
-    description: 'Create new racks',
-  },
-  {
-    code: 'rack.read',
-    name: 'Read Rack',
-    description: 'View racks',
-  },
-  {
-    code: 'rack.update',
-    name: 'Update Rack',
-    description: 'Update racks',
-  },
-  {
-    code: 'rack.delete',
-    name: 'Delete Rack',
-    description: 'Delete racks',
-  },
   // Control Task (Settings > Customize Control Task)
   {
     code: 'control-task.create',

@@ -81,9 +81,7 @@ export class ControlTaskController {
 
   @Get()
   @Permissions('control-task.read')
-  @ApiOperation({
-    summary: 'List control tasks (pagination, search, filter by type of goods)',
-  })
+  @ApiOperation({ summary: 'List control tasks (pagination, search, sorting)' })
   async findAll(@Query() query: ControlTaskQueryDto) {
     const data = await this.getControlTasksUseCase.execute(query);
     return {

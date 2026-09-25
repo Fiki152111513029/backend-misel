@@ -36,7 +36,6 @@ export class ControlTaskRepository implements IControlTasksRepository {
             ],
           }
         : {}),
-      ...(params.typeOfGoods ? { typeOfGoods: params.typeOfGoods } : {}),
     };
 
     const [items, total] = await this.prisma.$transaction([

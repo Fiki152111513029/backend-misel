@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TypeOfGoods } from '@prisma/client';
 import type { ControlTaskWithRelations } from '../repositories/control-task-repository.interface';
 
 export class ControlTaskEntity {
@@ -11,9 +10,6 @@ export class ControlTaskEntity {
 
   @ApiProperty()
   name!: string;
-
-  @ApiProperty({ enum: TypeOfGoods })
-  typeOfGoods!: TypeOfGoods;
 
   @ApiProperty()
   modelCodeProcessId!: string;

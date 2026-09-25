@@ -1,10 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TypeOfGoods } from '@prisma/client';
 import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
-  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -24,10 +22,6 @@ export class CreateControlTaskDto {
   @IsNotEmpty()
   @MaxLength(100)
   name!: string;
-
-  @ApiProperty({ enum: TypeOfGoods })
-  @IsEnum(TypeOfGoods)
-  typeOfGoods!: TypeOfGoods;
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()

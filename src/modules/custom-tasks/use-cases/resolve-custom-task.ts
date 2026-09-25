@@ -12,7 +12,6 @@ export interface CustomTaskPreview {
   controlTaskId: string;
   abjad: string;
   name: string;
-  typeOfGoods: string;
   route: string[];
   taskPath: string;
   modelProcessCode: string;
@@ -62,7 +61,6 @@ export async function resolveCustomTask(
       controlTaskId: controlTask.id,
       abjad: controlTask.abjad,
       name: controlTask.name,
-      typeOfGoods: controlTask.typeOfGoods,
       route: controlTask.route,
       taskPath: controlTask.route.join(','),
       modelProcessCode: modelCodeProcess.name,

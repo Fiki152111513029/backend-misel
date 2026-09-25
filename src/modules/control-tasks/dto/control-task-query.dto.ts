@@ -1,14 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { TypeOfGoods } from '@prisma/client';
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import type {
   ControlTaskSortBy,
   SortOrder,
@@ -33,11 +25,6 @@ export class ControlTaskQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
-
-  @ApiPropertyOptional({ enum: TypeOfGoods })
-  @IsOptional()
-  @IsEnum(TypeOfGoods)
-  typeOfGoods?: TypeOfGoods;
 
   @ApiPropertyOptional({
     enum: ['abjad', 'name', 'createdAt'],
