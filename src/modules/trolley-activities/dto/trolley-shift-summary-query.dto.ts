@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsUUID, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsUUID, Matches } from 'class-validator';
 
 export class TrolleyShiftSummaryQueryDto {
   @ApiProperty({
@@ -12,10 +12,12 @@ export class TrolleyShiftSummaryQueryDto {
   })
   date!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'b3f1c2e4-...',
-    description: 'Shift id (see GET /shifts)',
+    description:
+      'Shift id (see GET /shifts). Omit for every shift — the whole UTC day, with no assigned-shift filter on the operators — which is also the only option when no Shift has been configured.',
   })
+  @IsOptional()
   @IsUUID()
-  shiftId!: string;
+  shiftId?: string;
 }

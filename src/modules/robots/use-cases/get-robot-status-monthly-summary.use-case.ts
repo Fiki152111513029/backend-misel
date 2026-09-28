@@ -34,14 +34,20 @@ export class GetRobotStatusMonthlySummaryUseCase {
     }
     const monthEnd = endOfUtcMonth(monthStart);
 
-    const shift = await this.shiftsRepository.findById(query.shiftId);
-    if (!shift) {
-      throw new NotFoundException('Shift not found');
+    // No shiftId means "All Shifts" — every rolled-up shift of every day
+    // in the month, summed per day. Also the only option when no Shift has
+    // been configured yet.
+    if (query.shiftId) {
+      const shift = await this.shiftsRepository.findById(query.shiftId);
+      if (!shift) {
+        throw new NotFoundException('Shift not found');
+      }
     }
 
     const { items: robots } = await this.robotsRepository.findAll({
       page: 1,
       limit: 1000,
+      areaId: query.areaId,
       sortBy: 'name',
       sortOrder: 'asc',
     });
@@ -56,7 +62,7 @@ export class GetRobotStatusMonthlySummaryUseCase {
         const days =
           await this.robotStatusDailySummaryRepository.findRangeByRobot(
             robot.id,
-            shift.id,
+            query.shiftId,
             monthStart,
             monthEnd,
           );
@@ -87,7 +93,11 @@ export class GetRobotStatusMonthlySummaryUseCase {
           },
         );
 
-        const divisor = query.mode === 'AVERAGE' ? days.length : 1;
+        // AVERAGE is per tracked DAY, not per row: with no shiftId a single
+        // day contributes one row per shift, so counting rows would divide
+        // a two-shift day's total in half.
+        const trackedDays = new Set(days.map((day) => day.date.getTime())).size;
+        const divisor = query.mode === 'AVERAGE' ? trackedDays : 1;
         return {
           robotId: robot.id,
           robotName: robot.name,

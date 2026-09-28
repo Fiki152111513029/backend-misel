@@ -7,6 +7,15 @@ import { OWN_ACTIVITIES_ONLY_ROLES } from '../constants/trolley-activity-scope.c
 import { USERS_REPOSITORY } from '../../users/repositories/users-repository.interface';
 import type { IUsersRepository } from '../../users/repositories/users-repository.interface';
 
+/**
+ * YYYY-MM-DD as a local-time date — `new Date('2026-09-28')` parses as UTC
+ * midnight, which lands on the previous day east of UTC.
+ */
+function parseLocalDateOnly(date: string): Date {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 @Injectable()
 export class GetTrolleyActivityDashboardUseCase {
   constructor(
@@ -24,12 +33,25 @@ export class GetTrolleyActivityDashboardUseCase {
       ? currentUser.userId
       : undefined;
 
-    const since = new Date();
+    // `date` scopes to that one calendar day; otherwise it stays a lookback
+    // window of `days` ending now, which is what the Trolley Activities
+    // page still asks for.
+    const since = query.date ? parseLocalDateOnly(query.date) : new Date();
     since.setHours(0, 0, 0, 0);
-    since.setDate(since.getDate() - (query.days - 1));
+    let until: Date | undefined;
+    if (query.date) {
+      until = new Date(since);
+      until.setDate(until.getDate() + 1);
+    } else {
+      since.setDate(since.getDate() - (query.days - 1));
+    }
 
     const [stats, operatorOnline] = await Promise.all([
-      this.trolleyActivitiesRepository.getDashboardStats({ since, userId }),
+      this.trolleyActivitiesRepository.getDashboardStats({
+        since,
+        until,
+        userId,
+      }),
       this.usersRepository.getOperatorOnlineCounts(),
     ]);
 

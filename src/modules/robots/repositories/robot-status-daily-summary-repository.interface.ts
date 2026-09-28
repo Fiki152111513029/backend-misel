@@ -30,15 +30,21 @@ export interface IRobotStatusDailySummaryRepository {
     shiftId: string,
     minutes: RobotStatusMinutesWithAlarm,
   ): Promise<void>;
+  // Omitting `shiftId` returns every shift's row for that date — the
+  // AMR Performance chart's "All Shifts" option, which is also the only
+  // thing it can show when no Shift has been configured at all. Callers
+  // must then sum the rows per robot themselves, since a robot has one row
+  // per shift.
   findAllByDate(
     date: Date,
-    shiftId: string,
+    shiftId?: string,
   ): Promise<RobotStatusDailySummaryRecord[]>;
-  // Every rolled-up day for one robot's given shift within [from, to) —
-  // the raw material for the Average/Total per Month views.
+  // Every rolled-up day for one robot within [from, to), for one shift or
+  // (with `shiftId` omitted) all of them — the raw material for the
+  // Average/Total per Month views.
   findRangeByRobot(
     robotId: string,
-    shiftId: string,
+    shiftId: string | undefined,
     from: Date,
     to: Date,
   ): Promise<RobotStatusDailySummaryRecord[]>;

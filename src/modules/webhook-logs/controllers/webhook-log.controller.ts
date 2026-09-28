@@ -15,6 +15,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Public } from '../../auth/decorators/public.decorator';
+import { TaskStatusSummaryQueryDto } from '../dto/task-status-summary-query.dto';
 import { WebhookLogQueryDto } from '../dto/webhook-log-query.dto';
 import { GetLatestWebhookStatusUseCase } from '../use-cases/get-latest-webhook-status.use-case';
 import { GetTaskStatusSummaryUseCase } from '../use-cases/get-task-status-summary.use-case';
@@ -60,10 +61,13 @@ export class WebhookLogController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary:
-      "Today's task counts bucketed by RCS's subTaskStatus (1=Not started, 2=Running, 3=Completing, 4=Failed, 5=Cancel), read live off the raw webhook payloads — one order counts once, under whichever status its most recent call reported. Powers the Dashboard's Performance panel",
+      "Task counts for one calendar day, bucketed from RCS's own order `status` on the raw webhook payloads (8=Completed, 5/7=Failed, 3=Cancelled, 6 and the pick/place codes=In Progress, the rest=Not Start) — one order counts once, under whichever status its most recent call that day reported. Query params: date (YYYY-MM-DD, defaults to today), areaId. Powers the Dashboard's Performance panel",
   })
-  async taskStatusSummary() {
-    const data = await this.getTaskStatusSummaryUseCase.execute();
+  async taskStatusSummary(@Query() query: TaskStatusSummaryQueryDto) {
+    const data = await this.getTaskStatusSummaryUseCase.execute(
+      query.date,
+      query.areaId,
+    );
     return {
       success: true,
       message: 'Task status summary retrieved successfully',

@@ -23,6 +23,12 @@ export interface FindAllRobotsParams {
   page: number;
   limit: number;
   search?: string;
+  /**
+   * Restricts the result to robots stationed in one area — the same number
+   * a Factory Map carries as `areaNumber`. The Dashboard passes whichever
+   * map is on screen so its panels describe that floor only.
+   */
+  areaId?: number;
   sortBy: RobotSortBy;
   sortOrder: SortOrder;
 }

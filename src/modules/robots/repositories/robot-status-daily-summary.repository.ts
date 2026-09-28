@@ -34,22 +34,26 @@ export class RobotStatusDailySummaryRepository implements IRobotStatusDailySumma
 
   findAllByDate(
     date: Date,
-    shiftId: string,
+    shiftId?: string,
   ): Promise<RobotStatusDailySummaryRecord[]> {
     return this.prisma.robotStatusDailySummary.findMany({
-      where: { date, shiftId },
+      where: { date, ...(shiftId ? { shiftId } : {}) },
       select: SELECT_FIELDS,
     });
   }
 
   findRangeByRobot(
     robotId: string,
-    shiftId: string,
+    shiftId: string | undefined,
     from: Date,
     to: Date,
   ): Promise<RobotStatusDailySummaryRecord[]> {
     return this.prisma.robotStatusDailySummary.findMany({
-      where: { robotId, shiftId, date: { gte: from, lt: to } },
+      where: {
+        robotId,
+        ...(shiftId ? { shiftId } : {}),
+        date: { gte: from, lt: to },
+      },
       select: SELECT_FIELDS,
       orderBy: { date: 'asc' },
     });

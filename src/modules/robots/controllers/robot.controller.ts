@@ -18,6 +18,7 @@ import { CreateRobotDto } from '../dto/create-robot.dto';
 import { DeviceInfoQueryDto } from '../dto/device-info-query.dto';
 import { RobotActivityQueryDto } from '../dto/robot-activity-query.dto';
 import { RobotQueryDto } from '../dto/robot-query.dto';
+import { AreaFilterQueryDto } from '../../../common/dto/area-filter-query.dto';
 import { RobotStatusSummaryQueryDto } from '../dto/robot-status-summary-query.dto';
 import { RobotStatusMonthlyQueryDto } from '../dto/robot-status-monthly-query.dto';
 import { UpdateRobotDto } from '../dto/update-robot.dto';
@@ -116,10 +117,10 @@ export class RobotController {
   @Permissions('robot.read')
   @ApiOperation({
     summary:
-      "AMR Fleet Real-time Status for the Dashboard: each robot's live state, current mission (resolved from its active task's subTaskSeq via the Model Code Process), payload, and battery",
+      "AMR Fleet Real-time Status for the Dashboard: each robot's live state, current mission (resolved from its active task's subTaskSeq via the Model Code Process), payload, and battery. Optional areaId narrows it to one Factory Map's area",
   })
-  async fleetStatus() {
-    const data = await this.getFleetStatusUseCase.execute();
+  async fleetStatus(@Query() query: AreaFilterQueryDto) {
+    const data = await this.getFleetStatusUseCase.execute(query.areaId);
     return {
       success: true,
       message: 'Fleet status retrieved successfully',

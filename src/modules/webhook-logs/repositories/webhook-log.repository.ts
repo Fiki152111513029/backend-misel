@@ -10,13 +10,36 @@ import {
   WebhookLogRecord,
 } from './webhook-log-repository.interface';
 
-// RCS's own subTaskStatus codes on the task-status webhook payload.
-const SUB_TASK_STATUS_BUCKET: Record<string, keyof TaskStatusSummary> = {
-  '1': 'notStarted',
-  '2': 'running',
-  '3': 'completing',
-  '4': 'failed',
-  '5': 'cancelled',
+// RCS's own order-status codes, read off the task-status webhook payload's
+// `status` field. The full code list (and its labels) lives in
+// Frontend/app/utils/taskStatus.ts; this folds it into the five buckets the
+// Dashboard's Performance card shows:
+//
+//   notStarted — accepted but not executing yet (not sent, sending,
+//                assigned, waiting to be acknowledged)
+//   inProgress — actively being worked, including the pick/place steps and
+//                a cancel that is still going through
+//   completed  — 8, the only success code
+//   failed     — 5 (sending failed) and 7 (execution failed)
+//   cancelled  — 3, cancelled outright
+//
+// Anything not listed here (a code RCS adds later, or a payload with no
+// `status` at all) lands in `unknown` rather than being guessed at.
+const RCS_STATUS_BUCKET: Record<string, keyof TaskStatusSummary> = {
+  '1': 'notStarted', // Not sent
+  '4': 'notStarted', // Sending
+  '9': 'notStarted', // Assigned
+  '10': 'notStarted', // Wait for acknowledgment
+  '2': 'inProgress', // Canceling — still in flight, not cancelled yet
+  '6': 'inProgress', // Running
+  '20': 'inProgress', // Picking
+  '21': 'inProgress', // Picked
+  '22': 'inProgress', // Placing
+  '23': 'inProgress', // Placed
+  '8': 'completed', // Completed
+  '5': 'failed', // Sending failed
+  '7': 'failed', // Execution failed
+  '3': 'cancelled', // Canceled
 };
 
 @Injectable()
@@ -34,12 +57,36 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     });
   }
 
-  async getTaskStatusSummary(since: Date): Promise<TaskStatusSummary> {
+  async getTaskStatusSummary(
+    since: Date,
+    until: Date,
+    areaId?: number,
+  ): Promise<TaskStatusSummary> {
     const rows = await this.prisma.webhookLog.findMany({
-      where: { endpoint: '/webhooks-logs', createdAt: { gte: since } },
+      where: {
+        endpoint: '/webhooks-logs',
+        createdAt: { gte: since, lt: until },
+      },
       orderBy: { createdAt: 'asc' },
       select: { requestPayload: true },
     });
+
+    // An order belongs to an area through the robot that ran it: the
+    // payload carries `deviceCode`, which is a Robot.amrDeviceSerialNo.
+    // Orders whose deviceCode matches no robot in the area — including
+    // orders that carry no deviceCode at all — can't be attributed to it,
+    // so they are left out rather than counted everywhere.
+    const serialsInArea =
+      areaId == null
+        ? null
+        : new Set(
+            (
+              await this.prisma.robot.findMany({
+                where: { areaId, deletedAt: null },
+                select: { amrDeviceSerialNo: true },
+              })
+            ).map((robot) => robot.amrDeviceSerialNo),
+          );
 
     // Ascending order means the last write per order wins — that order's
     // most recently reported status. RCS spells the id "ordeId" in one
@@ -49,23 +96,32 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
       const payload = (row.requestPayload ?? {}) as Record<string, unknown>;
       const orderId = this.readPayloadString(payload, ['orderId', 'ordeId']);
       if (!orderId) continue;
+      if (serialsInArea) {
+        const deviceCode = this.readPayloadString(payload, ['deviceCode']);
+        if (!deviceCode || !serialsInArea.has(deviceCode)) {
+          // A later call for this order could still place it in the area,
+          // so only drop what we have so far rather than the whole order.
+          latestStatusByOrder.delete(orderId);
+          continue;
+        }
+      }
       latestStatusByOrder.set(
         orderId,
-        this.readPayloadString(payload, ['subTaskStatus']),
+        this.readPayloadString(payload, ['status']),
       );
     }
 
     const summary: TaskStatusSummary = {
       notStarted: 0,
-      running: 0,
-      completing: 0,
+      inProgress: 0,
+      completed: 0,
       failed: 0,
       cancelled: 0,
       total: 0,
       unknown: 0,
     };
     for (const status of latestStatusByOrder.values()) {
-      const bucket = status ? SUB_TASK_STATUS_BUCKET[status] : undefined;
+      const bucket = status ? RCS_STATUS_BUCKET[status] : undefined;
       if (!bucket) {
         summary.unknown += 1;
         continue;

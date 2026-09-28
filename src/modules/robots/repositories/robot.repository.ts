@@ -21,6 +21,7 @@ export class RobotRepository implements IRobotsRepository {
       ...(params.search
         ? { name: { contains: params.search, mode: 'insensitive' } }
         : {}),
+      ...(params.areaId != null ? { areaId: params.areaId } : {}),
     };
 
     const [items, total] = await this.prisma.$transaction([

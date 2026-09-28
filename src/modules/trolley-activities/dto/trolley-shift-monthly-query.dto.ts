@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsUUID, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsNotEmpty, IsOptional, IsUUID, Matches } from 'class-validator';
 
 export type TrolleyShiftMonthlyMode = 'AVERAGE' | 'TOTAL';
 
@@ -12,12 +12,14 @@ export class TrolleyShiftMonthlyQueryDto {
   @Matches(/^\d{4}-\d{2}$/, { message: 'month must be in YYYY-MM format' })
   month!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'b3f1c2e4-...',
-    description: 'Shift id (see GET /shifts)',
+    description:
+      'Shift id (see GET /shifts). Omit for every shift — the whole UTC day, with no assigned-shift filter on the operators — which is also the only option when no Shift has been configured.',
   })
+  @IsOptional()
   @IsUUID()
-  shiftId!: string;
+  shiftId?: string;
 
   @ApiProperty({
     enum: ['AVERAGE', 'TOTAL'],

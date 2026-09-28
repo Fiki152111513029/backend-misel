@@ -163,7 +163,10 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
     const rows = await this.prisma.trolleyActivity.findMany({
       where: {
         ...NOT_DELETED,
-        createdAt: { gte: params.since },
+        createdAt: {
+          gte: params.since,
+          ...(params.until ? { lt: params.until } : {}),
+        },
         ...(params.userId ? { userId: params.userId } : {}),
       },
       select: {

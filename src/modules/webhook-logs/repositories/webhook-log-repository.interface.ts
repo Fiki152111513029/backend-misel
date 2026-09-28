@@ -16,18 +16,18 @@ export interface WebhookLogRecord {
   createdAt: Date;
 }
 
-// RCS's own subTaskStatus codes, straight off the task-status webhook
-// payload: 1 = Not started, 2 = Running, 3 = Completing, 4 = Failed,
-// 5 = Cancel.
+// Bucketed from the task-status webhook payload's `status` — RCS's own
+// order-status code (see RCS_STATUS_BUCKET in webhook-log.repository.ts and
+// the matching labels in Frontend/app/utils/taskStatus.ts).
 export interface TaskStatusSummary {
   notStarted: number;
-  running: number;
-  completing: number;
+  inProgress: number;
+  completed: number;
   failed: number;
   cancelled: number;
-  /** Orders counted above — i.e. excluding any whose latest call carried no subTaskStatus. */
+  /** Orders counted above — i.e. excluding any whose latest call carried no recognized `status`. */
   total: number;
-  /** Orders seen in the window whose latest call had no (or an unrecognized) subTaskStatus. */
+  /** Orders seen in the window whose latest call had no (or an unrecognized) `status`. */
   unknown: number;
 }
 
@@ -52,7 +52,11 @@ export interface IWebhookLogsRepository {
    * recent call reported — so an order reported many times as it progresses
    * doesn't inflate the numbers.
    */
-  getTaskStatusSummary(since: Date): Promise<TaskStatusSummary>;
+  getTaskStatusSummary(
+    since: Date,
+    until: Date,
+    areaId?: number,
+  ): Promise<TaskStatusSummary>;
   /** Returns the number of rows deleted — used by WebhookLogRetentionService. */
   deleteOlderThan(cutoff: Date): Promise<number>;
   /**

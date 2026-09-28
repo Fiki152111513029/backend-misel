@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsUUID, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsUUID, Matches } from 'class-validator';
+import { AreaFilterQueryDto } from '../../../common/dto/area-filter-query.dto';
 
-export class RobotStatusSummaryQueryDto {
+export class RobotStatusSummaryQueryDto extends AreaFilterQueryDto {
   @ApiProperty({
     example: '2026-05-24',
     description: 'Calendar day (UTC) to summarize, as YYYY-MM-DD',
@@ -12,10 +13,12 @@ export class RobotStatusSummaryQueryDto {
   })
   date!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'b3f1c2e4-...',
-    description: 'Shift id (see GET /shifts)',
+    description:
+      'Shift id (see GET /shifts). Omit for every shift — the whole UTC day — which is also the only option when no Shift has been configured.',
   })
+  @IsOptional()
   @IsUUID()
-  shiftId!: string;
+  shiftId?: string;
 }

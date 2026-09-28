@@ -23,6 +23,8 @@ import { SHIFTS_REPOSITORY } from '../../shifts/repositories/shift-repository.in
 import type { IShiftsRepository } from '../../shifts/repositories/shift-repository.interface';
 import { fetchActiveShifts } from '../../shifts/utils/active-shifts.util';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 const ZERO_MINUTES: RobotStatusMinutesWithAlarm = {
   runningMinutes: 0,
   idleMinutes: 0,
@@ -61,8 +63,14 @@ export class GetRobotStatusSummaryUseCase {
       throw new BadRequestException('date cannot be in the future');
     }
 
-    const shift = await this.shiftsRepository.findById(query.shiftId);
-    if (!shift) {
+    // No shiftId means "All Shifts": the window is the whole UTC day rather
+    // than one shift's slice of it. That is the only meaningful option when
+    // no Shift has been configured yet, so the chart still has something to
+    // show instead of sitting empty.
+    const shift = query.shiftId
+      ? await this.shiftsRepository.findById(query.shiftId)
+      : null;
+    if (query.shiftId && !shift) {
       throw new NotFoundException('Shift not found');
     }
 
@@ -70,17 +78,16 @@ export class GetRobotStatusSummaryUseCase {
       this.robotsRepository.findAll({
         page: 1,
         limit: 1000,
+        areaId: query.areaId,
         sortBy: 'name',
         sortOrder: 'asc',
       }),
       fetchActiveShifts(this.shiftsRepository),
     ]);
 
-    const { from: shiftStart, to: shiftEnd } = shiftBounds(
-      dayStart,
-      shift,
-      activeShifts,
-    );
+    const { from: shiftStart, to: shiftEnd } = shift
+      ? shiftBounds(dayStart, shift, activeShifts)
+      : { from: dayStart, to: new Date(dayStart.getTime() + DAY_MS) };
 
     // Today isn't over yet, so it's never in RobotStatusDailySummary —
     // compute it live. Clamped to the tracked shift window (which now
@@ -129,9 +136,28 @@ export class GetRobotStatusSummaryUseCase {
         dayStart,
         query.shiftId,
       );
-    const persistedByRobotId = new Map(
-      persisted.map((row) => [row.robotId, row]),
-    );
+    // With no shiftId there is one row per (robot, shift), so the shifts of
+    // a day are summed back together into that robot's whole-day total.
+    const persistedByRobotId = new Map<string, RobotStatusMinutesWithAlarm>();
+    for (const row of persisted) {
+      const running = persistedByRobotId.get(row.robotId);
+      persistedByRobotId.set(
+        row.robotId,
+        running
+          ? {
+              runningMinutes: running.runningMinutes + row.runningMinutes,
+              idleMinutes: running.idleMinutes + row.idleMinutes,
+              chargingMinutes: running.chargingMinutes + row.chargingMinutes,
+              alarmMinutes: running.alarmMinutes + row.alarmMinutes,
+            }
+          : {
+              runningMinutes: row.runningMinutes,
+              idleMinutes: row.idleMinutes,
+              chargingMinutes: row.chargingMinutes,
+              alarmMinutes: row.alarmMinutes,
+            },
+      );
+    }
 
     return Promise.all(
       robots.map(async (robot) => {

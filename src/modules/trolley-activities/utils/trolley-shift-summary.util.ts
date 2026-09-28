@@ -75,10 +75,14 @@ export async function fetchActiveWarehouseLocationCodes(
 // barely distinguishes them. This is applied on top of (not instead of)
 // the day/month time window, which still bounds *which calendar day* an
 // activity falls on.
+// An omitted shiftId is "All Shifts" — keep every row, including those of
+// operators who have no shift assigned at all, which is the whole point of
+// the option when no Shift has been configured.
 export function filterByAssignedShift(
   rows: ShiftActivityRow[],
-  shiftId: string,
+  shiftId?: string,
 ): ShiftActivityRow[] {
+  if (!shiftId) return rows;
   return rows.filter((row) => row.userShiftId === shiftId);
 }
 
@@ -88,11 +92,13 @@ export function filterByAssignedShift(
 // one day's bucket since a shift's consecutive-day windows never overlap —
 // each one ends when some other active shift starts, strictly before this
 // same shift's own start comes around again the next day.
+// A null `shift` is "All Shifts": each day's window becomes the plain UTC
+// calendar day rather than one shift's slice of it.
 export function bucketRowsByShiftDay(
   rows: ShiftActivityRow[],
   monthStart: Date,
   monthEnd: Date,
-  shift: ShiftTimeInfo,
+  shift: ShiftTimeInfo | null,
   allActiveShifts: ShiftTimeInfo[],
 ): Map<string, ShiftActivityRow[]> {
   const buckets = new Map<string, ShiftActivityRow[]>();
@@ -101,7 +107,9 @@ export function bucketRowsByShiftDay(
     day.getTime() < monthEnd.getTime();
     day = new Date(day.getTime() + 24 * 60 * 60 * 1000)
   ) {
-    const { from, to } = shiftBounds(day, shift, allActiveShifts);
+    const { from, to } = shift
+      ? shiftBounds(day, shift, allActiveShifts)
+      : { from: day, to: new Date(day.getTime() + 24 * 60 * 60 * 1000) };
     const dayKey = day.toISOString().slice(0, 10);
     const dayRows = rows.filter(
       (row) => row.startDate >= from && row.startDate < to,

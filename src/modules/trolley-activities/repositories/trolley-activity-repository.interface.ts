@@ -81,6 +81,9 @@ export interface ActiveTrolleyActivityByRobot {
 
 export interface DashboardStatsParams {
   since: Date;
+  // Exclusive upper bound. Only set when scoping to one single day (the
+  // Dashboard's day picker); a plain lookback window runs up to now.
+  until?: Date;
   // Restricts the stats to one user's own activities — set for Warehouse/
   // Operator roles, left unset for roles that get the full picture.
   userId?: string;

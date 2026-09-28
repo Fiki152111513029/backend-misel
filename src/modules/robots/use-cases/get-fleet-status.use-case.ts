@@ -23,10 +23,11 @@ export class GetFleetStatusUseCase {
     private readonly webhookLogsRepository: IWebhookLogsRepository,
   ) {}
 
-  async execute(): Promise<FleetStatusRow[]> {
+  async execute(areaId?: number): Promise<FleetStatusRow[]> {
     const { items: robots } = await this.robotsRepository.findAll({
       page: 1,
       limit: 1000,
+      areaId,
       sortBy: 'name',
       sortOrder: 'asc',
     });

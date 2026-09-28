@@ -47,8 +47,12 @@ export class GetOperatorDurationMonthlySummaryUseCase {
     }
     const monthEnd = endOfUtcMonth(monthStart);
 
-    const shift = await this.shiftsRepository.findById(query.shiftId);
-    if (!shift) {
+    // No shiftId means "All Shifts" — each day's window is the plain UTC
+    // calendar day, with no assigned-shift filter on the rows.
+    const shift = query.shiftId
+      ? await this.shiftsRepository.findById(query.shiftId)
+      : null;
+    if (query.shiftId && !shift) {
       throw new NotFoundException('Shift not found');
     }
 
