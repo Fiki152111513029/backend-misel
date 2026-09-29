@@ -8,7 +8,7 @@ export type ControlTaskWithRelations = ControlTask & {
 };
 
 export interface CreateControlTaskData {
-  abjad: string;
+  code: string;
   name: string;
   modelCodeProcessId: string;
   route: string[];
@@ -16,14 +16,14 @@ export interface CreateControlTaskData {
 }
 
 export interface UpdateControlTaskData {
-  abjad?: string;
+  code?: string;
   name?: string;
   modelCodeProcessId?: string;
   route?: string[];
   isActive?: boolean;
 }
 
-export type ControlTaskSortBy = 'abjad' | 'name' | 'createdAt';
+export type ControlTaskSortBy = 'code' | 'name' | 'createdAt';
 export type SortOrder = 'asc' | 'desc';
 
 export interface FindAllControlTasksParams {
@@ -55,8 +55,8 @@ export interface IControlTasksRepository {
     params: FindAllControlTasksParams,
   ): Promise<FindAllControlTasksResult>;
   findById(id: string): Promise<ControlTaskWithRelations | null>;
-  findByAbjad(abjad: string): Promise<ControlTaskWithRelations | null>;
-  existsByAbjad(abjad: string, excludeId?: string): Promise<boolean>;
+  findByCode(code: string): Promise<ControlTaskWithRelations | null>;
+  existsByCode(code: string, excludeId?: string): Promise<boolean>;
   existsByName(name: string, excludeId?: string): Promise<boolean>;
   modelCodeProcessExists(id: string): Promise<boolean>;
   findRouteOptions(): Promise<RouteOption[]>;

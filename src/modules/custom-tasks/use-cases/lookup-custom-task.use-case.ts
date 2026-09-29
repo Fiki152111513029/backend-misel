@@ -14,10 +14,10 @@ export class LookupCustomTaskUseCase {
     private readonly controlTasksRepository: IControlTasksRepository,
   ) {}
 
-  async execute(abjad: string) {
+  async execute(code: string) {
     const { preview } = await resolveCustomTask(
       this.controlTasksRepository,
-      abjad,
+      code,
     );
     return preview;
   }

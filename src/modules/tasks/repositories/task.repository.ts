@@ -64,7 +64,7 @@ export class TaskRepository implements ITasksRepository {
       this.prisma.task.count({ where }),
     ]);
 
-    return { items: items as TaskWithRelations[], total };
+    return { items: items, total };
   }
 
   findById(id: string) {
@@ -104,7 +104,9 @@ export class TaskRepository implements ITasksRepository {
     const rows = await this.prisma.task.findMany({
       where: NOT_DELETED,
       distinct: ['operatorId'],
-      select: { operator: { select: { id: true, username: true, fullName: true } } },
+      select: {
+        operator: { select: { id: true, username: true, fullName: true } },
+      },
       orderBy: { operatorId: 'asc' },
     });
     return rows.map((row) => row.operator);

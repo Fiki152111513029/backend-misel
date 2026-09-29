@@ -16,20 +16,20 @@ export type CustomTaskRunForCancel = Prisma.CustomTaskRunGetPayload<{
 export interface CreateCustomTaskRunData {
   orderId: string;
   controlTaskId: string;
-  abjad: string;
+  code: string;
   name: string;
   taskPath: string;
   modelProcessCode: string;
   operatorId: string;
 }
 
-export type CustomTaskRunSortBy = 'createdAt' | 'abjad' | 'name';
+export type CustomTaskRunSortBy = 'createdAt' | 'code' | 'name';
 export type SortOrder = 'asc' | 'desc';
 
 export interface FindAllCustomTaskRunsParams {
   page: number;
   limit: number;
-  /** Matches abjad, name or orderId. */
+  /** Matches code, name or orderId. */
   search?: string;
   status?: TaskStatus;
   /** Single calendar day (server local time), as YYYY-MM-DD. */

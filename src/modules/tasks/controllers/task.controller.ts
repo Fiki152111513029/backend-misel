@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Patch, Post, Body, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Body,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthRequestUser } from '../../auth/types/auth-request-user.type';
@@ -28,7 +36,8 @@ export class TaskController {
   @Post('release')
   @Permissions('task.create')
   @ApiOperation({
-    summary: 'Release a task to the AMR fleet for the current operator\'s production line',
+    summary:
+      "Release a task to the AMR fleet for the current operator's production line",
   })
   async release(
     @Body() dto: ReleaseTaskDto,
@@ -49,13 +58,17 @@ export class TaskController {
   @Post(':id/release-quarantine')
   @Permissions('task.create')
   @ApiOperation({
-    summary: 'Forward a completed quarantine task onward to FG (Finished Goods)',
+    summary:
+      'Forward a completed quarantine task onward to FG (Finished Goods)',
   })
   async releaseQuarantine(
     @Param('id') id: string,
     @CurrentUser() user: AuthRequestUser,
   ) {
-    const data = await this.releaseQuarantineTaskUseCase.execute(id, user.userId);
+    const data = await this.releaseQuarantineTaskUseCase.execute(
+      id,
+      user.userId,
+    );
     return {
       success: true,
       message: 'Quarantine task released successfully',
@@ -77,7 +90,10 @@ export class TaskController {
 
   @Get('operators')
   @Permissions('task.read')
-  @ApiOperation({ summary: 'List distinct operators who have released a task, for filter dropdowns' })
+  @ApiOperation({
+    summary:
+      'List distinct operators who have released a task, for filter dropdowns',
+  })
   async findOperators() {
     const data = await this.getTaskOperatorsUseCase.execute();
     return {
@@ -105,7 +121,8 @@ export class TaskController {
   @Patch(':id/cancel')
   @Permissions('task.delete')
   @ApiOperation({
-    summary: 'Cancel a pending or in-progress task (marks it FAILED in our own database)',
+    summary:
+      'Cancel a pending or in-progress task (marks it FAILED in our own database)',
   })
   async cancel(@Param('id') id: string) {
     const data = await this.cancelTaskUseCase.execute(id);

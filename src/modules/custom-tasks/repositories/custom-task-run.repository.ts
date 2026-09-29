@@ -60,7 +60,7 @@ export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
       ...(params.search
         ? {
             OR: [
-              { abjad: { contains: params.search, mode: 'insensitive' } },
+              { code: { contains: params.search, mode: 'insensitive' } },
               { name: { contains: params.search, mode: 'insensitive' } },
               { orderId: { contains: params.search, mode: 'insensitive' } },
             ],

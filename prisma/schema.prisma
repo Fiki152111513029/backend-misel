@@ -910,12 +910,12 @@ model WebhookLog {
 }
 
 // A named, reusable route an operator can trigger from the floor: scan the
-// task's QR (which encodes `abjad`) and the RCS order is built from `route`
+// task's QR (which encodes `code`) and the RCS order is built from `route`
 // joined into a taskPath, under this task's modelCodeProcess.
 model ControlTask {
   id                 String      @id @default(uuid())
   // Short letter designation printed on the QR label, e.g. "A", "B1".
-  abjad              String
+  code              String
   name               String
   modelCodeProcessId String
   // The iRayple location codes to visit, in the order the operator chose.
@@ -932,9 +932,9 @@ model ControlTask {
   modelCodeProcess ModelCodeProcess @relation(fields: [modelCodeProcessId], references: [id])
   runs             CustomTaskRun[]
 
-  // `abjad`/`name` uniqueness is enforced by partial unique indexes (WHERE
+  // `code`/`name` uniqueness is enforced by partial unique indexes (WHERE
   // "deletedAt" IS NULL, see migration) so a soft-deleted row can be reused.
-  @@index([abjad])
+  @@index([code])
   @@index([name])
   @@index([modelCodeProcessId])
   @@map("control_tasks")
@@ -948,11 +948,11 @@ model ControlTask {
 // keep describing what was really dispatched.
 model CustomTaskRun {
   id               String     @id @default(uuid())
-  // The RCS order id (abjad + %Y%m%d%H%M%S) — the key the task-status
+  // The RCS order id (code + %Y%m%d%H%M%S) — the key the task-status
   // webhook comes back on, so `status` below can be kept live.
   orderId          String     @unique
   controlTaskId    String?
-  abjad            String
+  code            String
   name             String
   taskPath         String
   modelProcessCode String

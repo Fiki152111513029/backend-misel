@@ -14,11 +14,9 @@ export class CreateControlTaskUseCase {
   ) {}
 
   async execute(dto: CreateControlTaskDto) {
-    const abjadTaken = await this.controlTasksRepository.existsByAbjad(
-      dto.abjad,
-    );
-    if (abjadTaken) {
-      throw new BadRequestException('Abjad already in use');
+    const codeTaken = await this.controlTasksRepository.existsByCode(dto.code);
+    if (codeTaken) {
+      throw new BadRequestException('Code already in use');
     }
 
     const nameTaken = await this.controlTasksRepository.existsByName(dto.name);
@@ -45,7 +43,7 @@ export class CreateControlTaskUseCase {
     } catch (error) {
       if (isUniqueConstraintViolation(error)) {
         throw new BadRequestException(
-          'A Control Task with this abjad or name is already in use',
+          'A Control Task with this code or name is already in use',
         );
       }
       throw error;

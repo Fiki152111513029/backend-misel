@@ -18,7 +18,7 @@ import { CreateControlTaskDto } from '../dto/create-control-task.dto';
 import { UpdateControlTaskDto } from '../dto/update-control-task.dto';
 import { CreateControlTaskUseCase } from '../use-cases/create-control-task.use-case';
 import { DeleteControlTaskUseCase } from '../use-cases/delete-control-task.use-case';
-import { GetControlTaskByAbjadUseCase } from '../use-cases/get-control-task-by-abjad.use-case';
+import { GetControlTaskByCodeUseCase } from '../use-cases/get-control-task-by-code.use-case';
 import { GetControlTaskUseCase } from '../use-cases/get-control-task.use-case';
 import { GetControlTasksUseCase } from '../use-cases/get-control-tasks.use-case';
 import { GetRouteOptionsUseCase } from '../use-cases/get-route-options.use-case';
@@ -32,14 +32,14 @@ export class ControlTaskController {
     private readonly createControlTaskUseCase: CreateControlTaskUseCase,
     private readonly getControlTasksUseCase: GetControlTasksUseCase,
     private readonly getControlTaskUseCase: GetControlTaskUseCase,
-    private readonly getControlTaskByAbjadUseCase: GetControlTaskByAbjadUseCase,
+    private readonly getControlTaskByCodeUseCase: GetControlTaskByCodeUseCase,
     private readonly getRouteOptionsUseCase: GetRouteOptionsUseCase,
     private readonly updateControlTaskUseCase: UpdateControlTaskUseCase,
     private readonly deleteControlTaskUseCase: DeleteControlTaskUseCase,
   ) {}
 
   // Both literal routes must come before the :id route below — otherwise
-  // Nest would match route-options / by-abjad as an id value here.
+  // Nest would match route-options / by-code as an id value here.
   @Get('route-options')
   @Permissions('control-task.read')
   @ApiOperation({
@@ -55,11 +55,11 @@ export class ControlTaskController {
     };
   }
 
-  @Get('by-abjad/:abjad')
+  @Get('by-code/:code')
   @Permissions('control-task.read')
-  @ApiOperation({ summary: 'Get a control task by the abjad on its QR label' })
-  async findByAbjad(@Param('abjad') abjad: string) {
-    const data = await this.getControlTaskByAbjadUseCase.execute(abjad);
+  @ApiOperation({ summary: 'Get a control task by the code on its QR label' })
+  async findByCode(@Param('code') code: string) {
+    const data = await this.getControlTaskByCodeUseCase.execute(code);
     return {
       success: true,
       message: 'Control Task retrieved successfully',

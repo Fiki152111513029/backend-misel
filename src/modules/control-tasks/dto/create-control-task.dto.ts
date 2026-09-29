@@ -15,7 +15,7 @@ export class CreateControlTaskDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(20)
-  abjad!: string;
+  code!: string;
 
   @ApiProperty({ example: 'Supply Line 3 — Pallet', maxLength: 100 })
   @IsString()

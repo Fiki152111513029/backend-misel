@@ -1,7 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { TaskAction, TaskStatus } from '@prisma/client';
-import { IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Min,
+} from 'class-validator';
 import type {
   SortOrder,
   TaskSortBy,
@@ -42,7 +51,9 @@ export class TaskQueryDto {
   @IsDateString()
   dateTo?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by the operator who released the task' })
+  @ApiPropertyOptional({
+    description: 'Filter by the operator who released the task',
+  })
   @IsOptional()
   @IsUUID()
   operatorId?: string;
@@ -58,7 +69,8 @@ export class TaskQueryDto {
   taskAction?: TaskAction;
 
   @ApiPropertyOptional({
-    description: 'Only return tasks that are not yet complete (PENDING or IN_PROGRESS) — used by the Trouble Shoot page',
+    description:
+      'Only return tasks that are not yet complete (PENDING or IN_PROGRESS) — used by the Trouble Shoot page',
   })
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')

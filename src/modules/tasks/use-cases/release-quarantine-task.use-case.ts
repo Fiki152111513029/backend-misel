@@ -1,7 +1,15 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { USERS_REPOSITORY } from '../../users/repositories/users-repository.interface';
 import type { IUsersRepository } from '../../users/repositories/users-repository.interface';
-import { TaskOrderService, TaskOrderPayload } from '../services/task-order.service';
+import {
+  TaskOrderService,
+  TaskOrderPayload,
+} from '../services/task-order.service';
 import { TASKS_REPOSITORY } from '../repositories/task-repository.interface';
 import type { ITasksRepository } from '../repositories/task-repository.interface';
 import { generateOrderId } from '../utils/generate-order-id';
@@ -22,7 +30,8 @@ export class ReleaseQuarantineTaskUseCase {
   ) {}
 
   async execute(taskId: string, userId: string) {
-    const task = await this.tasksRepository.findByIdForQuarantineRelease(taskId);
+    const task =
+      await this.tasksRepository.findByIdForQuarantineRelease(taskId);
     if (!task) {
       throw new NotFoundException('Task not found');
     }
@@ -36,7 +45,8 @@ export class ReleaseQuarantineTaskUseCase {
         'This task has no Production Line Area / EXIM Location to release to',
       );
     }
-    const modelCodeProcess = task.productionLine.quarantineLine.modelCodeProcess;
+    const modelCodeProcess =
+      task.productionLine.quarantineLine.modelCodeProcess;
     if (!modelCodeProcess) {
       throw new BadRequestException(
         "This task's Quarantine Line has no Model Code Process configured",

@@ -30,7 +30,7 @@ export class CustomTaskRunQueryDto {
   @Min(1)
   limit: number = 10;
 
-  @ApiPropertyOptional({ description: 'Search by abjad, name or order id' })
+  @ApiPropertyOptional({ description: 'Search by code, name or order id' })
   @IsOptional()
   @IsString()
   search?: string;
@@ -51,11 +51,11 @@ export class CustomTaskRunQueryDto {
   date?: string;
 
   @ApiPropertyOptional({
-    enum: ['createdAt', 'abjad', 'name'],
+    enum: ['createdAt', 'code', 'name'],
     default: 'createdAt',
   })
   @IsOptional()
-  @IsIn(['createdAt', 'abjad', 'name'])
+  @IsIn(['createdAt', 'code', 'name'])
   sortBy: CustomTaskRunSortBy = 'createdAt';
 
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'desc' })

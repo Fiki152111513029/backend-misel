@@ -56,14 +56,14 @@ export class CustomTaskController {
     return { success: true, message: 'Custom Task cancelled', data };
   }
 
-  @Get('lookup/:abjad')
+  @Get('lookup/:code')
   @Permissions('custom-task.read')
   @ApiOperation({
     summary:
-      'Resolve a scanned abjad into the task order that would be sent (read-only)',
+      'Resolve a scanned code into the task order that would be sent (read-only)',
   })
-  async lookup(@Param('abjad') abjad: string) {
-    const data = await this.lookupCustomTaskUseCase.execute(abjad);
+  async lookup(@Param('code') code: string) {
+    const data = await this.lookupCustomTaskUseCase.execute(code);
     return {
       success: true,
       message: 'Custom Task retrieved successfully',
@@ -81,7 +81,7 @@ export class CustomTaskController {
     @CurrentUser() user: AuthRequestUser,
   ) {
     const data = await this.releaseCustomTaskUseCase.execute(
-      dto.abjad,
+      dto.code,
       user.userId,
     );
     return { success: true, message: 'Custom Task submitted', data };

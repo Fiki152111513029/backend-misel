@@ -5,10 +5,10 @@ export class ReleaseCustomTaskDto {
   @ApiProperty({
     example: 'A',
     maxLength: 20,
-    description: 'The abjad scanned from the Control Task QR label',
+    description: 'The code scanned from the Control Task QR label',
   })
   @IsString()
   @IsNotEmpty()
   @MaxLength(20)
-  abjad!: string;
+  code!: string;
 }

@@ -10,7 +10,7 @@ export const DEFAULT_PRIORITY = 6;
 
 export interface CustomTaskPreview {
   controlTaskId: string;
-  abjad: string;
+  code: string;
   name: string;
   route: string[];
   taskPath: string;
@@ -20,7 +20,7 @@ export interface CustomTaskPreview {
 }
 
 /**
- * Turns a scanned abjad into everything the RCS task order needs, rejecting
+ * Turns a scanned code into everything the RCS task order needs, rejecting
  * anything that would be dispatched but then bounced: a retired Control Task,
  * or one whose Model Code Process has since been deactivated. Shared by the
  * lookup (what the operator confirms on screen) and the release (what is
@@ -29,18 +29,18 @@ export interface CustomTaskPreview {
  */
 export async function resolveCustomTask(
   repository: IControlTasksRepository,
-  abjad: string,
+  code: string,
 ): Promise<{
   controlTask: ControlTaskWithRelations;
   preview: CustomTaskPreview;
 }> {
-  const controlTask = await repository.findByAbjad(abjad.trim());
+  const controlTask = await repository.findByCode(code.trim());
   if (!controlTask) {
-    throw new NotFoundException(`No Control Task found for "${abjad.trim()}"`);
+    throw new NotFoundException(`No Control Task found for "${code.trim()}"`);
   }
   if (!controlTask.isActive) {
     throw new BadRequestException(
-      `Control Task "${controlTask.abjad}" is inactive`,
+      `Control Task "${controlTask.code}" is inactive`,
     );
   }
 
@@ -59,7 +59,7 @@ export async function resolveCustomTask(
     controlTask,
     preview: {
       controlTaskId: controlTask.id,
-      abjad: controlTask.abjad,
+      code: controlTask.code,
       name: controlTask.name,
       route: controlTask.route,
       taskPath: controlTask.route.join(','),

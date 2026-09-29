@@ -262,7 +262,9 @@ export class TaskOrderService {
       );
     }
 
-    this.logger.log(`Task cancel response for orderId ${payload.orderId}: ${raw}`);
+    this.logger.log(
+      `Task cancel response for orderId ${payload.orderId}: ${raw}`,
+    );
 
     let parsed: unknown;
     try {

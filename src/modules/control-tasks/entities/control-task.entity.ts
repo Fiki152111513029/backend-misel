@@ -6,7 +6,7 @@ export class ControlTaskEntity {
   id!: string;
 
   @ApiProperty({ example: 'A' })
-  abjad!: string;
+  code!: string;
 
   @ApiProperty()
   name!: string;

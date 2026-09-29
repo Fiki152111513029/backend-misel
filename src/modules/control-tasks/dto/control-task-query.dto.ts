@@ -21,18 +21,18 @@ export class ControlTaskQueryDto {
   @Min(1)
   limit: number = 10;
 
-  @ApiPropertyOptional({ description: 'Search by abjad, name or route code' })
+  @ApiPropertyOptional({ description: 'Search by code, name or route code' })
   @IsOptional()
   @IsString()
   search?: string;
 
   @ApiPropertyOptional({
-    enum: ['abjad', 'name', 'createdAt'],
-    default: 'abjad',
+    enum: ['code', 'name', 'createdAt'],
+    default: 'code',
   })
   @IsOptional()
-  @IsIn(['abjad', 'name', 'createdAt'])
-  sortBy: ControlTaskSortBy = 'abjad';
+  @IsIn(['code', 'name', 'createdAt'])
+  sortBy: ControlTaskSortBy = 'code';
 
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'asc' })
   @IsOptional()

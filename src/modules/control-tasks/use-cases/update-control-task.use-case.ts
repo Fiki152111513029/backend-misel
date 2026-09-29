@@ -24,13 +24,13 @@ export class UpdateControlTaskUseCase {
       throw new NotFoundException('Control Task not found');
     }
 
-    if (dto.abjad && dto.abjad !== existing.abjad) {
-      const abjadTaken = await this.controlTasksRepository.existsByAbjad(
-        dto.abjad,
+    if (dto.code && dto.code !== existing.code) {
+      const codeTaken = await this.controlTasksRepository.existsByCode(
+        dto.code,
         id,
       );
-      if (abjadTaken) {
-        throw new BadRequestException('Abjad already in use');
+      if (codeTaken) {
+        throw new BadRequestException('Code already in use');
       }
     }
 
@@ -70,7 +70,7 @@ export class UpdateControlTaskUseCase {
     } catch (error) {
       if (isUniqueConstraintViolation(error)) {
         throw new BadRequestException(
-          'A Control Task with this abjad or name is already in use',
+          'A Control Task with this code or name is already in use',
         );
       }
       throw error;

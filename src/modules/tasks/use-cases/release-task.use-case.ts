@@ -8,7 +8,10 @@ import { TaskAction } from '@prisma/client';
 import { USERS_REPOSITORY } from '../../users/repositories/users-repository.interface';
 import type { IUsersRepository } from '../../users/repositories/users-repository.interface';
 import { ReleaseTaskDto } from '../dto/release-task.dto';
-import { TaskOrderService, TaskOrderPayload } from '../services/task-order.service';
+import {
+  TaskOrderService,
+  TaskOrderPayload,
+} from '../services/task-order.service';
 import { TASKS_REPOSITORY } from '../repositories/task-repository.interface';
 import type { ITasksRepository } from '../repositories/task-repository.interface';
 import { generateOrderId } from '../utils/generate-order-id';
@@ -33,7 +36,10 @@ export class ReleaseTaskUseCase {
 
     // Super Admin may release tasks for any line; everyone else may only
     // release tasks for the production line they operate.
-    if (userRole !== 'Super Admin' && area.productionLine.operatorId !== userId) {
+    if (
+      userRole !== 'Super Admin' &&
+      area.productionLine.operatorId !== userId
+    ) {
       throw new ForbiddenException(
         'You can only release tasks for your own production line',
       );

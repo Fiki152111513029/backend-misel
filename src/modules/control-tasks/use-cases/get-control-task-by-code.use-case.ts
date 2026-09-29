@@ -8,15 +8,15 @@ import type { IControlTasksRepository } from '../repositories/control-task-repos
  * resolves to its route without the scanner needing to know the uuid.
  */
 @Injectable()
-export class GetControlTaskByAbjadUseCase {
+export class GetControlTaskByCodeUseCase {
   constructor(
     @Inject(CONTROL_TASKS_REPOSITORY)
     private readonly controlTasksRepository: IControlTasksRepository,
   ) {}
 
-  async execute(abjad: string) {
-    const controlTask = await this.controlTasksRepository.findByAbjad(
-      abjad.trim(),
+  async execute(code: string) {
+    const controlTask = await this.controlTasksRepository.findByCode(
+      code.trim(),
     );
     if (!controlTask) {
       throw new NotFoundException('Control Task not found');

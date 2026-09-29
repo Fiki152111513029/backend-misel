@@ -19,17 +19,17 @@ export class ReleaseCustomTaskUseCase {
     private readonly taskOrderService: TaskOrderService,
   ) {}
 
-  async execute(abjad: string, operatorId: string) {
+  async execute(code: string, operatorId: string) {
     const { preview } = await resolveCustomTask(
       this.controlTasksRepository,
-      abjad,
+      code,
     );
 
-    // The abjad prefixes the usual %Y%m%d%H%M%S order id, so an order coming
+    // The code prefixes the usual %Y%m%d%H%M%S order id, so an order coming
     // back from RCS (or a webhook) says at a glance which Control Task it
     // came from, and two Control Tasks released in the same second cannot
     // collide on the same id.
-    const orderId = `${preview.abjad}${generateOrderId()}`;
+    const orderId = `${preview.code}${generateOrderId()}`;
 
     await this.taskOrderService.addTask({
       modelProcessCode: preview.modelProcessCode,
@@ -48,7 +48,7 @@ export class ReleaseCustomTaskUseCase {
       await this.customTaskRunsRepository.create({
         orderId,
         controlTaskId: preview.controlTaskId,
-        abjad: preview.abjad,
+        code: preview.code,
         name: preview.name,
         taskPath: preview.taskPath,
         modelProcessCode: preview.modelProcessCode,

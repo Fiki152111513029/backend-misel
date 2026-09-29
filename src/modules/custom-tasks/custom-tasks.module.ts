@@ -9,7 +9,7 @@ import { GetCustomTaskRunsUseCase } from './use-cases/get-custom-task-runs.use-c
 import { LookupCustomTaskUseCase } from './use-cases/lookup-custom-task.use-case';
 import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-case';
 
-// The operator-facing side of Customize Control Task: scan an abjad, confirm
+// The operator-facing side of Customize Control Task: scan an code, confirm
 // what it resolves to, send it to RCS. It owns no tables of its own — the
 // Control Task rows come from ControlTasksModule and the RCS call from
 // TasksModule.

@@ -31,7 +31,7 @@ export class ControlTaskRepository implements IControlTasksRepository {
         ? {
             OR: [
               { name: { contains: params.search, mode: 'insensitive' } },
-              { abjad: { contains: params.search, mode: 'insensitive' } },
+              { code: { contains: params.search, mode: 'insensitive' } },
               { route: { has: params.search.toUpperCase() } },
             ],
           }
@@ -59,17 +59,17 @@ export class ControlTaskRepository implements IControlTasksRepository {
     });
   }
 
-  findByAbjad(abjad: string) {
+  findByCode(code: string) {
     return this.prisma.controlTask.findFirst({
-      where: { abjad, ...NOT_DELETED },
+      where: { code, ...NOT_DELETED },
       include: WITH_RELATIONS,
     });
   }
 
-  async existsByAbjad(abjad: string, excludeId?: string): Promise<boolean> {
+  async existsByCode(code: string, excludeId?: string): Promise<boolean> {
     const count = await this.prisma.controlTask.count({
       where: {
-        abjad,
+        code,
         ...NOT_DELETED,
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
