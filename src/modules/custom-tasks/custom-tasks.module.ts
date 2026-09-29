@@ -4,6 +4,7 @@ import { TasksModule } from '../tasks/tasks.module';
 import { CustomTaskController } from './controllers/custom-task.controller';
 import { CUSTOM_TASK_RUNS_REPOSITORY } from './repositories/custom-task-run-repository.interface';
 import { CustomTaskRunRepository } from './repositories/custom-task-run.repository';
+import { CancelCustomTaskRunUseCase } from './use-cases/cancel-custom-task-run.use-case';
 import { GetCustomTaskRunsUseCase } from './use-cases/get-custom-task-runs.use-case';
 import { LookupCustomTaskUseCase } from './use-cases/lookup-custom-task.use-case';
 import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-case';
@@ -20,6 +21,7 @@ import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-ca
     LookupCustomTaskUseCase,
     ReleaseCustomTaskUseCase,
     GetCustomTaskRunsUseCase,
+    CancelCustomTaskRunUseCase,
   ],
   exports: [CUSTOM_TASK_RUNS_REPOSITORY],
 })

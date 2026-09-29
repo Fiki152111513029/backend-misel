@@ -1,10 +1,20 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import type { AuthRequestUser } from '../../auth/types/auth-request-user.type';
 import { CustomTaskRunQueryDto } from '../dto/custom-task-run-query.dto';
 import { ReleaseCustomTaskDto } from '../dto/release-custom-task.dto';
+import { CancelCustomTaskRunUseCase } from '../use-cases/cancel-custom-task-run.use-case';
 import { GetCustomTaskRunsUseCase } from '../use-cases/get-custom-task-runs.use-case';
 import { LookupCustomTaskUseCase } from '../use-cases/lookup-custom-task.use-case';
 import { ReleaseCustomTaskUseCase } from '../use-cases/release-custom-task.use-case';
@@ -17,6 +27,7 @@ export class CustomTaskController {
     private readonly lookupCustomTaskUseCase: LookupCustomTaskUseCase,
     private readonly releaseCustomTaskUseCase: ReleaseCustomTaskUseCase,
     private readonly getCustomTaskRunsUseCase: GetCustomTaskRunsUseCase,
+    private readonly cancelCustomTaskRunUseCase: CancelCustomTaskRunUseCase,
   ) {}
 
   @Get('runs')
@@ -32,6 +43,17 @@ export class CustomTaskController {
       message: 'Custom Task runs retrieved successfully',
       data,
     };
+  }
+
+  @Patch('runs/:id/cancel')
+  @Permissions('custom-task.update')
+  @ApiOperation({
+    summary:
+      'Cancel a pending or in-progress Custom Task run. Marks it cancelled in our own database only — RCS exposes no cancel endpoint here, so the robot is not stopped',
+  })
+  async cancelRun(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.cancelCustomTaskRunUseCase.execute(id);
+    return { success: true, message: 'Custom Task cancelled', data };
   }
 
   @Get('lookup/:abjad')

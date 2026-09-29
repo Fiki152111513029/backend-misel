@@ -44,4 +44,7 @@ export interface ICustomTaskRunsRepository {
   findAll(
     params: FindAllCustomTaskRunsParams,
   ): Promise<FindAllCustomTaskRunsResult>;
+  findById(id: string): Promise<CustomTaskRun | null>;
+  /** Marks the run cancelled: FAILED plus a cancelledAt stamp. */
+  cancel(id: string): Promise<CustomTaskRunWithRelations>;
 }

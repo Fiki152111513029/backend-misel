@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   CreateCustomTaskRunData,
@@ -28,6 +28,18 @@ export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
 
   create(data: CreateCustomTaskRunData) {
     return this.prisma.customTaskRun.create({ data });
+  }
+
+  findById(id: string) {
+    return this.prisma.customTaskRun.findUnique({ where: { id } });
+  }
+
+  cancel(id: string) {
+    return this.prisma.customTaskRun.update({
+      where: { id },
+      data: { status: TaskStatus.FAILED, cancelledAt: new Date() },
+      include: WITH_RELATIONS,
+    });
   }
 
   async findAll(

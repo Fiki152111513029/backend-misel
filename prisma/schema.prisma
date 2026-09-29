@@ -957,6 +957,12 @@ model CustomTaskRun {
   taskPath         String
   modelProcessCode String
   status           TaskStatus @default(PENDING)
+  // Set when an operator cancels the run from All Tasks > Task Custom.
+  // `status` goes to FAILED alongside it, because TaskStatus has no
+  // CANCELLED value and adding one would ripple through Task,
+  // WarehouseCartTask and TrolleyActivity too. This column is what lets
+  // the table say "Cancelled" instead of a misleading "Failed".
+  cancelledAt      DateTime?
   robotId          String?
   operatorId       String
   createdAt        DateTime   @default(now())

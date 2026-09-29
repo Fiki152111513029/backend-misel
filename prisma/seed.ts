@@ -588,6 +588,11 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Release Custom Task',
     description: 'Send a scanned Control Task to RCS as a task order',
   },
+  {
+    code: 'custom-task.update',
+    name: 'Cancel Custom Task',
+    description: 'Cancel a pending or in-progress Custom Task run',
+  },
   // Robot Alarms — the Critical Alarms stat and Abnormality-by-zone chart
   // on the main Dashboard
   {
