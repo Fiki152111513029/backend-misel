@@ -66,6 +66,10 @@ export class LoginUseCase {
         email: user.email,
         fullName: user.fullName,
         role: user.role.name,
+        // Where this user lands right after login, configured per role in
+        // User Management > Roles. Null means the frontend falls back to
+        // its built-in default for the role name (see roleHome.ts).
+        landingPath: user.role.landingPath,
         permissions,
       },
     };

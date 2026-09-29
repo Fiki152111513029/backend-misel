@@ -76,6 +76,11 @@ model Role {
   id          String           @id @default(uuid())
   name        String           @unique
   description String?
+  // Where members of this role land right after login, e.g.
+  // "/dashboard/operator-trolley-task". Null means "use the built-in
+  // default for this role name" (see Frontend/app/utils/roleHome.ts), so
+  // existing roles keep behaving exactly as before until an admin sets one.
+  landingPath String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   users       User[]

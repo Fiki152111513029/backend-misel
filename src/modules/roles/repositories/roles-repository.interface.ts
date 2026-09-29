@@ -7,11 +7,13 @@ export type RoleWithPermissions = Prisma.RoleGetPayload<{
 export interface CreateRoleData {
   name: string;
   description?: string;
+  landingPath?: string | null;
 }
 
 export interface UpdateRoleData {
   name?: string;
   description?: string;
+  landingPath?: string | null;
 }
 
 export const ROLES_REPOSITORY = 'ROLES_REPOSITORY';
