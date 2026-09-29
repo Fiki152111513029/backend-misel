@@ -322,6 +322,18 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     return result.count > 0;
   }
 
+  async updateCustomTaskRunStatusByTaskId(
+    taskId: string,
+    status: TaskStatus,
+    robotId?: string,
+  ): Promise<boolean> {
+    const result = await this.prisma.customTaskRun.updateMany({
+      where: { orderId: taskId },
+      data: { status, ...(robotId ? { robotId } : {}) },
+    });
+    return result.count > 0;
+  }
+
   async updateTrolleyActivityStatusByTaskId(
     taskId: string,
     status: TaskStatus,

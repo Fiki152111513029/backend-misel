@@ -67,6 +67,14 @@ export class ReceiveTaskStatusWebhookUseCase {
               robotId,
             );
           if (!matchedCartTask) {
+            // A Custom Task released from the scan page owns this orderId
+            // too — same fall-through chain, so All Tasks > Custom Tasks
+            // shows a live status instead of a row stuck on PENDING.
+            await this.webhookLogsRepository.updateCustomTaskRunStatusByTaskId(
+              orderId,
+              status,
+              robotId,
+            );
             const matchedTrolleyActivity =
               await this.webhookLogsRepository.updateTrolleyActivityStatusByTaskId(
                 orderId,

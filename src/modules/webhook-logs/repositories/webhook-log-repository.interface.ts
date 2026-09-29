@@ -94,6 +94,12 @@ export interface IWebhookLogsRepository {
     status: WarehouseCartTaskStatus,
     robotId?: string,
   ): Promise<boolean>;
+  /** Returns true if a CustomTaskRun with this orderId was found and updated. */
+  updateCustomTaskRunStatusByTaskId(
+    taskId: string,
+    status: TaskStatus,
+    robotId?: string,
+  ): Promise<boolean>;
   /** Returns true if a TrolleyActivity with this taskId was found and updated. */
   updateTrolleyActivityStatusByTaskId(
     taskId: string,

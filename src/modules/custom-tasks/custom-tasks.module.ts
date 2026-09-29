@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ControlTasksModule } from '../control-tasks/control-tasks.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { CustomTaskController } from './controllers/custom-task.controller';
+import { CUSTOM_TASK_RUNS_REPOSITORY } from './repositories/custom-task-run-repository.interface';
+import { CustomTaskRunRepository } from './repositories/custom-task-run.repository';
+import { GetCustomTaskRunsUseCase } from './use-cases/get-custom-task-runs.use-case';
 import { LookupCustomTaskUseCase } from './use-cases/lookup-custom-task.use-case';
 import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-case';
 
@@ -12,6 +15,12 @@ import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-ca
 @Module({
   imports: [ControlTasksModule, TasksModule],
   controllers: [CustomTaskController],
-  providers: [LookupCustomTaskUseCase, ReleaseCustomTaskUseCase],
+  providers: [
+    { provide: CUSTOM_TASK_RUNS_REPOSITORY, useClass: CustomTaskRunRepository },
+    LookupCustomTaskUseCase,
+    ReleaseCustomTaskUseCase,
+    GetCustomTaskRunsUseCase,
+  ],
+  exports: [CUSTOM_TASK_RUNS_REPOSITORY],
 })
 export class CustomTasksModule {}
