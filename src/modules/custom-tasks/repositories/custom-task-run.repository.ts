@@ -31,7 +31,10 @@ export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
   }
 
   findById(id: string) {
-    return this.prisma.customTaskRun.findUnique({ where: { id } });
+    return this.prisma.customTaskRun.findUnique({
+      where: { id },
+      include: { robot: { select: { amrDeviceSerialNo: true } } },
+    });
   }
 
   cancel(id: string) {

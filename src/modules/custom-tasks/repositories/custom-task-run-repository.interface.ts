@@ -7,6 +7,12 @@ export type CustomTaskRunWithRelations = Prisma.CustomTaskRunGetPayload<{
   };
 }>;
 
+// Cancelling needs the robot's device serial, which RCS calls deviceNumber
+// — not something the list payload above carries.
+export type CustomTaskRunForCancel = Prisma.CustomTaskRunGetPayload<{
+  include: { robot: { select: { amrDeviceSerialNo: true } } };
+}>;
+
 export interface CreateCustomTaskRunData {
   orderId: string;
   controlTaskId: string;
@@ -44,7 +50,7 @@ export interface ICustomTaskRunsRepository {
   findAll(
     params: FindAllCustomTaskRunsParams,
   ): Promise<FindAllCustomTaskRunsResult>;
-  findById(id: string): Promise<CustomTaskRun | null>;
+  findById(id: string): Promise<CustomTaskRunForCancel | null>;
   /** Marks the run cancelled: FAILED plus a cancelledAt stamp. */
   cancel(id: string): Promise<CustomTaskRunWithRelations>;
 }

@@ -57,6 +57,11 @@ export default () => ({
     getStatusUrl:
       process.env.TASK_LOCATION ??
       'http://172.18.101.10:7000/ics/out/task/getTaskOrderStatus',
+    // Stops an order RCS is already running — behind the Cancel button on
+    // All Tasks > Task Custom. Payload: { orderId, deviceNumber }.
+    cancelUrl:
+      process.env.TASK_CANCEL_ORDER_URL ??
+      'http://172.18.101.10:7000/ics/out/task/cancelTask',
   },
   // RCS's own stock/bin tracking for Warehouse/Production Location nodes —
   // separate from our own DB (see Trolley.currentLocationCode) since RCS is

@@ -18,6 +18,13 @@ export interface TaskOrderPayload {
   taskOrderDetail: { taskPath: string }[];
 }
 
+/** Payload RCS expects at TASK_CANCEL_ORDER_URL (/ics/out/task/cancelTask). */
+export interface CancelTaskOrderPayload {
+  orderId: string;
+  /** The robot's device serial (Robot.amrDeviceSerialNo); '' if unassigned. */
+  deviceNumber: string;
+}
+
 export interface ExternalOrderInfo {
   OrderId?: string | number;
   orderId?: string | number;
@@ -218,10 +225,67 @@ export class TaskOrderService {
       );
     }
 
-    // This RCS server can return HTTP 200 with a body that still signals
-    // failure (e.g. { code: 2103, desc: "任务流程模板编号不存在" } when
-    // modelProcessCode doesn't match a known template). Its own success code
-    // is 1000, not 0 — any other code must be treated as a rejection.
+    this.assertRcsAccepted(parsed, 'Task order endpoint rejected the task');
+
+    return parsed;
+  }
+
+  /**
+   * Asks RCS to stop an order it is already running — the Cancel button on
+   * All Tasks > Task Custom.
+   *
+   * `deviceNumber` is the robot's own device serial (Robot.amrDeviceSerialNo),
+   * which RCS uses to identify which unit to stop. An order that has not been
+   * assigned to a robot yet has none, so an empty string is sent and RCS
+   * decides whether it can still cancel it.
+   *
+   * Throws on rejection rather than swallowing it: if RCS will not stop the
+   * task, the caller must not go on to record it as cancelled.
+   */
+  async cancelTask(payload: CancelTaskOrderPayload): Promise<unknown> {
+    const url = this.configService.get<string>('taskOrder.cancelUrl');
+    if (!url) {
+      throw new ServiceUnavailableException(
+        'Task cancel URL is not configured',
+      );
+    }
+
+    this.logger.log(`POST ${url} — payload: ${JSON.stringify(payload)}`);
+
+    let raw: string;
+    try {
+      raw = await postJson(url, payload, 5000);
+    } catch (error) {
+      this.logger.error(`Failed to reach task cancel endpoint: ${error}`);
+      throw new BadGatewayException(
+        `Failed to reach task cancel endpoint: ${error}`,
+      );
+    }
+
+    this.logger.log(`Task cancel response for orderId ${payload.orderId}: ${raw}`);
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      this.logger.error(`Task cancel endpoint returned invalid JSON: ${raw}`);
+      throw new BadGatewayException(
+        `Task cancel endpoint returned invalid JSON: ${error}`,
+      );
+    }
+
+    this.assertRcsAccepted(parsed, 'Task cancel endpoint rejected the request');
+
+    return parsed;
+  }
+
+  /**
+   * This RCS server can return HTTP 200 with a body that still signals
+   * failure (e.g. { code: 2103, desc: "任务流程模板编号不存在" } when
+   * modelProcessCode doesn't match a known template). Its own success code
+   * is 1000, not 0 — any other code must be treated as a rejection.
+   */
+  private assertRcsAccepted(parsed: unknown, message: string): void {
     const RCS_SUCCESS_CODE = 1000;
     if (
       parsed &&
@@ -233,11 +297,9 @@ export class TaskOrderService {
       const desc =
         'desc' in parsed ? String((parsed as { desc: unknown }).desc) : '';
       throw new BadGatewayException(
-        `Task order endpoint rejected the task (code ${(parsed as { code: number }).code}): ${desc}`,
+        `${message} (code ${(parsed as { code: number }).code}): ${desc}`,
       );
     }
-
-    return parsed;
   }
 
   /**
