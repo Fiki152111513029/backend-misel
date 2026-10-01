@@ -1,14 +1,15 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt } from 'class-validator';
+import { IsInt, IsOptional } from 'class-validator';
 
 export class CheckingAreaQueryDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 1,
     description:
-      'Factory Map areaNumber — the area whose bins RCS should be asked about',
+      'Factory Map areaNumber to narrow the RCS lookup to. Omit to ask every area and merge the answers — a Warehouse Location carries no area of its own.',
   })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
-  areaId!: number;
+  areaId?: number;
 }

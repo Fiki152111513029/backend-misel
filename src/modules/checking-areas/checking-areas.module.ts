@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FactoryMapsModule } from '../factory-maps/factory-maps.module';
 import { RcsStockStatusModule } from '../rcs-stock-status/rcs-stock-status.module';
 import { WarehouseLocationsModule } from '../warehouse-locations/warehouse-locations.module';
 import { CheckingAreaController } from './controllers/checking-area.controller';
@@ -10,7 +11,7 @@ import { SetBinStatusUseCase } from './use-cases/set-bin-status.use-case';
 // when the two disagree. Owns no tables — the locations come from
 // WarehouseLocationsModule and the bin status from RCS.
 @Module({
-  imports: [WarehouseLocationsModule, RcsStockStatusModule],
+  imports: [WarehouseLocationsModule, FactoryMapsModule, RcsStockStatusModule],
   controllers: [CheckingAreaController],
   providers: [GetCheckingAreaUseCase, SetBinStatusUseCase],
 })

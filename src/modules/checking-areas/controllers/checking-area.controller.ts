@@ -19,7 +19,7 @@ export class CheckingAreaController {
   @Permissions('checking-area.read')
   @ApiOperation({
     summary:
-      'Every active Warehouse Location in one area with the bin status RCS currently reports for it (query param: areaId) — what the Checking Area page compares against the floor',
+      'Every active Warehouse Location with the bin status RCS currently reports for it — what the Checking Area page compares against the floor. Optional areaId narrows the RCS lookup to one area; omitted, every area is asked and the answers merged',
   })
   async findAll(@Query() query: CheckingAreaQueryDto) {
     const data = await this.getCheckingAreaUseCase.execute(query.areaId);

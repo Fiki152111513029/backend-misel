@@ -1,4 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { FACTORY_MAPS_REPOSITORY } from '../../factory-maps/repositories/factory-map-repository.interface';
+import type { IFactoryMapsRepository } from '../../factory-maps/repositories/factory-map-repository.interface';
 import {
   NODE_STATUS_EMPTY,
   NODE_STATUS_FULL,
@@ -20,8 +22,6 @@ export interface CheckingAreaRow {
    * is exactly what this page exists to correct.
    */
   stockStatus: BinStatus | null;
-  /** RCS says a task is currently using this node. */
-  inTask: boolean;
 }
 
 @Injectable()
@@ -29,21 +29,30 @@ export class GetCheckingAreaUseCase {
   constructor(
     @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
     private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
+    @Inject(FACTORY_MAPS_REPOSITORY)
+    private readonly factoryMapsRepository: IFactoryMapsRepository,
     private readonly rcsStockStatusService: RcsStockStatusService,
   ) {}
 
-  async execute(areaId: number): Promise<CheckingAreaRow[]> {
-    const [{ items: locations }, rcsRows] = await Promise.all([
+  /**
+   * `areaId` narrows the RCS lookup to one area. Omitted, every area a
+   * Factory Map defines is asked and the answers merged — a Warehouse
+   * Location records no area of its own, so without this the page would
+   * make the operator guess which area their storage lives in before it
+   * could tell them anything.
+   */
+  async execute(areaId?: number): Promise<CheckingAreaRow[]> {
+    const areaIds = areaId != null ? [areaId] : await this.allAreaIds();
+
+    const [{ items: locations }, statusByCode] = await Promise.all([
       this.warehouseLocationsRepository.findAll({
         page: 1,
         limit: 1000,
         sortBy: 'name',
         sortOrder: 'asc',
       }),
-      this.rcsStockStatusService.getStockStatus(areaId),
+      this.rcsStockStatusService.getStockStatusByCode(areaIds),
     ]);
-
-    const byCode = new Map(rcsRows.map((row) => [row.qrContent, row]));
 
     // Listed from our own Warehouse Locations rather than straight from the
     // RCS response, so the operator sees the names they know instead of bare
@@ -51,16 +60,26 @@ export class GetCheckingAreaUseCase {
     // not show up as something they can "correct".
     return locations
       .filter((location) => !location.deletedAt && location.isActive)
-      .map((location) => {
-        const row = byCode.get(location.iRaypleLocationCode);
-        return {
-          id: location.id,
-          name: location.name,
-          iRaypleLocationCode: location.iRaypleLocationCode,
-          stockStatus: toBinStatus(row?.stockStatus),
-          inTask: row?.inTask === '1' || row?.inTask === 'true',
-        };
-      });
+      .map((location) => ({
+        id: location.id,
+        name: location.name,
+        iRaypleLocationCode: location.iRaypleLocationCode,
+        stockStatus: toBinStatus(
+          statusByCode.get(location.iRaypleLocationCode),
+        ),
+      }));
+  }
+
+  private async allAreaIds(): Promise<number[]> {
+    const { items: maps } = await this.factoryMapsRepository.findAll({
+      page: 1,
+      limit: 100,
+      sortBy: 'name',
+      sortOrder: 'asc',
+    });
+    return maps
+      .map((map) => map.areaNumber)
+      .filter((areaNumber): areaNumber is number => areaNumber != null);
   }
 }
 
