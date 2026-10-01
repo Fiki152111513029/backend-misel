@@ -593,6 +593,18 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Cancel Custom Task',
     description: 'Cancel a pending or in-progress Custom Task run',
   },
+  // Checking Area — comparing RCS's bin status against the floor, and
+  // correcting it. Read is the comparison; update is the correction.
+  {
+    code: 'checking-area.read',
+    name: 'Access Checking Area',
+    description: 'View what RCS reports for each Warehouse Location bin',
+  },
+  {
+    code: 'checking-area.update',
+    name: 'Correct Bin Status',
+    description: 'Mark a bin empty or full in RCS to match the floor',
+  },
   // Robot Alarms — the Critical Alarms stat and Abnormality-by-zone chart
   // on the main Dashboard
   {

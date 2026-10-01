@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ControlTasksModule } from '../control-tasks/control-tasks.module';
+import { FactoryMapsModule } from '../factory-maps/factory-maps.module';
+import { RcsStockStatusModule } from '../rcs-stock-status/rcs-stock-status.module';
 import { TasksModule } from '../tasks/tasks.module';
+import { WarehouseLocationsModule } from '../warehouse-locations/warehouse-locations.module';
 import { CustomTaskController } from './controllers/custom-task.controller';
 import { CUSTOM_TASK_RUNS_REPOSITORY } from './repositories/custom-task-run-repository.interface';
 import { CustomTaskRunRepository } from './repositories/custom-task-run.repository';
@@ -14,7 +17,15 @@ import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-ca
 // Control Task rows come from ControlTasksModule and the RCS call from
 // TasksModule.
 @Module({
-  imports: [ControlTasksModule, TasksModule],
+  imports: [
+    ControlTasksModule,
+    TasksModule,
+    // Releasing a task first checks the route's Warehouse Location bins
+    // against RCS — see assertWarehouseBinsReady.
+    WarehouseLocationsModule,
+    FactoryMapsModule,
+    RcsStockStatusModule,
+  ],
   controllers: [CustomTaskController],
   providers: [
     { provide: CUSTOM_TASK_RUNS_REPOSITORY, useClass: CustomTaskRunRepository },

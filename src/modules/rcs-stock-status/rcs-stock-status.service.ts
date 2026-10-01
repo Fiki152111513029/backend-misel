@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as http from 'http';
 import * as https from 'https';
@@ -89,7 +94,7 @@ function findStockStatusArray(
     if (payload.length === 0) return payload as StockStatusRow[];
     const matching = payload.filter(isStockStatusLike).length;
     if (matching / payload.length >= 0.5) {
-      return payload.filter(isStockStatusLike) as StockStatusRow[];
+      return payload.filter(isStockStatusLike);
     }
     return null;
   }
@@ -126,7 +131,10 @@ export class RcsStockStatusService {
    * own record reflects physical reality. Best-effort: failures are logged
    * and swallowed so a flaky call here never breaks webhook processing.
    */
-  async updateStockStatus(qrContent: string, nodeStatus: NodeStatus): Promise<void> {
+  async updateStockStatus(
+    qrContent: string,
+    nodeStatus: NodeStatus,
+  ): Promise<void> {
     const url = this.configService.get<string>('stockStatus.updateUrl');
     if (!url) {
       this.logger.warn('Stock status update URL is not configured — skipping');
@@ -142,6 +150,67 @@ export class RcsStockStatusService {
     } catch (error) {
       this.logger.error(
         `Failed to update stock status for ${qrContent}: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * The same call as updateStockStatus, but it throws instead of swallowing
+   * a failure. Used by Checking Area, where an operator is deliberately
+   * correcting RCS to match what they can see on the floor — telling them it
+   * worked when it did not would leave RCS wrong and them none the wiser.
+   */
+  async setStockStatus(
+    qrContent: string,
+    nodeStatus: NodeStatus,
+  ): Promise<void> {
+    const url = this.configService.get<string>('stockStatus.updateUrl');
+    if (!url) {
+      throw new ServiceUnavailableException(
+        'Stock status update URL is not configured',
+      );
+    }
+
+    const payload = { qrContent, nodeStatus };
+    this.logger.log(`POST ${url} — payload: ${JSON.stringify(payload)}`);
+
+    let raw: string;
+    try {
+      raw = await postJson(url, payload, 5000);
+    } catch (error) {
+      this.logger.error(
+        `Failed to set stock status for ${qrContent}: ${error}`,
+      );
+      throw new BadGatewayException(
+        `Failed to reach the stock status endpoint: ${error}`,
+      );
+    }
+
+    this.logger.log(`Stock status set response for ${qrContent}: ${raw}`);
+
+    // RCS answers HTTP 200 even when it refuses — its own success code is
+    // 1000 (same convention as the task-order endpoints).
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // A non-JSON 2xx body has always meant "accepted" for this endpoint,
+      // so don't fail the correction over an unparseable acknowledgement.
+      return;
+    }
+
+    const RCS_SUCCESS_CODE = 1000;
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'code' in parsed &&
+      typeof parsed.code === 'number' &&
+      (parsed as { code: number }).code !== RCS_SUCCESS_CODE
+    ) {
+      const desc =
+        'desc' in parsed ? String((parsed as { desc: unknown }).desc) : '';
+      throw new BadGatewayException(
+        `RCS rejected the stock status change (code ${(parsed as { code: number }).code}): ${desc}`,
       );
     }
   }
@@ -202,5 +271,29 @@ export class RcsStockStatusService {
     }
 
     return rows;
+  }
+
+  /**
+   * Bin status per qrContent across several areas at once, merged into one
+   * lookup. A node's code is unique across the site, but which area it sits
+   * in is not recorded anywhere locally — so callers that only have a code
+   * (Custom Task routes, say) ask every area and take whichever one answers.
+   *
+   * Inherits getStockStatus's resilience: an area that fails contributes
+   * nothing instead of failing the whole lookup, so callers must treat a
+   * missing code as "unknown", never as "empty".
+   */
+  async getStockStatusByCode(areaIds: number[]): Promise<Map<string, number>> {
+    const perArea = await Promise.all(
+      [...new Set(areaIds)].map((areaId) => this.getStockStatus(areaId)),
+    );
+
+    const byCode = new Map<string, number>();
+    for (const rows of perArea) {
+      for (const row of rows) {
+        byCode.set(row.qrContent, row.stockStatus);
+      }
+    }
+    return byCode;
   }
 }

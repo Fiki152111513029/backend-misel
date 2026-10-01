@@ -3,8 +3,14 @@ import { CONTROL_TASKS_REPOSITORY } from '../../control-tasks/repositories/contr
 import type { IControlTasksRepository } from '../../control-tasks/repositories/control-task-repository.interface';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
 import { generateOrderId } from '../../tasks/utils/generate-order-id';
+import { FACTORY_MAPS_REPOSITORY } from '../../factory-maps/repositories/factory-map-repository.interface';
+import type { IFactoryMapsRepository } from '../../factory-maps/repositories/factory-map-repository.interface';
+import { RcsStockStatusService } from '../../rcs-stock-status/rcs-stock-status.service';
+import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { CUSTOM_TASK_RUNS_REPOSITORY } from '../repositories/custom-task-run-repository.interface';
 import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-repository.interface';
+import { assertWarehouseBinsReady } from './assert-warehouse-bins-ready';
 import { resolveCustomTask } from './resolve-custom-task';
 
 @Injectable()
@@ -16,6 +22,11 @@ export class ReleaseCustomTaskUseCase {
     private readonly controlTasksRepository: IControlTasksRepository,
     @Inject(CUSTOM_TASK_RUNS_REPOSITORY)
     private readonly customTaskRunsRepository: ICustomTaskRunsRepository,
+    @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
+    private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
+    @Inject(FACTORY_MAPS_REPOSITORY)
+    private readonly factoryMapsRepository: IFactoryMapsRepository,
+    private readonly rcsStockStatusService: RcsStockStatusService,
     private readonly taskOrderService: TaskOrderService,
   ) {}
 
@@ -23,6 +34,19 @@ export class ReleaseCustomTaskUseCase {
     const { preview } = await resolveCustomTask(
       this.controlTasksRepository,
       code,
+    );
+
+    // Checked before anything is sent: a Warehouse Location on the route
+    // that RCS still has as a full bin means the AMR would arrive at an
+    // occupied slot, so the task is refused here instead of failing on the
+    // floor. Throws BadRequest, which the scan page shows as its toast.
+    await assertWarehouseBinsReady(
+      {
+        warehouseLocationsRepository: this.warehouseLocationsRepository,
+        factoryMapsRepository: this.factoryMapsRepository,
+        rcsStockStatusService: this.rcsStockStatusService,
+      },
+      preview.route,
     );
 
     // The code prefixes the usual %Y%m%d%H%M%S order id, so an order coming
