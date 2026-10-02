@@ -19,6 +19,8 @@ import { DeviceInfoQueryDto } from '../dto/device-info-query.dto';
 import { RobotActivityQueryDto } from '../dto/robot-activity-query.dto';
 import { RobotQueryDto } from '../dto/robot-query.dto';
 import { AreaFilterQueryDto } from '../../../common/dto/area-filter-query.dto';
+import { RobotTaskSummaryQueryDto } from '../dto/robot-task-summary-query.dto';
+import { GetRobotTaskSummaryUseCase } from '../use-cases/get-robot-task-summary.use-case';
 import { RobotStatusSummaryQueryDto } from '../dto/robot-status-summary-query.dto';
 import { RobotStatusMonthlyQueryDto } from '../dto/robot-status-monthly-query.dto';
 import { UpdateRobotDto } from '../dto/update-robot.dto';
@@ -50,6 +52,7 @@ export class RobotController {
     private readonly controlRobotUseCase: ControlRobotUseCase,
     private readonly getRobotSystemStatusUseCase: GetRobotSystemStatusUseCase,
     private readonly getFleetStatusUseCase: GetFleetStatusUseCase,
+    private readonly getRobotTaskSummaryUseCase: GetRobotTaskSummaryUseCase,
     private readonly getRobotStatusSummaryUseCase: GetRobotStatusSummaryUseCase,
     private readonly getRobotStatusMonthlySummaryUseCase: GetRobotStatusMonthlySummaryUseCase,
   ) {}
@@ -124,6 +127,21 @@ export class RobotController {
     return {
       success: true,
       message: 'Fleet status retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('task-summary')
+  @Permissions('robot.read')
+  @ApiOperation({
+    summary:
+      'Per-robot task counts bucketed as completed / in progress / failed / cancelled, across Tasks, Warehouse Cart Tasks, Trolley Activities and Custom Task runs (query params: areaId, date) — the Fleet Overview tiles. PENDING counts as in progress; only Custom Task runs can be cancelled',
+  })
+  async taskSummary(@Query() query: RobotTaskSummaryQueryDto) {
+    const data = await this.getRobotTaskSummaryUseCase.execute(query);
+    return {
+      success: true,
+      message: 'Robot task summary retrieved successfully',
       data,
     };
   }

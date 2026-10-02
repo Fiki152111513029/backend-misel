@@ -13,6 +13,7 @@ import { ControlRobotUseCase } from './use-cases/control-robot.use-case';
 import { CreateRobotUseCase } from './use-cases/create-robot.use-case';
 import { DeleteRobotUseCase } from './use-cases/delete-robot.use-case';
 import { GetFleetStatusUseCase } from './use-cases/get-fleet-status.use-case';
+import { GetRobotTaskSummaryUseCase } from './use-cases/get-robot-task-summary.use-case';
 import { GetRobotActivityUseCase } from './use-cases/get-robot-activity.use-case';
 import { GetRobotStatusSummaryUseCase } from './use-cases/get-robot-status-summary.use-case';
 import { GetRobotStatusMonthlySummaryUseCase } from './use-cases/get-robot-status-monthly-summary.use-case';
@@ -55,6 +56,7 @@ import { RobotStatusRollupService } from './services/robot-status-rollup.service
     ControlRobotUseCase,
     GetRobotSystemStatusUseCase,
     GetFleetStatusUseCase,
+    GetRobotTaskSummaryUseCase,
   ],
   exports: [ROBOTS_REPOSITORY],
 })
