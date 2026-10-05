@@ -37,6 +37,20 @@ export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
     });
   }
 
+  findActiveByControlTaskId(controlTaskId: string) {
+    return this.prisma.customTaskRun.findFirst({
+      where: {
+        controlTaskId,
+        status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
+        // A cancelled run is stored as FAILED, so the status filter already
+        // excludes it — but a late webhook can flip one back to IN_PROGRESS,
+        // and a task someone deliberately cancelled must not keep blocking.
+        cancelledAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   cancel(id: string) {
     return this.prisma.customTaskRun.update({
       where: { id },

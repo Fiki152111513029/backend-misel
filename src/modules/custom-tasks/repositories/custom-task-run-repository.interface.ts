@@ -51,6 +51,14 @@ export interface ICustomTaskRunsRepository {
     params: FindAllCustomTaskRunsParams,
   ): Promise<FindAllCustomTaskRunsResult>;
   findById(id: string): Promise<CustomTaskRunForCancel | null>;
+  /**
+   * A run of this Control Task that is still outstanding — PENDING or
+   * IN_PROGRESS and not cancelled. Used to stop the same task being
+   * dispatched twice while the first one is still on the floor.
+   */
+  findActiveByControlTaskId(
+    controlTaskId: string,
+  ): Promise<CustomTaskRun | null>;
   /** Marks the run cancelled: FAILED plus a cancelledAt stamp. */
   cancel(id: string): Promise<CustomTaskRunWithRelations>;
 }

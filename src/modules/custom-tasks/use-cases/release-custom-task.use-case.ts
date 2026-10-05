@@ -1,4 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { CONTROL_TASKS_REPOSITORY } from '../../control-tasks/repositories/control-task-repository.interface';
 import type { IControlTasksRepository } from '../../control-tasks/repositories/control-task-repository.interface';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
@@ -35,6 +40,22 @@ export class ReleaseCustomTaskUseCase {
       this.controlTasksRepository,
       code,
     );
+
+    // One run of a Control Task at a time. Dispatching the same task again
+    // while the first is still on the floor would put two orders on the
+    // same route, which RCS has no way to tell apart afterwards — and is
+    // almost always a double-tap or an operator who could not see that it
+    // was already running. Checked before the RCS calls below because it is
+    // a single local query.
+    const outstanding =
+      await this.customTaskRunsRepository.findActiveByControlTaskId(
+        preview.controlTaskId,
+      );
+    if (outstanding) {
+      throw new BadRequestException(
+        `${preview.code} is already running (order ${outstanding.orderId}). Wait for it to finish, or cancel it on All Tasks > Task Custom, then send again.`,
+      );
+    }
 
     // Checked before anything is sent: a Warehouse Location on the route
     // that RCS still has as a full bin means the AMR would arrive at an
