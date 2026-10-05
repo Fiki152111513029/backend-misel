@@ -29,7 +29,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Misel Backend API')
+    .setTitle('Ichii Backend API')
     .setDescription('Authentication & RBAC API')
     .setVersion('1.0')
     .addBearerAuth(

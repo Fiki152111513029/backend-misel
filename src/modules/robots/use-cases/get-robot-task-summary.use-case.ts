@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RobotAlarmAggregationService } from '../../robot-alarms/services/robot-alarm-aggregation.service';
 import { RobotTaskSummaryQueryDto } from '../dto/robot-task-summary-query.dto';
 import { ROBOTS_REPOSITORY } from '../repositories/robot-repository.interface';
 import type { IRobotsRepository } from '../repositories/robot-repository.interface';
@@ -12,7 +13,13 @@ export interface RobotTaskSummaryRow {
   completed: number;
   inProgress: number;
   failed: number;
-  cancelled: number;
+  /**
+   * Minutes this robot spent under an active alarm over the same window —
+   * the same figure the AMR Performance chart plots as its Alarm series,
+   * from the same RobotAlarmAggregationService, so the two always agree.
+   * Overlapping alarms are merged, never double counted.
+   */
+  alarmMinutes: number;
 }
 
 interface Bucket {
@@ -35,6 +42,13 @@ function parseLocalDateOnly(date: string): Date {
   return new Date(year, month - 1, day);
 }
 
+/** Today as YYYY-MM-DD in server local time. */
+function todayIso(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 /**
  * How many tasks each robot ran, bucketed the way the Fleet Overview tiles
  * show them. Counts every kind of work a robot can be assigned — Tasks,
@@ -50,6 +64,7 @@ export class GetRobotTaskSummaryUseCase {
   constructor(
     @Inject(ROBOTS_REPOSITORY)
     private readonly robotsRepository: IRobotsRepository,
+    private readonly alarmAggregationService: RobotAlarmAggregationService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -120,20 +135,32 @@ export class GetRobotTaskSummaryUseCase {
       );
     }
 
-    return robots.map((robot) => {
-      const bucket = buckets.get(robot.id) ?? emptyBucket();
-      return {
-        robotId: robot.id,
-        robotName: robot.name,
-        unitId: robot.amrDeviceSerialNo,
-        total:
-          bucket.completed +
-          bucket.inProgress +
-          bucket.failed +
-          bucket.cancelled,
-        ...bucket,
-      };
-    });
+    // Alarm time is measured over the same window the counts cover. With no
+    // date given that window is today, because "every alarm ever" is neither
+    // a useful number on a live board nor cheap to compute.
+    const alarmWindow = createdAt ?? this.dayRange(todayIso())!;
+
+    return Promise.all(
+      robots.map(async (robot) => {
+        const bucket = buckets.get(robot.id) ?? emptyBucket();
+        return {
+          robotId: robot.id,
+          robotName: robot.name,
+          unitId: robot.amrDeviceSerialNo,
+          total:
+            bucket.completed +
+            bucket.inProgress +
+            bucket.failed +
+            bucket.cancelled,
+          ...bucket,
+          alarmMinutes: await this.alarmAggregationService.computeAlarmMinutes(
+            robot.amrDeviceSerialNo,
+            alarmWindow.gte,
+            alarmWindow.lt,
+          ),
+        };
+      }),
+    );
   }
 
   /** One calendar day (server local time), or undefined for all time. */
