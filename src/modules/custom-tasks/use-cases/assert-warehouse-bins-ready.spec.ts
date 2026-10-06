@@ -48,29 +48,29 @@ function deps(stock: Record<string, number>) {
 }
 
 describe('assertWarehouseBinsReady', () => {
-  // The AMR collects an empty pallet from the bin, so FULL (2) is the ready
-  // state and EMPTY (0) is what blocks — there is nothing there to collect.
-  it('refuses a route whose warehouse bin RCS reports as empty (0)', async () => {
+  // The bin has to be free for the AMR to use, so EMPTY (0) is the ready
+  // state and FULL (2) is what blocks — the slot is already occupied.
+  it('refuses a route whose warehouse bin RCS reports as full (2)', async () => {
     await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 0 }), [PRODUCTION_CODE, 'WHA1']),
+      assertWarehouseBinsReady(deps({ WHA1: 2 }), [PRODUCTION_CODE, 'WHA1']),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('names the offending bin in the message', async () => {
     await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 0 }), ['WHA1']),
+      assertWarehouseBinsReady(deps({ WHA1: 2 }), ['WHA1']),
     ).rejects.toThrow(/Empty pallet not ready.*WHA1/s);
   });
 
-  it('allows a route whose warehouse bin is full (2)', async () => {
+  it('allows a route whose warehouse bin is empty (0)', async () => {
     await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 2 }), [PRODUCTION_CODE, 'WHA1']),
+      assertWarehouseBinsReady(deps({ WHA1: 0 }), [PRODUCTION_CODE, 'WHA1']),
     ).resolves.toBeUndefined();
   });
 
-  it('ignores production legs even when RCS calls them empty', async () => {
+  it('ignores production legs even when RCS calls them full', async () => {
     await expect(
-      assertWarehouseBinsReady(deps({ [PRODUCTION_CODE]: 0 }), [
+      assertWarehouseBinsReady(deps({ [PRODUCTION_CODE]: 2 }), [
         PRODUCTION_CODE,
         PRODUCTION_CODE,
       ]),
@@ -84,21 +84,21 @@ describe('assertWarehouseBinsReady', () => {
   });
 
   it('checks a repeated leg once and still blocks on it', async () => {
-    const d = deps({ WHA1: 0 });
+    const d = deps({ WHA1: 2 });
     await expect(
       assertWarehouseBinsReady(d, ['WHA1', PRODUCTION_CODE, 'WHA1']),
     ).rejects.toThrow(/WHA1/);
   });
 
-  it('reports every empty bin on the route, not just the first', async () => {
+  it('reports every full bin on the route, not just the first', async () => {
     await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 0, WHA2: 0 }), ['WHA1', 'WHA2']),
+      assertWarehouseBinsReady(deps({ WHA1: 2, WHA2: 2 }), ['WHA1', 'WHA2']),
     ).rejects.toThrow(/WHA1, WHA2/);
   });
 
-  it('lets a mixed route through as long as every warehouse bin is full', async () => {
+  it('lets a mixed route through as long as every warehouse bin is empty', async () => {
     await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 2, WHA2: 2 }), [
+      assertWarehouseBinsReady(deps({ WHA1: 0, WHA2: 0 }), [
         'WHA1',
         PRODUCTION_CODE,
         'WHA2',
@@ -113,7 +113,7 @@ describe('assertWarehouseBinsReady', () => {
   });
 
   it('asks RCS only about areas that actually have an areaNumber', async () => {
-    const d = deps({ WHA1: 2 });
+    const d = deps({ WHA1: 0 });
     await assertWarehouseBinsReady(d, ['WHA1']);
     expect(d.getStockStatusByCode).toHaveBeenCalledWith([1, 2]);
   });
