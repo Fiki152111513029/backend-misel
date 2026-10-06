@@ -89,8 +89,14 @@ export class ReleaseCustomTaskUseCase {
     // The Control Task fields are snapshotted because that task can be
     // edited or deleted later, while this row must keep describing what
     // was actually sent.
+    // The run id goes back to the caller so the scan page can offer a
+    // Cancel button on the card it just created, without sending the
+    // operator off to All Tasks > Task Custom to find the row. Null when
+    // the row could not be saved — the task is running either way, there
+    // is just nothing here to cancel through.
+    let runId: string | null = null;
     try {
-      await this.customTaskRunsRepository.create({
+      const run = await this.customTaskRunsRepository.create({
         orderId,
         controlTaskId: preview.controlTaskId,
         code: preview.code,
@@ -99,6 +105,7 @@ export class ReleaseCustomTaskUseCase {
         modelProcessCode: preview.modelProcessCode,
         operatorId,
       });
+      runId = run.id;
     } catch (error) {
       // The task is already running in RCS by now, so failing the request
       // would tell the operator it did not work and invite a duplicate.
@@ -108,6 +115,6 @@ export class ReleaseCustomTaskUseCase {
       );
     }
 
-    return { ...preview, orderId, releasedAt: new Date() };
+    return { ...preview, orderId, runId, releasedAt: new Date() };
   }
 }
