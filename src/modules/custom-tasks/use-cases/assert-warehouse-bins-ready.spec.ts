@@ -5,23 +5,31 @@ import type { IFactoryMapsRepository } from '../../factory-maps/repositories/fac
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 
 // The RCS instance available in development does not know these bin codes,
-// so the blocking path cannot be exercised against the live server. These
-// cover it directly instead.
+// so the blocking paths cannot be exercised against the live server. These
+// cover them directly.
+//
+// The rule under test: a Warehouse Location at the START of the route is a
+// pickup and must be FULL (2); at the END it is a drop and must be EMPTY
+// (0). Same node, opposite requirements.
 
-const WAREHOUSE_CODES = ['WHA1', 'WHA2'];
-const PRODUCTION_CODE = 'T1B';
+const WRL12 = 'WRL12';
+const WRL13 = 'WRL13';
+const PT2A = 'PT2A'; // a Production Location — never checked
+
+const FULL = 2;
+const EMPTY = 0;
 
 function deps(stock: Record<string, number>) {
   const warehouseLocationsRepository = {
     findAll: jest.fn().mockResolvedValue({
-      items: WAREHOUSE_CODES.map((code, index) => ({
+      items: [WRL12, WRL13].map((code, index) => ({
         id: `id-${index}`,
         name: code,
         iRaypleLocationCode: code,
         isActive: true,
         deletedAt: null,
       })),
-      total: WAREHOUSE_CODES.length,
+      total: 2,
     }),
   } as unknown as IWarehouseLocationsRepository;
 
@@ -48,73 +56,127 @@ function deps(stock: Record<string, number>) {
 }
 
 describe('assertWarehouseBinsReady', () => {
-  // The bin has to be free for the AMR to use, so EMPTY (0) is the ready
-  // state and FULL (2) is what blocks — the slot is already occupied.
-  it('refuses a route whose warehouse bin RCS reports as full (2)', async () => {
-    await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 2 }), [PRODUCTION_CODE, 'WHA1']),
-    ).rejects.toThrow(BadRequestException);
+  describe('pickup — the warehouse node at the start of the route', () => {
+    it('refuses it when RCS reports it empty', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: EMPTY }), [WRL12, PT2A]),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('explains it as a pickup with nothing to collect', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: EMPTY }), [WRL12, PT2A]),
+      ).rejects.toThrow(/Empty pallet not ready.*WRL12.*pickup point/s);
+    });
+
+    it('allows it when RCS reports it full', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: FULL }), [WRL12, PT2A]),
+      ).resolves.toBeUndefined();
+    });
   });
 
-  it('names the offending bin in the message', async () => {
-    await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 2 }), ['WHA1']),
-    ).rejects.toThrow(/Empty pallet not ready.*WHA1/s);
+  describe('drop — the warehouse node at the end of the route', () => {
+    it('refuses it when RCS reports it full', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: FULL }), [PT2A, WRL12]),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('explains it as a drop with nowhere to put the load', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: FULL }), [PT2A, WRL12]),
+      ).rejects.toThrow(/Drop location not free.*WRL12.*drop point/s);
+    });
+
+    it('allows it when RCS reports it empty', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: EMPTY }), [PT2A, WRL12]),
+      ).resolves.toBeUndefined();
+    });
   });
 
-  it('allows a route whose warehouse bin is empty (0)', async () => {
-    await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 0 }), [PRODUCTION_CODE, 'WHA1']),
-    ).resolves.toBeUndefined();
+  describe('both ends at once', () => {
+    it('allows a full pickup into an empty drop', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: FULL, [WRL13]: EMPTY }), [
+          WRL12,
+          PT2A,
+          WRL13,
+        ]),
+      ).resolves.toBeUndefined();
+    });
+
+    it('refuses when the drop is full even though the pickup is fine', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: FULL, [WRL13]: FULL }), [
+          WRL12,
+          PT2A,
+          WRL13,
+        ]),
+      ).rejects.toThrow(/Drop location not free.*WRL13/s);
+    });
+
+    it('refuses when the pickup is empty even though the drop is fine', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: EMPTY, [WRL13]: EMPTY }), [
+          WRL12,
+          PT2A,
+          WRL13,
+        ]),
+      ).rejects.toThrow(/Empty pallet not ready.*WRL12/s);
+    });
+
+    // The same node at both ends: it is collected from and returned to, so
+    // only the pickup requirement can meaningfully be checked up front.
+    it('treats a route that starts and ends on the same node as a pickup', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: FULL }), [WRL12, PT2A, WRL12]),
+      ).resolves.toBeUndefined();
+    });
   });
 
-  it('ignores production legs even when RCS calls them full', async () => {
-    await expect(
-      assertWarehouseBinsReady(deps({ [PRODUCTION_CODE]: 2 }), [
-        PRODUCTION_CODE,
-        PRODUCTION_CODE,
-      ]),
-    ).resolves.toBeUndefined();
-  });
+  describe('what it deliberately does not check', () => {
+    it('ignores a warehouse node in the middle of the route', async () => {
+      // WRL13 sits mid-route and is full, which would block if it were the
+      // drop — it is only driven through, so it must not.
+      await expect(
+        assertWarehouseBinsReady(deps({ [WRL12]: FULL, [WRL13]: FULL }), [
+          WRL12,
+          WRL13,
+          PT2A,
+        ]),
+      ).resolves.toBeUndefined();
+    });
 
-  it('fails open when RCS reports nothing for the bin', async () => {
-    await expect(
-      assertWarehouseBinsReady(deps({}), [PRODUCTION_CODE, 'WHA1']),
-    ).resolves.toBeUndefined();
-  });
+    it('ignores production legs at either end', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({ [PT2A]: FULL }), [PT2A, PT2A]),
+      ).resolves.toBeUndefined();
+    });
 
-  it('checks a repeated leg once and still blocks on it', async () => {
-    const d = deps({ WHA1: 2 });
-    await expect(
-      assertWarehouseBinsReady(d, ['WHA1', PRODUCTION_CODE, 'WHA1']),
-    ).rejects.toThrow(/WHA1/);
-  });
+    it('fails open when RCS reports nothing for the end node', async () => {
+      await expect(
+        assertWarehouseBinsReady(deps({}), [WRL12, PT2A]),
+      ).resolves.toBeUndefined();
+    });
 
-  it('reports every full bin on the route, not just the first', async () => {
-    await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 2, WHA2: 2 }), ['WHA1', 'WHA2']),
-    ).rejects.toThrow(/WHA1, WHA2/);
-  });
+    it('never asks RCS when neither end is a warehouse node', async () => {
+      const d = deps({});
+      await assertWarehouseBinsReady(d, [PT2A, WRL13, PT2A]);
+      expect(d.getStockStatusByCode).not.toHaveBeenCalled();
+    });
 
-  it('lets a mixed route through as long as every warehouse bin is empty', async () => {
-    await expect(
-      assertWarehouseBinsReady(deps({ WHA1: 0, WHA2: 0 }), [
-        'WHA1',
-        PRODUCTION_CODE,
-        'WHA2',
-      ]),
-    ).resolves.toBeUndefined();
-  });
+    it('asks RCS only about areas that actually have an areaNumber', async () => {
+      const d = deps({ [WRL12]: FULL });
+      await assertWarehouseBinsReady(d, [WRL12, PT2A]);
+      expect(d.getStockStatusByCode).toHaveBeenCalledWith([1, 2]);
+    });
 
-  it('never asks RCS when the route has no warehouse leg at all', async () => {
-    const d = deps({});
-    await assertWarehouseBinsReady(d, [PRODUCTION_CODE, PRODUCTION_CODE]);
-    expect(d.getStockStatusByCode).not.toHaveBeenCalled();
-  });
-
-  it('asks RCS only about areas that actually have an areaNumber', async () => {
-    const d = deps({ WHA1: 0 });
-    await assertWarehouseBinsReady(d, ['WHA1']);
-    expect(d.getStockStatusByCode).toHaveBeenCalledWith([1, 2]);
+    it('does nothing for an empty route', async () => {
+      const d = deps({});
+      await expect(assertWarehouseBinsReady(d, [])).resolves.toBeUndefined();
+      expect(d.getStockStatusByCode).not.toHaveBeenCalled();
+    });
   });
 });
