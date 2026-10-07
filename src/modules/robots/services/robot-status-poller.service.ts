@@ -11,7 +11,11 @@ import { RealtimeService } from '../../realtime/realtime.service';
 // has a page open. RobotStatusRollupService's daily Running/Idle/Charging
 // minute totals need continuous, gap-free data to be meaningful, so this
 // polls RCS on its own schedule regardless of frontend activity.
-const POLL_INTERVAL_MS = 15_000;
+// The map animates between these readings, so this is what sets how
+// current a robot marker can be. It used to be 15s because each browser
+// fetched its own telemetry anyway; now this is the only call RCS gets, no
+// matter how many dashboards are open, so it can afford to be much tighter.
+const POLL_INTERVAL_MS = 2_000;
 
 @Injectable()
 export class RobotStatusPollerService {
@@ -40,11 +44,15 @@ export class RobotStatusPollerService {
         sortBy: 'name',
         sortOrder: 'asc',
       });
-      // mergeByDevice fetches live telemetry and — as its own side effect —
-      // writes a RobotActivityLog row per robot (throttled, see
-      // RobotActivityLogRepository.createLog). The merged result itself
-      // isn't needed here.
-      await this.robotTelemetryService.mergeByDevice(items);
+      // This is the one call that reaches RCS: `refresh` makes it fetch
+      // live and repopulate the cache every other reader serves from, and
+      // `recordActivity` writes a RobotActivityLog row per robot
+      // (throttled, see RobotActivityLogRepository.createLog). The merged
+      // result itself isn't needed here.
+      await this.robotTelemetryService.mergeByDevice(items, {
+        refresh: true,
+        recordActivity: true,
+      });
       // One server-side poll of RCS now feeds every open browser, instead
       // of each of them polling this API on its own timer.
       this.realtime.publish('robots');

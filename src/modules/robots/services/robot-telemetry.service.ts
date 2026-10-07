@@ -160,6 +160,21 @@ function postJson(
 export class RobotTelemetryService {
   private readonly logger = new Logger(RobotTelemetryService.name);
 
+  // The last device list seen per area, so one RCS round trip serves every
+  // reader. GET /robots, the Fleet Status panel and the Factory Map each
+  // used to call RCS themselves, which meant a single dashboard refreshing
+  // sub-second turned into that same rate against the fleet server, times
+  // the number of browsers open. The background poller is now the only
+  // caller; everything else reads what it last saw.
+  private readonly deviceCache = new Map<
+    number,
+    { devices: ExternalDeviceInfo[]; at: number }
+  >();
+
+  // If the poller ever stops, readers must not serve an ever-staler
+  // snapshot forever — past this age they go back to calling RCS directly.
+  private static readonly CACHE_MAX_AGE_MS = 30_000;
+
   constructor(
     private readonly configService: ConfigService,
     @Inject(ROBOT_ACTIVITY_LOG_REPOSITORY)
@@ -307,6 +322,34 @@ export class RobotTelemetryService {
     }
   }
 
+  /**
+   * Devices for an area, from cache unless `refresh` is set. The poller
+   * passes `refresh` so it is the one call that actually reaches RCS.
+   *
+   * A failed fetch caches the empty list on purpose: that is genuinely what
+   * we last saw, and it keeps readers agreeing with the poller, which logs
+   * those robots as Offline. Serving a stale "alive" snapshot instead would
+   * make the map disagree with the activity history.
+   */
+  private async getDevicesForArea(
+    areaId: number,
+    refresh: boolean,
+  ): Promise<ExternalDeviceInfo[]> {
+    if (!refresh) {
+      const cached = this.deviceCache.get(areaId);
+      if (
+        cached &&
+        Date.now() - cached.at < RobotTelemetryService.CACHE_MAX_AGE_MS
+      ) {
+        return cached.devices;
+      }
+    }
+
+    const devices = await this.fetchDevicesForArea(areaId);
+    this.deviceCache.set(areaId, { devices, at: Date.now() });
+    return devices;
+  }
+
   private toTelemetry(device: ExternalDeviceInfo): RobotTelemetry {
     const speed = Number(device.speed);
     const battery = Number(device.battery);
@@ -330,15 +373,26 @@ export class RobotTelemetryService {
     };
   }
 
+  /**
+   * @param refresh        Call RCS and refresh the cache. The background
+   *                       poller sets this; read paths leave it off so a
+   *                       page view costs nothing on the fleet server.
+   * @param recordActivity Write RobotActivityLog rows as a side effect.
+   *                       Only the poller does this — otherwise the history
+   *                       would gain a row per browser request, written
+   *                       from cached readings rather than fresh ones.
+   */
   async mergeByDevice<T extends RobotForMatching>(
     robots: T[],
+    options: { refresh?: boolean; recordActivity?: boolean } = {},
   ): Promise<(T & RobotTelemetry)[]> {
+    const { refresh = false, recordActivity = false } = options;
     const areaIds = [...new Set(robots.map((robot) => robot.areaId))];
     const devicesByArea = new Map(
       await Promise.all(
         areaIds.map(
           async (areaId) =>
-            [areaId, await this.fetchDevicesForArea(areaId)] as const,
+            [areaId, await this.getDevicesForArea(areaId, refresh)] as const,
         ),
       ),
     );
@@ -354,10 +408,10 @@ export class RobotTelemetryService {
       );
       const telemetry = match ? this.toTelemetry(match) : NO_TELEMETRY;
 
-      // Fire-and-forget: build up Robot Activity history as a side effect of
-      // this poll (the Robots page already polls every 5s), without slowing
-      // down or failing this response if logging hiccups.
-      if (match) {
+      // Fire-and-forget: build up Robot Activity history as a side effect
+      // of the background poll, without slowing down or failing this
+      // response if logging hiccups.
+      if (recordActivity && match) {
         this.robotActivityLogRepository
           .createLog({
             robotId: robot.id,
@@ -374,7 +428,7 @@ export class RobotTelemetryService {
           .catch((error) =>
             this.logger.warn(`Failed to record activity log: ${error}`),
           );
-      } else {
+      } else if (recordActivity) {
         // The device didn't appear in this poll's telemetry at all — RCS
         // unreachable, or this robot specifically dropped out of its
         // response — so no real reading exists to log. Without an explicit
