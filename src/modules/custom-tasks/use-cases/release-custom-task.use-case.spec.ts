@@ -61,6 +61,9 @@ function build(
   const addTask = jest.fn().mockResolvedValue({ code: 1000 });
   const taskOrderService = { addTask };
 
+  const publish = jest.fn();
+  const realtime = { publish };
+
   const useCase = new ReleaseCustomTaskUseCase(
     controlTasksRepository as never,
     customTaskRunsRepository as never,
@@ -68,9 +71,10 @@ function build(
     factoryMapsRepository as never,
     rcsStockStatusService as never,
     taskOrderService as never,
+    realtime as never,
   );
 
-  return { useCase, create, addTask, customTaskRunsRepository };
+  return { useCase, create, addTask, publish, customTaskRunsRepository };
 }
 
 describe('ReleaseCustomTaskUseCase', () => {
@@ -124,5 +128,19 @@ describe('ReleaseCustomTaskUseCase', () => {
     await expect(useCase.execute(CODE, 'operator-1')).rejects.toThrow(
       /already running.*A120260101000000/s,
     );
+  });
+
+  it('announces the release so other open pages can refresh', async () => {
+    const { useCase, publish } = build();
+    await useCase.execute(CODE, 'operator-1');
+    expect(publish).toHaveBeenCalledWith('custom-tasks');
+  });
+
+  it('announces nothing when the release was refused', async () => {
+    const { useCase, publish } = build({
+      activeRun: { orderId: 'A120260101000000' },
+    });
+    await expect(useCase.execute(CODE, 'operator-1')).rejects.toThrow();
+    expect(publish).not.toHaveBeenCalled();
   });
 });

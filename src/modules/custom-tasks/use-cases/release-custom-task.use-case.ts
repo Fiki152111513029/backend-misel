@@ -17,6 +17,7 @@ import { CUSTOM_TASK_RUNS_REPOSITORY } from '../repositories/custom-task-run-rep
 import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-repository.interface';
 import { assertWarehouseBinsReady } from './assert-warehouse-bins-ready';
 import { resolveCustomTask } from './resolve-custom-task';
+import { RealtimeService } from '../../realtime/realtime.service';
 
 @Injectable()
 export class ReleaseCustomTaskUseCase {
@@ -33,6 +34,7 @@ export class ReleaseCustomTaskUseCase {
     private readonly factoryMapsRepository: IFactoryMapsRepository,
     private readonly rcsStockStatusService: RcsStockStatusService,
     private readonly taskOrderService: TaskOrderService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async execute(code: string, operatorId: string) {
@@ -114,6 +116,10 @@ export class ReleaseCustomTaskUseCase {
         `Custom task ${orderId} was accepted by RCS but its history row could not be saved: ${error}`,
       );
     }
+
+    // The operator who sent it already sees it, but anyone with the
+    // history or a dashboard open should too, without waiting for a tick.
+    this.realtime.publish('custom-tasks');
 
     return { ...preview, orderId, runId, releasedAt: new Date() };
   }

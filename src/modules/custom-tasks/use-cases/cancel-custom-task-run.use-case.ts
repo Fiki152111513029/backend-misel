@@ -8,6 +8,7 @@ import { TaskStatus } from '@prisma/client';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
 import { CUSTOM_TASK_RUNS_REPOSITORY } from '../repositories/custom-task-run-repository.interface';
 import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-repository.interface';
+import { RealtimeService } from '../../realtime/realtime.service';
 
 @Injectable()
 export class CancelCustomTaskRunUseCase {
@@ -15,6 +16,7 @@ export class CancelCustomTaskRunUseCase {
     @Inject(CUSTOM_TASK_RUNS_REPOSITORY)
     private readonly customTaskRunsRepository: ICustomTaskRunsRepository,
     private readonly taskOrderService: TaskOrderService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async execute(id: string) {
@@ -44,6 +46,8 @@ export class CancelCustomTaskRunUseCase {
       deviceNumber: run.robot?.amrDeviceSerialNo ?? '',
     });
 
-    return this.customTaskRunsRepository.cancel(id);
+    const cancelled = await this.customTaskRunsRepository.cancel(id);
+    this.realtime.publish('custom-tasks');
+    return cancelled;
   }
 }

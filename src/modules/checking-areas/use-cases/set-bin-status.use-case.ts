@@ -8,6 +8,7 @@ import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/reposi
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { WarehouseLocationStatus } from '@prisma/client';
 import type { BinStatus } from './get-checking-area.use-case';
+import { RealtimeService } from '../../realtime/realtime.service';
 
 @Injectable()
 export class SetBinStatusUseCase {
@@ -15,6 +16,7 @@ export class SetBinStatusUseCase {
     @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
     private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
     private readonly rcsStockStatusService: RcsStockStatusService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async execute(code: string, status: BinStatus) {
@@ -40,6 +42,10 @@ export class SetBinStatusUseCase {
           ? WarehouseLocationStatus.FULL
           : WarehouseLocationStatus.EMPTY,
     });
+
+    // Another operator may be looking at the same bin on Checking Area,
+    // or at the Factory Map node that draws from it.
+    this.realtime.publish('stock');
 
     return { iRaypleLocationCode: code, stockStatus: status };
   }

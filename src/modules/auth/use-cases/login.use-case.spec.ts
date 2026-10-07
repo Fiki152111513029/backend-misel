@@ -18,7 +18,7 @@ describe('LoginUseCase', () => {
     },
   };
 
-  const usersRepository = { findByIdentifier: jest.fn() };
+  const usersRepository = { findByIdentifier: jest.fn(), setOnlineStatus: jest.fn() };
   const refreshTokenRepository = { create: jest.fn() };
   const tokenService = {
     signAccessToken: jest.fn().mockReturnValue('access-token'),

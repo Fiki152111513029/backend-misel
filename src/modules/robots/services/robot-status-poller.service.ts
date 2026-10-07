@@ -3,6 +3,7 @@ import { Interval } from '@nestjs/schedule';
 import { ROBOTS_REPOSITORY } from '../repositories/robot-repository.interface';
 import type { IRobotsRepository } from '../repositories/robot-repository.interface';
 import { RobotTelemetryService } from './robot-telemetry.service';
+import { RealtimeService } from '../../realtime/realtime.service';
 
 // Every other telemetry fetch in this module is a side effect of an
 // incoming HTTP request (the Robots page, Factory Map, etc. polling their
@@ -21,6 +22,7 @@ export class RobotStatusPollerService {
     @Inject(ROBOTS_REPOSITORY)
     private readonly robotsRepository: IRobotsRepository,
     private readonly robotTelemetryService: RobotTelemetryService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   @Interval(POLL_INTERVAL_MS)
@@ -43,6 +45,9 @@ export class RobotStatusPollerService {
       // RobotActivityLogRepository.createLog). The merged result itself
       // isn't needed here.
       await this.robotTelemetryService.mergeByDevice(items);
+      // One server-side poll of RCS now feeds every open browser, instead
+      // of each of them polling this API on its own timer.
+      this.realtime.publish('robots');
     } catch (error) {
       this.logger.warn(`Background telemetry poll failed: ${error}`);
     } finally {

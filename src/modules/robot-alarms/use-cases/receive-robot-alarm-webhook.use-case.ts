@@ -3,6 +3,7 @@ import { ROBOT_ALARMS_REPOSITORY } from '../repositories/robot-alarm-repository.
 import type { IRobotAlarmsRepository } from '../repositories/robot-alarm-repository.interface';
 import { WEBHOOK_LOGS_REPOSITORY } from '../../webhook-logs/repositories/webhook-log-repository.interface';
 import type { IWebhookLogsRepository } from '../../webhook-logs/repositories/webhook-log-repository.interface';
+import { RealtimeService } from '../../realtime/realtime.service';
 
 @Injectable()
 export class ReceiveRobotAlarmWebhookUseCase {
@@ -11,6 +12,7 @@ export class ReceiveRobotAlarmWebhookUseCase {
     private readonly robotAlarmsRepository: IRobotAlarmsRepository,
     @Inject(WEBHOOK_LOGS_REPOSITORY)
     private readonly webhookLogsRepository: IWebhookLogsRepository,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async execute(body: Record<string, unknown>) {
@@ -47,6 +49,12 @@ export class ReceiveRobotAlarmWebhookUseCase {
       requestPayload: body,
       responsePayload,
     });
+
+    // An alarm is the one thing operators want on screen the instant it
+    // happens, so this is the signal that most justifies the socket.
+    // `robots` goes with it because the Factory Map marks alarmed robots.
+    this.realtime.publish('alarms');
+    this.realtime.publish('robots');
 
     return responsePayload;
   }

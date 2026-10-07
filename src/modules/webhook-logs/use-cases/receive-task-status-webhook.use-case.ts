@@ -3,6 +3,7 @@ import { TaskStatus } from '@prisma/client';
 import { WEBHOOK_LOGS_REPOSITORY } from '../repositories/webhook-log-repository.interface';
 import type { IWebhookLogsRepository } from '../repositories/webhook-log-repository.interface';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
+import { RealtimeService } from '../../realtime/realtime.service';
 
 // RCS's own OrderStatus codes (see docs/apiwebhook.md and the Mainline
 // status mapping) — 8 is the only success code, 3/5/7 are terminal
@@ -30,6 +31,7 @@ export class ReceiveTaskStatusWebhookUseCase {
     @Inject(WEBHOOK_LOGS_REPOSITORY)
     private readonly webhookLogsRepository: IWebhookLogsRepository,
     private readonly taskOrderService: TaskOrderService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async execute(body: Record<string, unknown>) {
@@ -122,6 +124,16 @@ export class ReceiveTaskStatusWebhookUseCase {
       requestPayload: body,
       responsePayload,
     });
+
+    // Published once the writes above have landed, so a client that
+    // refetches on this signal cannot read the row as it was before. RCS
+    // pushing to us is what makes the whole task side of the UI live —
+    // every task list, Current Queue card and Performance count is waiting
+    // on exactly this. Sent even when the payload matched nothing of ours,
+    // since the Webhook Logs page shows the raw call either way.
+    this.realtime.publish('tasks');
+    this.realtime.publish('custom-tasks');
+    this.realtime.publish('trolley-activities');
 
     return responsePayload;
   }
