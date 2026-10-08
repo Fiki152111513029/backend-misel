@@ -18,6 +18,14 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Read Dashboard',
     description: 'View the main dashboard',
   },
+  // Fleet Overview — its own page, deliberately separate from
+  // dashboard.read so a role can be given one without the other. The data
+  // it shows is still gated by robot.read on the API side.
+  {
+    code: 'fleet-overview.read',
+    name: 'Read Fleet Overview',
+    description: 'View the Fleet Overview page',
+  },
   // User Management
   { code: 'user.create', name: 'Create User', description: 'Create new users' },
   { code: 'user.read', name: 'Read User', description: 'View users' },
@@ -641,7 +649,13 @@ const ALL_PERMISSION_CODES = PERMISSIONS.map((p) => p.code);
 // create their own request boxes, but only Super Admin gets full CRUD access.
 const LINE_STAFF_CODES = [
   'dashboard.read',
+  'fleet-overview.read',
   'robot-alarm.read',
+  // The Dashboard and Fleet Overview both render the Factory Map
+  // unconditionally, so without this the widget just fails to load for
+  // these roles — they already hold every other permission it reads from
+  // (robot, trolley-activity, robot-alarm).
+  'factory-map.read',
   'warehouse.read',
   'robot.read',
   'model-code-process.read',
