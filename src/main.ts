@@ -29,7 +29,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Ichii Backend API')
+    .setTitle('YAZAKI Backend API')
     .setDescription('Authentication & RBAC API')
     .setVersion('1.0')
     .addBearerAuth(
