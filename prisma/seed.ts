@@ -565,6 +565,15 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Read Trolley Activity',
     description: 'View trolley activities',
   },
+  // The Overview block (aggregate stats, Yamazumi charts, daily trend) on
+  // the Trolley Activities page. Separate from .read because the table is
+  // the operator's own work log, while these are management figures across
+  // every operator.
+  {
+    code: 'trolley-activity.summary',
+    name: 'Read Trolley Activity Overview',
+    description: 'View the Overview stats and charts on the Trolley Activities page',
+  },
   {
     code: 'trolley-activity.delete',
     name: 'Delete Trolley Activity',
