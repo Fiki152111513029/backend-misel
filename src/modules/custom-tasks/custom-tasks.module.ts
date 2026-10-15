@@ -7,6 +7,7 @@ import { WarehouseLocationsModule } from '../warehouse-locations/warehouse-locat
 import { CustomTaskController } from './controllers/custom-task.controller';
 import { CUSTOM_TASK_RUNS_REPOSITORY } from './repositories/custom-task-run-repository.interface';
 import { CustomTaskRunRepository } from './repositories/custom-task-run.repository';
+import { CustomTaskBinWatcherService } from './services/custom-task-bin-watcher.service';
 import { CancelCustomTaskRunUseCase } from './use-cases/cancel-custom-task-run.use-case';
 import { GetCustomTaskRunsUseCase } from './use-cases/get-custom-task-runs.use-case';
 import { LookupCustomTaskUseCase } from './use-cases/lookup-custom-task.use-case';
@@ -20,8 +21,9 @@ import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-ca
   imports: [
     ControlTasksModule,
     TasksModule,
-    // Releasing a task first checks the route's Warehouse Location bins
-    // against RCS — see assertWarehouseBinsReady.
+    // Releasing a task first checks the route's pickup bin against RCS —
+    // see checkPickupBinReady — and the watcher below keeps asking until a
+    // held task's rack is filled.
     WarehouseLocationsModule,
     FactoryMapsModule,
     RcsStockStatusModule,
@@ -33,6 +35,7 @@ import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-ca
     ReleaseCustomTaskUseCase,
     GetCustomTaskRunsUseCase,
     CancelCustomTaskRunUseCase,
+    CustomTaskBinWatcherService,
   ],
   exports: [CUSTOM_TASK_RUNS_REPOSITORY],
 })

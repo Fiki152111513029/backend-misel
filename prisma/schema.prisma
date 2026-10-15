@@ -963,6 +963,22 @@ model CustomTaskRun {
   // WarehouseCartTask and TrolleyActivity too. This column is what lets
   // the table say "Cancelled" instead of a misleading "Failed".
   cancelledAt      DateTime?
+  // Set while the run is held back because its pickup bin is empty, and
+  // cleared the moment the watcher dispatches it to RCS. `status` stays
+  // PENDING throughout — same reasoning as cancelledAt above: TaskStatus is
+  // shared with Task, WarehouseCartTask and TrolleyActivity, so a state
+  // only Custom Tasks have lives in its own column rather than in the enum.
+  waitingForBinAt  DateTime?
+  // The pickup location code it is waiting on. Stored rather than re-derived
+  // from taskPath so the watcher can query bins directly, and so the UI can
+  // name the rack the operator is waiting for.
+  waitingForCode   String?
+  // Snapshotted for the same reason as taskPath and modelProcessCode above:
+  // a held run must be dispatched with exactly what was resolved when the
+  // operator sent it, even if the Control Task or its Model Code Process is
+  // edited while it waits. Null on rows written before holding existed.
+  fromSystem       String?
+  priority         Int?
   robotId          String?
   operatorId       String
   createdAt        DateTime   @default(now())
@@ -976,5 +992,7 @@ model CustomTaskRun {
   @@index([robotId])
   @@index([operatorId])
   @@index([createdAt])
+  // The watcher polls for held runs on a timer, so this must not be a scan.
+  @@index([waitingForBinAt])
   @@map("custom_task_runs")
 }

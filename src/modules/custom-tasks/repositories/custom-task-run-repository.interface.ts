@@ -21,6 +21,15 @@ export interface CreateCustomTaskRunData {
   taskPath: string;
   modelProcessCode: string;
   operatorId: string;
+  /** What to dispatch with later; only meaningful on a held run. */
+  fromSystem?: string | null;
+  priority?: number | null;
+  /**
+   * Set only when the run is being held back: the pickup code whose bin is
+   * empty. The row is created with waitingForBinAt stamped and nothing is
+   * sent to RCS until the watcher sees that bin filled.
+   */
+  waitingForCode?: string | null;
 }
 
 export type CustomTaskRunSortBy = 'createdAt' | 'code' | 'name';
@@ -59,6 +68,17 @@ export interface ICustomTaskRunsRepository {
   findActiveByControlTaskId(
     controlTaskId: string,
   ): Promise<CustomTaskRun | null>;
+  /**
+   * Runs held back waiting for their pickup bin, oldest first. FIFO matters:
+   * when two tasks wait on the same rack, the one asked for first is the one
+   * that gets the pallet.
+   */
+  findWaitingForBin(): Promise<CustomTaskRun[]>;
+  /**
+   * Clears the wait stamp once the run has been accepted by RCS, so the
+   * watcher stops considering it.
+   */
+  markDispatched(id: string): Promise<CustomTaskRun>;
   /** Marks the run cancelled: FAILED plus a cancelledAt stamp. */
   cancel(id: string): Promise<CustomTaskRunWithRelations>;
 }

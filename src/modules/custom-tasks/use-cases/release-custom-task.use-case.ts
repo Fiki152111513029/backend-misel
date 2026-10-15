@@ -15,7 +15,7 @@ import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/reposi
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { CUSTOM_TASK_RUNS_REPOSITORY } from '../repositories/custom-task-run-repository.interface';
 import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-repository.interface';
-import { assertWarehouseBinsReady } from './assert-warehouse-bins-ready';
+import { checkPickupBinReady } from './check-pickup-bin-ready';
 import { resolveCustomTask } from './resolve-custom-task';
 import { RealtimeService } from '../../realtime/realtime.service';
 
@@ -55,15 +55,17 @@ export class ReleaseCustomTaskUseCase {
       );
     if (outstanding) {
       throw new BadRequestException(
-        `${preview.code} is already running (order ${outstanding.orderId}). Wait for it to finish, or cancel it on All Tasks > Task Custom, then send again.`,
+        outstanding.waitingForBinAt
+          ? `${preview.code} is already waiting for rack ${outstanding.waitingForCode} to be filled (order ${outstanding.orderId}). It will run on its own once the rack is ready, or cancel it to send a different task.`
+          : `${preview.code} is already running (order ${outstanding.orderId}). Wait for it to finish, or cancel it on All Tasks > Task Custom, then send again.`,
       );
     }
 
-    // Checked before anything is sent: a Warehouse Location on the route
-    // that RCS still has as a full bin means the AMR would arrive at an
-    // occupied slot, so the task is refused here instead of failing on the
-    // floor. Throws BadRequest, which the scan page shows as its toast.
-    await assertWarehouseBinsReady(
+    // An empty pickup rack no longer refuses the send. The task is parked
+    // instead, and CustomTaskBinWatcherService dispatches it the moment RCS
+    // reports that rack filled — so the operator sends once and walks away
+    // rather than standing at the terminal retrying.
+    const pickupBin = await checkPickupBinReady(
       {
         warehouseLocationsRepository: this.warehouseLocationsRepository,
         factoryMapsRepository: this.factoryMapsRepository,
@@ -77,6 +79,36 @@ export class ReleaseCustomTaskUseCase {
     // came from, and two Control Tasks released in the same second cannot
     // collide on the same id.
     const orderId = `${preview.code}${generateOrderId()}`;
+
+    if (!pickupBin.ready) {
+      // Held, not sent. The row is written first and must succeed: unlike a
+      // dispatched task, nothing exists anywhere else to fall back on — if
+      // this row is lost the task simply never happens, and the operator
+      // would be left believing it was queued.
+      const run = await this.customTaskRunsRepository.create({
+        orderId,
+        controlTaskId: preview.controlTaskId,
+        code: preview.code,
+        name: preview.name,
+        taskPath: preview.taskPath,
+        modelProcessCode: preview.modelProcessCode,
+        operatorId,
+        waitingForCode: pickupBin.code,
+        fromSystem: preview.fromSystem,
+        priority: preview.priority,
+      });
+
+      this.realtime.publish('custom-tasks');
+
+      return {
+        ...preview,
+        orderId,
+        runId: run.id,
+        releasedAt: null,
+        queued: true,
+        waitingForCode: pickupBin.code,
+      };
+    }
 
     await this.taskOrderService.addTask({
       modelProcessCode: preview.modelProcessCode,
@@ -121,6 +153,13 @@ export class ReleaseCustomTaskUseCase {
     // history or a dashboard open should too, without waiting for a tick.
     this.realtime.publish('custom-tasks');
 
-    return { ...preview, orderId, runId, releasedAt: new Date() };
+    return {
+      ...preview,
+      orderId,
+      runId,
+      releasedAt: new Date(),
+      queued: false,
+      waitingForCode: null,
+    };
   }
 }

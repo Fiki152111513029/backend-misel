@@ -1,15 +1,20 @@
-import { BadRequestException } from '@nestjs/common';
 import { NODE_STATUS_EMPTY } from '../../rcs-stock-status/rcs-stock-status.service';
 import type { RcsStockStatusService } from '../../rcs-stock-status/rcs-stock-status.service';
 import type { IFactoryMapsRepository } from '../../factory-maps/repositories/factory-map-repository.interface';
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 
 /**
- * Checks the pickup end of a Custom Task's route before it is dispatched.
+ * Reports whether the pickup end of a Custom Task's route is ready.
  *
  *   first leg (pickup) must be FULL (2) — something has to be there to
  *                                         collect; empty means the robot
  *                                         would make the trip for nothing
+ *
+ * Reports rather than refuses. An empty pickup bin used to reject the send
+ * outright, which meant the operator had to stand by and keep retrying
+ * until the rack was filled. Now the caller holds the task instead and a
+ * watcher dispatches it once the bin fills, so this returns a verdict and
+ * lets the caller decide what to do with it.
  *
  * The drop end is deliberately NOT checked. A task dropping into a
  * warehouse node goes out whatever RCS says that node holds, full or not.
@@ -23,19 +28,25 @@ import type { IWarehouseLocationsRepository } from '../../warehouse-locations/re
  * Production Locations are not tracked this way at all.
  *
  * Deliberately fails open: a code RCS says nothing about (unknown area, RCS
- * unreachable, node not registered there) does NOT block the task. RCS
- * going quiet must not stop the floor from working, so only an explicitly
- * wrong status is treated as a reason to refuse.
+ * unreachable, node not registered there) counts as ready. RCS going quiet
+ * must not stop the floor from working, so only an explicitly empty bin is
+ * treated as a reason to hold the task back.
  */
-export async function assertWarehouseBinsReady(
+export type PickupBinVerdict =
+  /** Send it now. */
+  | { ready: true }
+  /** Hold it: this pickup code is an empty bin in RCS right now. */
+  | { ready: false; code: string };
+
+export async function checkPickupBinReady(
   deps: {
     warehouseLocationsRepository: IWarehouseLocationsRepository;
     factoryMapsRepository: IFactoryMapsRepository;
     rcsStockStatusService: RcsStockStatusService;
   },
   route: string[],
-): Promise<void> {
-  if (route.length === 0) return;
+): Promise<PickupBinVerdict> {
+  if (route.length === 0) return { ready: true };
 
   const { items: warehouseLocations } =
     await deps.warehouseLocationsRepository.findAll({
@@ -52,7 +63,7 @@ export async function assertWarehouseBinsReady(
   );
 
   const pickup = route[0];
-  if (!warehouseCodes.has(pickup)) return;
+  if (!warehouseCodes.has(pickup)) return { ready: true };
 
   const { items: maps } = await deps.factoryMapsRepository.findAll({
     page: 1,
@@ -63,16 +74,16 @@ export async function assertWarehouseBinsReady(
   const areaIds = maps
     .map((map) => map.areaNumber)
     .filter((areaNumber): areaNumber is number => areaNumber != null);
-  if (areaIds.length === 0) return;
+  if (areaIds.length === 0) return { ready: true };
 
   const byCode = await deps.rcsStockStatusService.getStockStatusByCode(areaIds);
 
   const status = byCode.get(pickup);
-  if (status === undefined) return;
+  if (status === undefined) return { ready: true };
 
   if (String(status) === NODE_STATUS_EMPTY) {
-    throw new BadRequestException(
-      `Empty pallet not ready — ${pickup} is the pickup point, but RCS reports it as an empty bin (nodeStatus 0), so there is nothing to collect. Fill it on Checking Area, or load it on the floor, then send again.`,
-    );
+    return { ready: false, code: pickup };
   }
+
+  return { ready: true };
 }

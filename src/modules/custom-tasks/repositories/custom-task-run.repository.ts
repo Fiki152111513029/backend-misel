@@ -26,8 +26,38 @@ function parseLocalDateOnly(date: string): Date {
 export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: CreateCustomTaskRunData) {
-    return this.prisma.customTaskRun.create({ data });
+  create({ waitingForCode, ...data }: CreateCustomTaskRunData) {
+    return this.prisma.customTaskRun.create({
+      data: {
+        ...data,
+        // Stamped together: the code says which rack, the timestamp is what
+        // the watcher and the UI test for.
+        waitingForCode: waitingForCode ?? null,
+        waitingForBinAt: waitingForCode ? new Date() : null,
+      },
+    });
+  }
+
+  findWaitingForBin() {
+    return this.prisma.customTaskRun.findMany({
+      where: {
+        waitingForBinAt: { not: null },
+        waitingForCode: { not: null },
+        // A held run was never sent to RCS, so only a cancel can end it —
+        // but a status filter still guards against a row left inconsistent
+        // by a crash between dispatch and markDispatched.
+        status: TaskStatus.PENDING,
+        cancelledAt: null,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  markDispatched(id: string) {
+    return this.prisma.customTaskRun.update({
+      where: { id },
+      data: { waitingForBinAt: null, waitingForCode: null },
+    });
   }
 
   findById(id: string) {

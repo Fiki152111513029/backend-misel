@@ -10,14 +10,21 @@ import { ReleaseCustomTaskUseCase } from './release-custom-task.use-case';
 const CODE = 'A1';
 const ROUTE = ['T1B', 'T1B'];
 
+const WAREHOUSE_ROUTE = ['WRL12', 'PT2A'];
+
 function build(
-  overrides: { activeRun?: unknown; createThrows?: boolean } = {},
+  overrides: {
+    activeRun?: unknown;
+    createThrows?: boolean;
+    /** Route starts on a warehouse bin RCS reports as empty. */
+    emptyPickup?: boolean;
+  } = {},
 ) {
   const controlTask = {
     id: 'control-task-1',
     code: CODE,
     name: 'Supply line 3',
-    route: ROUTE,
+    route: overrides.emptyPickup ? WAREHOUSE_ROUTE : ROUTE,
     isActive: true,
     modelCodeProcess: {
       id: 'm1',
@@ -46,16 +53,36 @@ function build(
       .mockResolvedValue(overrides.activeRun ?? null),
   };
 
-  // No warehouse leg on the route, so the bin guard short-circuits without
-  // ever reaching RCS — this spec is about the release, not that guard.
+  // By default no warehouse leg on the route, so the bin check
+  // short-circuits without ever reaching RCS — most of this spec is about
+  // the release, not that check. emptyPickup flips it to a warehouse
+  // pickup RCS reports as empty, which is what parks the task.
   const warehouseLocationsRepository = {
-    findAll: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+    findAll: jest.fn().mockResolvedValue({
+      items: overrides.emptyPickup
+        ? [
+            {
+              iRaypleLocationCode: 'WRL12',
+              isActive: true,
+              deletedAt: null,
+            },
+          ]
+        : [],
+      total: overrides.emptyPickup ? 1 : 0,
+    }),
   };
   const factoryMapsRepository = {
-    findAll: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+    findAll: jest.fn().mockResolvedValue({
+      items: overrides.emptyPickup ? [{ areaNumber: 1 }] : [],
+      total: overrides.emptyPickup ? 1 : 0,
+    }),
   };
   const rcsStockStatusService = {
-    getStockStatusByCode: jest.fn().mockResolvedValue(new Map()),
+    getStockStatusByCode: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.emptyPickup ? new Map([['WRL12', 0]]) : new Map(),
+      ),
   };
 
   const addTask = jest.fn().mockResolvedValue({ code: 1000 });
@@ -78,6 +105,75 @@ function build(
 }
 
 describe('ReleaseCustomTaskUseCase', () => {
+  describe('when the pickup rack is empty', () => {
+    it('holds the task instead of refusing it', async () => {
+      const { useCase } = build({ emptyPickup: true });
+      const result = await useCase.execute(CODE, 'operator-1');
+      expect(result.queued).toBe(true);
+      expect(result.waitingForCode).toBe('WRL12');
+    });
+
+    it('sends nothing to RCS', async () => {
+      const { useCase, addTask } = build({ emptyPickup: true });
+      await useCase.execute(CODE, 'operator-1');
+      expect(addTask).not.toHaveBeenCalled();
+    });
+
+    it('records the row with the rack it is waiting on', async () => {
+      const { useCase, create } = build({ emptyPickup: true });
+      const result = await useCase.execute(CODE, 'operator-1');
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: result.orderId,
+          waitingForCode: 'WRL12',
+          fromSystem: 'MES',
+        }),
+      );
+    });
+
+    it('hands back a runId so the operator can cancel the wait', async () => {
+      const { useCase } = build({ emptyPickup: true });
+      const result = await useCase.execute(CODE, 'operator-1');
+      expect(result.runId).toBe('run-123');
+    });
+
+    it('reports no release time, because nothing was released', async () => {
+      const { useCase } = build({ emptyPickup: true });
+      const result = await useCase.execute(CODE, 'operator-1');
+      expect(result.releasedAt).toBeNull();
+    });
+
+    it('fails loudly when the row cannot be saved', async () => {
+      // Unlike a dispatched task, a held one exists nowhere else. Losing
+      // the row would mean it never runs, so the operator must be told
+      // rather than led to believe it is queued.
+      const { useCase } = build({ emptyPickup: true, createThrows: true });
+      await expect(useCase.execute(CODE, 'operator-1')).rejects.toThrow(
+        'db down',
+      );
+    });
+
+    it('tells the operator a held task is already waiting on that rack', async () => {
+      const { useCase } = build({
+        activeRun: {
+          orderId: 'A120260101000000',
+          waitingForBinAt: new Date(),
+          waitingForCode: 'WRL12',
+        },
+      });
+      await expect(useCase.execute(CODE, 'operator-1')).rejects.toThrow(
+        /already waiting for rack WRL12/,
+      );
+    });
+  });
+
+  it('reports a normal send as not queued', async () => {
+    const { useCase } = build();
+    const result = await useCase.execute(CODE, 'operator-1');
+    expect(result.queued).toBe(false);
+    expect(result.releasedAt).toBeInstanceOf(Date);
+  });
+
   it('returns the id of the history row it created', async () => {
     const { useCase } = build();
     const result = await useCase.execute(CODE, 'operator-1');
