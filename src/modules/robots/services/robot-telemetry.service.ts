@@ -175,6 +175,76 @@ export class RobotTelemetryService {
   // snapshot forever — past this age they go back to calling RCS directly.
   private static readonly CACHE_MAX_AGE_MS = 30_000;
 
+  /**
+   * Device reports RCS pushes to /agv-logs, keyed by deviceCode.
+   *
+   * Same field names as the deviceInfo response this service already
+   * parses, so one reading path serves both. When a robot has a fresh push
+   * it is used instead of anything polled — the push is newer by
+   * definition, and it is what lets the poller stop calling RCS at all.
+   */
+  private readonly pushedByDevice = new Map<
+    string,
+    { device: ExternalDeviceInfo; at: number }
+  >();
+
+  /**
+   * How long a pushed reading stays authoritative. Past this the robot
+   * falls back to polled data, so a device that stops reporting cannot
+   * sit frozen on the map forever.
+   */
+  private static readonly PUSH_TTL_MS = 10_000;
+
+  /**
+   * Records a device report pushed in by RCS.
+   *
+   * Keys are trimmed because the reports have been seen with trailing
+   * spaces ("battery ", "deviceName "), which would otherwise silently
+   * read as undefined and blank out every field.
+   */
+  ingestPushedDevice(raw: Record<string, unknown>): string | null {
+    const device: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      device[key.trim()] = value;
+    }
+
+    const code = device.deviceCode;
+    if (typeof code !== 'string' || code.trim() === '') return null;
+
+    const previous = this.pushedByDevice.get(code.trim())?.device;
+    // The push carries no heading or speed, but the map needs a heading to
+    // point the marker. Carry the last known values forward rather than
+    // snapping every robot back to zero degrees on each report.
+    if (device.oritation === undefined && previous?.oritation !== undefined) {
+      device.oritation = previous.oritation;
+    }
+    if (device.speed === undefined && previous?.speed !== undefined) {
+      device.speed = previous.speed;
+    }
+
+    this.pushedByDevice.set(code.trim(), {
+      device: device as ExternalDeviceInfo,
+      at: Date.now(),
+    });
+    return code.trim();
+  }
+
+  /** True while any robot has reported recently — the poller skips RCS then. */
+  hasFreshPush(): boolean {
+    const cutoff = Date.now() - RobotTelemetryService.PUSH_TTL_MS;
+    for (const entry of this.pushedByDevice.values()) {
+      if (entry.at >= cutoff) return true;
+    }
+    return false;
+  }
+
+  private freshPush(serialNo: string): ExternalDeviceInfo | null {
+    const entry = this.pushedByDevice.get(serialNo);
+    if (!entry) return null;
+    if (Date.now() - entry.at > RobotTelemetryService.PUSH_TTL_MS) return null;
+    return entry.device;
+  }
+
   constructor(
     private readonly configService: ConfigService,
     @Inject(ROBOT_ACTIVITY_LOG_REPOSITORY)
@@ -335,6 +405,11 @@ export class RobotTelemetryService {
     areaId: number,
     refresh: boolean,
   ): Promise<ExternalDeviceInfo[]> {
+    // Every robot is reporting for itself, so there is nothing to ask RCS
+    // for. This is what turns the poll off in normal operation.
+    if (this.hasFreshPush()) {
+      return this.deviceCache.get(areaId)?.devices ?? [];
+    }
     if (!refresh) {
       const cached = this.deviceCache.get(areaId);
       if (
@@ -401,11 +476,16 @@ export class RobotTelemetryService {
       const devices = devicesByArea.get(robot.areaId) ?? [];
       const serialNo = robot.amrDeviceSerialNo.trim();
       const deviceNo = robot.amrDeviceNo.trim();
-      const match = devices.find(
-        (device) =>
-          String(device.deviceCode ?? '').trim() === serialNo &&
-          String(device.deviceName ?? '').trim() === deviceNo,
-      );
+      // A fresh push wins over anything polled: it is newer by definition,
+      // and matching on deviceCode alone is deliberate — the push carries
+      // no area, so it cannot be narrowed the way the polled list is.
+      const match =
+        this.freshPush(serialNo) ??
+        devices.find(
+          (device) =>
+            String(device.deviceCode ?? '').trim() === serialNo &&
+            String(device.deviceName ?? '').trim() === deviceNo,
+        );
       const telemetry = match ? this.toTelemetry(match) : NO_TELEMETRY;
 
       // Fire-and-forget: build up Robot Activity history as a side effect

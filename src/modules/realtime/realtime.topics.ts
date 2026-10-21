@@ -21,6 +21,8 @@ export const REALTIME_TOPICS = [
   'trolley-activities',
   /** A Warehouse/Production Location bin status changed in RCS. */
   'stock',
+  /** RCS pushed a new AGV report to /agv-logs. */
+  'agv-logs',
 ] as const;
 
 export type RealtimeTopic = (typeof REALTIME_TOPICS)[number];

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RealtimeGateway } from './realtime.gateway';
+import type { RobotPosition } from './realtime.gateway';
 import type { RealtimeTopic } from './realtime.topics';
 
 /**
@@ -23,6 +24,18 @@ export class RealtimeService {
       this.gateway.broadcast(topic);
     } catch (error) {
       this.logger.warn(`Failed to publish "${topic}" over websocket: ${error}`);
+    }
+  }
+
+  /**
+   * The one place data rides the socket instead of a signal — see
+   * ROBOT_POSITIONS_EVENT for why positions are the exception.
+   */
+  publishRobotPositions(robots: RobotPosition[]): void {
+    try {
+      this.gateway.broadcastRobotPositions(robots);
+    } catch (error) {
+      this.logger.warn(`Failed to push robot positions: ${error}`);
     }
   }
 }

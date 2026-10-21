@@ -622,6 +622,12 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Correct Bin Status',
     description: 'Mark a bin empty or full in RCS to match the floor',
   },
+  // AGV Logs — raw device reports RCS pushes to /agv-logs
+  {
+    code: 'agv-log.read',
+    name: 'Read AGV Logs',
+    description: 'View raw AGV reports received from RCS',
+  },
   // Robot Alarms — the Critical Alarms stat and Abnormality-by-zone chart
   // on the main Dashboard
   {

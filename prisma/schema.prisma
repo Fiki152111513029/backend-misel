@@ -897,6 +897,29 @@ model Task {
 // reporting task status — see docs/apiwebhook.md), regardless of whether we
 // could match it to one of our own tasks. Kept for the "Webhook Logs" page
 // and as an audit trail independent of our own Task/WarehouseCartTask state.
+/// Raw AGV reports pushed in by RCS, stored exactly as received.
+///
+/// Separate table from WebhookLog on purpose: that one is the task-status
+/// webhook and its rows are read back by order id to drive Task state, while
+/// these are device telemetry reports kept only for inspection. Mixing them
+/// would make both harder to query and to age out.
+model AgvLog {
+  id              String   @id @default(uuid())
+  method          String
+  endpoint        String
+  /// Pulled out of the payload so the list can be filtered by robot without
+  /// digging through JSON. Null when the report carries no recognizable
+  /// device field — the row is still kept.
+  deviceCode      String?
+  requestPayload  Json
+  responsePayload Json
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([deviceCode])
+  @@map("agv_logs")
+}
+
 model WebhookLog {
   id              String   @id @default(uuid())
   method          String

@@ -24,6 +24,7 @@ import { UpdateRobotUseCase } from './use-cases/update-robot.use-case';
 import { RobotTelemetryService } from './services/robot-telemetry.service';
 import { RobotActivityLogRetentionService } from './services/robot-activity-log-retention.service';
 import { RobotStatusAggregationService } from './services/robot-status-aggregation.service';
+import { RobotPositionBroadcastService } from './services/robot-position-broadcast.service';
 import { RobotStatusPollerService } from './services/robot-status-poller.service';
 import { RobotStatusRollupService } from './services/robot-status-rollup.service';
 
@@ -44,6 +45,7 @@ import { RobotStatusRollupService } from './services/robot-status-rollup.service
     RobotActivityLogRetentionService,
     RobotStatusAggregationService,
     RobotStatusPollerService,
+    RobotPositionBroadcastService,
     RobotStatusRollupService,
     CreateRobotUseCase,
     GetRobotsUseCase,
@@ -58,6 +60,12 @@ import { RobotStatusRollupService } from './services/robot-status-rollup.service
     GetFleetStatusUseCase,
     GetRobotTaskSummaryUseCase,
   ],
-  exports: [ROBOTS_REPOSITORY],
+  // RobotTelemetryService is exported so AgvLogsModule can push device
+  // reports straight into the live cache it serves every reader from.
+  exports: [
+    ROBOTS_REPOSITORY,
+    RobotTelemetryService,
+    RobotPositionBroadcastService,
+  ],
 })
 export class RobotsModule {}
