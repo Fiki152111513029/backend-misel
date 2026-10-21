@@ -17,8 +17,22 @@ function parseLocalDateOnly(date: string): Date {
   return new Date(year, month - 1, day);
 }
 
+// The table is an inspection buffer, not history: only the most recent
+// reports are ever useful, and RCS pushes constantly. Capped by row count
+// rather than by age, because the push rate — not the calendar — is what
+// decides how fast it grows.
+const MAX_ROWS = 500;
+// Trimmed down to this, so there is room before the cap is approached again.
+const TRIM_TO = 450;
+// Trimming on every insert would mean a delete query per report. Checking
+// every N keeps the cost negligible while still guaranteeing the cap:
+// TRIM_TO + TRIM_EVERY (475) stays safely under MAX_ROWS.
+const TRIM_EVERY = 25;
+
 @Injectable()
 export class AgvLogRepository implements IAgvLogsRepository {
+  private insertsSinceTrim = 0;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async createLog(data: CreateAgvLogData): Promise<void> {
@@ -31,6 +45,35 @@ export class AgvLogRepository implements IAgvLogsRepository {
         responsePayload: data.responsePayload as Prisma.InputJsonValue,
       },
     });
+
+    this.insertsSinceTrim += 1;
+    if (this.insertsSinceTrim >= TRIM_EVERY) {
+      this.insertsSinceTrim = 0;
+      await this.trimToCap();
+    }
+  }
+
+  /**
+   * Deletes everything past the newest TRIM_TO rows.
+   *
+   * Raw SQL because this is one statement in the database rather than
+   * reading ids back into Node first — the OFFSET does the selection, and
+   * the createdAt index makes the ordering cheap.
+   */
+  private async trimToCap(): Promise<void> {
+    try {
+      await this.prisma.$executeRaw`
+        DELETE FROM "agv_logs"
+        WHERE "id" IN (
+          SELECT "id" FROM "agv_logs"
+          ORDER BY "createdAt" DESC
+          OFFSET ${TRIM_TO}
+        )
+      `;
+    } catch {
+      // Losing a trim is harmless — the next one catches up. Failing the
+      // report that triggered it would not be.
+    }
   }
 
   async findAll(
@@ -68,12 +111,5 @@ export class AgvLogRepository implements IAgvLogsRepository {
     return rows
       .map((row) => row.deviceCode)
       .filter((code): code is string => code != null);
-  }
-
-  async deleteOlderThan(cutoff: Date): Promise<number> {
-    const { count } = await this.prisma.agvLog.deleteMany({
-      where: { createdAt: { lt: cutoff } },
-    });
-    return count;
   }
 }

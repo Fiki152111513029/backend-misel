@@ -3,7 +3,6 @@ import { RobotsModule } from '../robots/robots.module';
 import { AgvLogController } from './controllers/agv-log.controller';
 import { AGV_LOGS_REPOSITORY } from './repositories/agv-log-repository.interface';
 import { AgvLogRepository } from './repositories/agv-log.repository';
-import { AgvLogRetentionService } from './services/agv-log-retention.service';
 import { GetAgvLogsUseCase } from './use-cases/get-agv-logs.use-case';
 import { ReceiveAgvReportUseCase } from './use-cases/receive-agv-report.use-case';
 
@@ -19,7 +18,6 @@ import { ReceiveAgvReportUseCase } from './use-cases/receive-agv-report.use-case
     { provide: AGV_LOGS_REPOSITORY, useClass: AgvLogRepository },
     ReceiveAgvReportUseCase,
     GetAgvLogsUseCase,
-    AgvLogRetentionService,
   ],
   exports: [AGV_LOGS_REPOSITORY],
 })

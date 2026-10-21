@@ -37,6 +37,4 @@ export interface IAgvLogsRepository {
   findAll(params: FindAllAgvLogsParams): Promise<FindAllAgvLogsResult>;
   /** Device codes seen in the stored reports, for the filter dropdown. */
   findDeviceCodes(): Promise<string[]>;
-  /** Returns the number of rows deleted — used by AgvLogRetentionService. */
-  deleteOlderThan(cutoff: Date): Promise<number>;
 }
