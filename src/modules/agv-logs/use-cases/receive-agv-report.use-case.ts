@@ -22,9 +22,25 @@ const DEVICE_FIELDS = [
   'robotCode',
 ] as const;
 
-function extractDeviceCode(body: Record<string, unknown>): string | null {
+/**
+ * Reports have been seen with trailing spaces in their field names
+ * ("deviceName ", "battery "), which read as undefined under the plain
+ * name and silently blanked the Device column. Keys are trimmed before
+ * anything is looked up — the same thing RobotTelemetryService does.
+ */
+function normalizeKeys(body: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) out[key.trim()] = value;
+  return out;
+}
+
+function extractDeviceCode(raw: Record<string, unknown>): string | null {
+  const body = normalizeKeys(raw);
   for (const field of DEVICE_FIELDS) {
     const value = body[field];
+    // An empty string is a present-but-unset field — RCS sends those for
+    // everything it has nothing to say about, so it must not count as the
+    // device and stop the search early.
     if (typeof value === 'string' && value.trim() !== '') return value.trim();
     if (typeof value === 'number') return String(value);
   }
