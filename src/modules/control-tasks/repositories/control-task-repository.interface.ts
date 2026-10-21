@@ -5,6 +5,8 @@ export type ControlTaskWithRelations = ControlTask & {
     ModelCodeProcess,
     'id' | 'name' | 'fromSystem' | 'isActive'
   > | null;
+  /** Operators this task was registered to — who sees it in Custom Task. */
+  assignees: { user: { id: string; username: string; fullName: string } }[];
 };
 
 export interface CreateControlTaskData {
@@ -13,6 +15,8 @@ export interface CreateControlTaskData {
   modelCodeProcessId: string;
   route: string[];
   isActive?: boolean;
+  /** Operators allowed to dispatch it from Custom Task. */
+  userIds?: string[];
 }
 
 export interface UpdateControlTaskData {
@@ -21,6 +25,8 @@ export interface UpdateControlTaskData {
   modelCodeProcessId?: string;
   route?: string[];
   isActive?: boolean;
+  /** Replaces the whole assignee list when given; left alone when omitted. */
+  userIds?: string[];
 }
 
 export type ControlTaskSortBy = 'code' | 'name' | 'createdAt';
@@ -58,6 +64,11 @@ export interface IControlTasksRepository {
   findByCode(code: string): Promise<ControlTaskWithRelations | null>;
   existsByCode(code: string, excludeId?: string): Promise<boolean>;
   existsByName(name: string, excludeId?: string): Promise<boolean>;
+  /**
+   * Active tasks registered to this operator, for the Custom Task picker.
+   * Not paginated: it is a short, hand-curated list by design.
+   */
+  findAssignedToUser(userId: string): Promise<ControlTaskWithRelations[]>;
   modelCodeProcessExists(id: string): Promise<boolean>;
   findRouteOptions(): Promise<RouteOption[]>;
   create(data: CreateControlTaskData): Promise<ControlTaskWithRelations>;

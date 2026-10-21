@@ -16,6 +16,7 @@ import { CustomTaskRunQueryDto } from '../dto/custom-task-run-query.dto';
 import { ReleaseCustomTaskDto } from '../dto/release-custom-task.dto';
 import { CancelCustomTaskRunUseCase } from '../use-cases/cancel-custom-task-run.use-case';
 import { GetCustomTaskRunsUseCase } from '../use-cases/get-custom-task-runs.use-case';
+import { GetMyControlTasksUseCase } from '../use-cases/get-my-control-tasks.use-case';
 import { LookupCustomTaskUseCase } from '../use-cases/lookup-custom-task.use-case';
 import { ReleaseCustomTaskUseCase } from '../use-cases/release-custom-task.use-case';
 
@@ -25,6 +26,7 @@ import { ReleaseCustomTaskUseCase } from '../use-cases/release-custom-task.use-c
 export class CustomTaskController {
   constructor(
     private readonly lookupCustomTaskUseCase: LookupCustomTaskUseCase,
+    private readonly getMyControlTasksUseCase: GetMyControlTasksUseCase,
     private readonly releaseCustomTaskUseCase: ReleaseCustomTaskUseCase,
     private readonly getCustomTaskRunsUseCase: GetCustomTaskRunsUseCase,
     private readonly cancelCustomTaskRunUseCase: CancelCustomTaskRunUseCase,
@@ -54,6 +56,21 @@ export class CustomTaskController {
   async cancelRun(@Param('id', ParseUUIDPipe) id: string) {
     const data = await this.cancelCustomTaskRunUseCase.execute(id);
     return { success: true, message: 'Custom Task cancelled', data };
+  }
+
+  @Get('mine')
+  @Permissions('custom-task.read')
+  @ApiOperation({
+    summary:
+      "Control Tasks registered to the signed-in operator — the Custom Task picker. Must stay above @Get('lookup/:code') so 'mine' is not read as a code",
+  })
+  async mine(@CurrentUser() user: AuthRequestUser) {
+    const data = await this.getMyControlTasksUseCase.execute(user.userId);
+    return {
+      success: true,
+      message: 'Assigned Control Tasks retrieved successfully',
+      data,
+    };
   }
 
   @Get('lookup/:code')

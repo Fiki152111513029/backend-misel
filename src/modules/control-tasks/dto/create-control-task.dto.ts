@@ -38,6 +38,15 @@ export class CreateControlTaskDto {
   @MaxLength(100, { each: true })
   route!: string[];
 
+  // Who may dispatch this from Custom Task. Optional and may be empty: a
+  // task with nobody assigned is still reachable by scanning its QR label,
+  // it just does not appear in anyone's picker.
+  @ApiPropertyOptional({ type: [String], format: 'uuid' })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  userIds?: string[];
+
   @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()
   @IsBoolean()

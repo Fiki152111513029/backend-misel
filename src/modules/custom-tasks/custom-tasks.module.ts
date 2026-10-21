@@ -10,6 +10,7 @@ import { CustomTaskRunRepository } from './repositories/custom-task-run.reposito
 import { CustomTaskBinWatcherService } from './services/custom-task-bin-watcher.service';
 import { CancelCustomTaskRunUseCase } from './use-cases/cancel-custom-task-run.use-case';
 import { GetCustomTaskRunsUseCase } from './use-cases/get-custom-task-runs.use-case';
+import { GetMyControlTasksUseCase } from './use-cases/get-my-control-tasks.use-case';
 import { LookupCustomTaskUseCase } from './use-cases/lookup-custom-task.use-case';
 import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-case';
 
@@ -34,6 +35,7 @@ import { ReleaseCustomTaskUseCase } from './use-cases/release-custom-task.use-ca
     LookupCustomTaskUseCase,
     ReleaseCustomTaskUseCase,
     GetCustomTaskRunsUseCase,
+    GetMyControlTasksUseCase,
     CancelCustomTaskRunUseCase,
     CustomTaskBinWatcherService,
   ],

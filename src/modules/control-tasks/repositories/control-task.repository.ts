@@ -16,6 +16,11 @@ const WITH_RELATIONS = {
   modelCodeProcess: {
     select: { id: true, name: true, fromSystem: true, isActive: true },
   },
+  assignees: {
+    select: {
+      user: { select: { id: true, username: true, fullName: true } },
+    },
+  },
 } satisfies Prisma.ControlTaskInclude;
 
 @Injectable()
@@ -114,18 +119,46 @@ export class ControlTaskRepository implements IControlTasksRepository {
     ];
   }
 
-  create(data: CreateControlTaskData) {
+  create({ userIds, ...data }: CreateControlTaskData) {
     return this.prisma.controlTask.create({
-      data,
+      data: {
+        ...data,
+        assignees: userIds?.length
+          ? { create: userIds.map((userId) => ({ userId })) }
+          : undefined,
+      },
       include: WITH_RELATIONS,
     });
   }
 
-  update(id: string, data: UpdateControlTaskData) {
+  update(id: string, { userIds, ...data }: UpdateControlTaskData) {
     return this.prisma.controlTask.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        // Replaced wholesale rather than merged: the form always submits
+        // the complete list, so anyone missing from it was removed on
+        // purpose. Omitting userIds entirely leaves assignees untouched.
+        assignees: userIds
+          ? {
+              deleteMany: {},
+              create: userIds.map((userId) => ({ userId })),
+            }
+          : undefined,
+      },
       include: WITH_RELATIONS,
+    });
+  }
+
+  findAssignedToUser(userId: string) {
+    return this.prisma.controlTask.findMany({
+      where: {
+        ...NOT_DELETED,
+        isActive: true,
+        assignees: { some: { userId } },
+      },
+      include: WITH_RELATIONS,
+      orderBy: { name: 'asc' },
     });
   }
 

@@ -42,6 +42,8 @@ model User {
   warehouseCartTasks        WarehouseCartTask[]
   trolleyActivities         TrolleyActivity[]
   customTaskRuns            CustomTaskRun[]
+  /// Control Tasks this operator may dispatch from Custom Task.
+  controlTasks              ControlTaskUser[]
 
   @@index([roleId])
   @@index([shiftId])
@@ -897,6 +899,25 @@ model Task {
 // reporting task status — see docs/apiwebhook.md), regardless of whether we
 // could match it to one of our own tasks. Kept for the "Webhook Logs" page
 // and as an audit trail independent of our own Task/WarehouseCartTask state.
+/// Which operators a Control Task was registered to.
+///
+/// Explicit join table rather than an implicit many-to-many, matching
+/// RolePermission: it gives the pairing its own id and timestamp, which is
+/// what lets "who was this handed to, and when" be answered later.
+model ControlTaskUser {
+  id            String   @id @default(uuid())
+  controlTaskId String
+  userId        String
+  createdAt     DateTime @default(now())
+
+  controlTask ControlTask @relation(fields: [controlTaskId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([controlTaskId, userId])
+  @@index([userId])
+  @@map("control_task_users")
+}
+
 /// Raw AGV reports pushed in by RCS, stored exactly as received.
 ///
 /// Separate table from WebhookLog on purpose: that one is the task-status
@@ -954,6 +975,10 @@ model ControlTask {
 
   modelCodeProcess ModelCodeProcess @relation(fields: [modelCodeProcessId], references: [id])
   runs             CustomTaskRun[]
+  /// Who may dispatch this task from Custom Task. Empty means nobody sees
+  /// it in the picker — a task has to be handed to someone deliberately.
+  /// Scanning its QR still resolves it, the same way it always did.
+  assignees        ControlTaskUser[]
 
   // `code`/`name` uniqueness is enforced by partial unique indexes (WHERE
   // "deletedAt" IS NULL, see migration) so a soft-deleted row can be reused.
