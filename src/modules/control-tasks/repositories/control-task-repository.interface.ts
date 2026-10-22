@@ -12,6 +12,10 @@ export type ControlTaskWithRelations = ControlTask & {
 export interface CreateControlTaskData {
   code: string;
   name: string;
+  /** Heading in the Custom Task picker; null groups it under "Other". */
+  groupName?: string | null;
+  /** Button colour as #RRGGBB; null uses the page default. */
+  colorCode?: string | null;
   modelCodeProcessId: string;
   route: string[];
   isActive?: boolean;
@@ -22,6 +26,8 @@ export interface CreateControlTaskData {
 export interface UpdateControlTaskData {
   code?: string;
   name?: string;
+  groupName?: string | null;
+  colorCode?: string | null;
   modelCodeProcessId?: string;
   route?: string[];
   isActive?: boolean;

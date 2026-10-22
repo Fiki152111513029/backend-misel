@@ -961,6 +961,17 @@ model ControlTask {
   // Short letter designation printed on the QR label, e.g. "A", "B1".
   code              String
   name               String
+  /// Heading this task sits under in the Custom Task picker, e.g. "WRL23L".
+  /// Free text and set by hand: grouping by station is the operator's own
+  /// arrangement, and guessing it from the name or the route would be wrong
+  /// as soon as either is worded differently. Tasks with none fall under a
+  /// single "Other" heading rather than disappearing.
+  /// Named groupName, not group, because `group` is a reserved word in SQL.
+  groupName          String?
+  /// Colour of this task's button in Custom Task, as #RRGGBB. Optional:
+  /// tasks without one use the page's default blue, so existing rows keep
+  /// looking exactly as they do now.
+  colorCode          String?
   modelCodeProcessId String
   // The iRayple location codes to visit, in the order the operator chose.
   // Stored as an ordered list rather than a set: a route may legitimately
@@ -984,6 +995,7 @@ model ControlTask {
   // "deletedAt" IS NULL, see migration) so a soft-deleted row can be reused.
   @@index([code])
   @@index([name])
+  @@index([groupName])
   @@index([modelCodeProcessId])
   @@map("control_tasks")
 }

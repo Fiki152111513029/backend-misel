@@ -158,7 +158,13 @@ export class ControlTaskRepository implements IControlTasksRepository {
         assignees: { some: { userId } },
       },
       include: WITH_RELATIONS,
-      orderBy: { name: 'asc' },
+      // Group first so the picker can walk the list once and emit a heading
+      // whenever the group changes. Nulls sort last, which puts the
+      // ungrouped "Other" section at the bottom where it belongs.
+      orderBy: [
+        { groupName: { sort: 'asc', nulls: 'last' } },
+        { name: 'asc' },
+      ],
     });
   }
 

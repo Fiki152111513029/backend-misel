@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   IsUUID,
   MaxLength,
 } from 'class-validator';
@@ -22,6 +23,22 @@ export class CreateControlTaskDto {
   @IsNotEmpty()
   @MaxLength(100)
   name!: string;
+
+  // Free text and optional. Tasks sharing a value are listed together in
+  // Custom Task under that heading.
+  @ApiPropertyOptional({ example: 'WRL23L', maxLength: 50 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  groupName?: string;
+
+  // Validated rather than taken as free text: the value is interpolated
+  // straight into a style attribute on the button, so it has to be a plain
+  // hex colour and nothing else.
+  @ApiPropertyOptional({ example: '#01ADEF' })
+  @IsOptional()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'colorCode must be a #RRGGBB hex colour' })
+  colorCode?: string;
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
