@@ -1033,6 +1033,11 @@ model CustomTaskRun {
   // from taskPath so the watcher can query bins directly, and so the UI can
   // name the rack the operator is waiting for.
   waitingForCode   String?
+  /// The RCS nodeStatus that releases it: '2' when waiting for a pickup
+  /// rack to be filled, '0' when waiting for a drop slot to be cleared.
+  /// Stored because the two waits look identical otherwise, and the
+  /// watcher has to know which way round to test.
+  waitingForStatus String?
   // Snapshotted for the same reason as taskPath and modelProcessCode above:
   // a held run must be dispatched with exactly what was resolved when the
   // operator sent it, even if the Control Task or its Model Code Process is

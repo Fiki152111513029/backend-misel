@@ -30,6 +30,8 @@ export interface CreateCustomTaskRunData {
    * sent to RCS until the watcher sees that bin filled.
    */
   waitingForCode?: string | null;
+  /** RCS nodeStatus that releases it: '2' pickup filled, '0' drop cleared. */
+  waitingForStatus?: string | null;
 }
 
 export type CustomTaskRunSortBy = 'createdAt' | 'code' | 'name';
@@ -74,6 +76,16 @@ export interface ICustomTaskRunsRepository {
    * that gets the pallet.
    */
   findWaitingForBin(): Promise<CustomTaskRun[]>;
+  /**
+   * Moves a parked run onto a different condition — used when the end that
+   * blocks it changes while it waits (its pickup fills, but the drop has
+   * since filled too).
+   */
+  updateWait(
+    id: string,
+    waitingForCode: string,
+    waitingForStatus: string,
+  ): Promise<void>;
   /**
    * Clears the wait stamp once the run has been accepted by RCS, so the
    * watcher stops considering it.

@@ -32,7 +32,25 @@ function build(options: {
     .fn()
     .mockResolvedValue(options.waiting ?? []);
   const markDispatched = jest.fn().mockResolvedValue(undefined);
-  const customTaskRunsRepository = { findWaitingForBin, markDispatched };
+  const updateWait = jest.fn().mockResolvedValue(undefined);
+  const customTaskRunsRepository = {
+    findWaitingForBin,
+    markDispatched,
+    updateWait,
+  };
+
+  // Both ends of every fixture route are judged against this set, so the
+  // warehouse codes have to be here for the rule to see them at all.
+  const warehouseLocationsRepository = {
+    findAll: jest.fn().mockResolvedValue({
+      items: ['WRL12', 'WRL13'].map((code) => ({
+        iRaypleLocationCode: code,
+        isActive: true,
+        deletedAt: null,
+      })),
+      total: 2,
+    }),
+  };
 
   const factoryMapsRepository = {
     findAll: jest.fn().mockResolvedValue({
@@ -56,6 +74,7 @@ function build(options: {
   const service = new CustomTaskBinWatcherService(
     customTaskRunsRepository as never,
     factoryMapsRepository as never,
+    warehouseLocationsRepository as never,
     rcsStockStatusService as never,
     taskOrderService as never,
     { publish } as never,
@@ -65,6 +84,7 @@ function build(options: {
     service,
     addTask,
     markDispatched,
+    updateWait,
     publish,
     getStockStatusByCode,
     findWaitingForBin,
@@ -168,7 +188,10 @@ describe('CustomTaskBinWatcherService', () => {
 
     it('still serves two tasks waiting on different racks', async () => {
       const { service, addTask } = build({
-        waiting: [older, run({ id: 'other', waitingForCode: 'WRL13' })],
+        waiting: [
+          older,
+          run({ id: 'other', waitingForCode: 'WRL13', taskPath: 'WRL13,PT2A' }),
+        ],
         stock: { WRL12: FULL, WRL13: FULL },
       });
       await service.poll();

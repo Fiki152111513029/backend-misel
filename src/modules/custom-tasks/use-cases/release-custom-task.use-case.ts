@@ -15,7 +15,7 @@ import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/reposi
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import { CUSTOM_TASK_RUNS_REPOSITORY } from '../repositories/custom-task-run-repository.interface';
 import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-repository.interface';
-import { checkPickupBinReady } from './check-pickup-bin-ready';
+import { checkRouteBins } from './check-route-bins';
 import { resolveCustomTask } from './resolve-custom-task';
 import { RealtimeService } from '../../realtime/realtime.service';
 
@@ -61,11 +61,11 @@ export class ReleaseCustomTaskUseCase {
       );
     }
 
-    // An empty pickup rack no longer refuses the send. The task is parked
-    // instead, and CustomTaskBinWatcherService dispatches it the moment RCS
-    // reports that rack filled — so the operator sends once and walks away
-    // rather than standing at the terminal retrying.
-    const pickupBin = await checkPickupBinReady(
+    // Neither end being ready refuses the send any more. The task is
+    // parked instead, and CustomTaskBinWatcherService dispatches it the
+    // moment RCS reports the condition met — so the operator sends once and
+    // walks away rather than standing at the terminal retrying.
+    const routeBins = await checkRouteBins(
       {
         warehouseLocationsRepository: this.warehouseLocationsRepository,
         factoryMapsRepository: this.factoryMapsRepository,
@@ -80,7 +80,7 @@ export class ReleaseCustomTaskUseCase {
     // collide on the same id.
     const orderId = `${preview.code}${generateOrderId()}`;
 
-    if (!pickupBin.ready) {
+    if (!routeBins.ready) {
       // Held, not sent. The row is written first and must succeed: unlike a
       // dispatched task, nothing exists anywhere else to fall back on — if
       // this row is lost the task simply never happens, and the operator
@@ -93,7 +93,8 @@ export class ReleaseCustomTaskUseCase {
         taskPath: preview.taskPath,
         modelProcessCode: preview.modelProcessCode,
         operatorId,
-        waitingForCode: pickupBin.code,
+        waitingForCode: routeBins.code,
+        waitingForStatus: routeBins.needStatus,
         fromSystem: preview.fromSystem,
         priority: preview.priority,
       });
@@ -106,7 +107,10 @@ export class ReleaseCustomTaskUseCase {
         runId: run.id,
         releasedAt: null,
         queued: true,
-        waitingForCode: pickupBin.code,
+        waitingForCode: routeBins.code,
+        // The scan page words its notice differently depending on which
+        // end is blocking — "rack not ready" reads wrong for a full drop.
+        waitingFor: routeBins.role,
       };
     }
 
@@ -160,6 +164,7 @@ export class ReleaseCustomTaskUseCase {
       releasedAt: new Date(),
       queued: false,
       waitingForCode: null,
+      waitingFor: null,
     };
   }
 }

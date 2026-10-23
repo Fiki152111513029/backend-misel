@@ -2,10 +2,13 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { FACTORY_MAPS_REPOSITORY } from '../../factory-maps/repositories/factory-map-repository.interface';
 import type { IFactoryMapsRepository } from '../../factory-maps/repositories/factory-map-repository.interface';
+import { RcsStockStatusService } from '../../rcs-stock-status/rcs-stock-status.service';
+import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 import {
-  NODE_STATUS_FULL,
-  RcsStockStatusService,
-} from '../../rcs-stock-status/rcs-stock-status.service';
+  evaluateRouteBins,
+  loadRouteBinContext,
+} from '../use-cases/check-route-bins';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
 import { RealtimeService } from '../../realtime/realtime.service';
 import { DEFAULT_PRIORITY } from '../use-cases/resolve-custom-task';
@@ -36,6 +39,8 @@ export class CustomTaskBinWatcherService {
     private readonly customTaskRunsRepository: ICustomTaskRunsRepository,
     @Inject(FACTORY_MAPS_REPOSITORY)
     private readonly factoryMapsRepository: IFactoryMapsRepository,
+    @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
+    private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
     private readonly rcsStockStatusService: RcsStockStatusService,
     private readonly taskOrderService: TaskOrderService,
     private readonly realtime: RealtimeService,
@@ -60,31 +65,48 @@ export class CustomTaskBinWatcherService {
     const waiting = await this.customTaskRunsRepository.findWaitingForBin();
     if (waiting.length === 0) return;
 
-    const { items: maps } = await this.factoryMapsRepository.findAll({
-      page: 1,
-      limit: 100,
-      sortBy: 'name',
-      sortOrder: 'asc',
+    // Fetched once for the whole batch rather than per task.
+    const context = await loadRouteBinContext({
+      warehouseLocationsRepository: this.warehouseLocationsRepository,
+      factoryMapsRepository: this.factoryMapsRepository,
+      rcsStockStatusService: this.rcsStockStatusService,
     });
-    const areaIds = maps
-      .map((map) => map.areaNumber)
-      .filter((areaNumber): areaNumber is number => areaNumber != null);
-    if (areaIds.length === 0) return;
-
-    const byCode =
-      await this.rcsStockStatusService.getStockStatusByCode(areaIds);
 
     // One pallet per rack, so one task per rack per tick. findWaitingForBin
     // returns oldest first, so claiming each code once here means the task
-    // asked for first is the one that gets it; the rest keep waiting for
-    // the rack to be refilled.
+    // asked for first is the one that gets it; the rest keep waiting.
     const claimed = new Set<string>();
     let dispatched = false;
 
     for (const run of waiting) {
-      const code = run.waitingForCode;
-      if (!code || claimed.has(code)) continue;
-      if (String(byCode.get(code)) !== NODE_STATUS_FULL) continue;
+      // The whole route is re-evaluated, not just the end it parked on. A
+      // task held for an empty pickup could otherwise be released into a
+      // drop slot that filled up while it waited.
+      const route = run.taskPath.split(',').map((leg) => leg.trim());
+      // requireKnown: a parked task is only released on a positive
+      // reading. RCS going quiet is not proof the bin was put right.
+      const verdict = evaluateRouteBins(route, context, {
+        requireKnown: true,
+      });
+
+      if (!verdict.ready) {
+        // Still blocked — and possibly by the other end now, so keep the
+        // stored condition in step with what it is actually waiting for.
+        if (
+          verdict.code !== run.waitingForCode ||
+          verdict.needStatus !== run.waitingForStatus
+        ) {
+          await this.customTaskRunsRepository.updateWait(
+            run.id,
+            verdict.code,
+            verdict.needStatus,
+          );
+        }
+        continue;
+      }
+
+      const code = run.waitingForCode ?? route[0];
+      if (claimed.has(code)) continue;
       claimed.add(code);
 
       try {
@@ -104,7 +126,7 @@ export class CustomTaskBinWatcherService {
         // instead would lose work the operator believes is queued.
         claimed.delete(code);
         this.logger.warn(
-          `Held custom task ${run.orderId} could not be dispatched once ${code} filled: ${error}`,
+          `Held custom task ${run.orderId} could not be dispatched once ${code} was ready: ${error}`,
         );
         continue;
       }
@@ -112,7 +134,7 @@ export class CustomTaskBinWatcherService {
       await this.customTaskRunsRepository.markDispatched(run.id);
       dispatched = true;
       this.logger.log(
-        `Held custom task ${run.orderId} dispatched — ${code} is now a full bin`,
+        `Held custom task ${run.orderId} dispatched — its route bins are ready`,
       );
     }
 

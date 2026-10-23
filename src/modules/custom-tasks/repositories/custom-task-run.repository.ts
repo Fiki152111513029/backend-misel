@@ -26,13 +26,18 @@ function parseLocalDateOnly(date: string): Date {
 export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create({ waitingForCode, ...data }: CreateCustomTaskRunData) {
+  create({
+    waitingForCode,
+    waitingForStatus,
+    ...data
+  }: CreateCustomTaskRunData) {
     return this.prisma.customTaskRun.create({
       data: {
         ...data,
         // Stamped together: the code says which rack, the timestamp is what
         // the watcher and the UI test for.
         waitingForCode: waitingForCode ?? null,
+        waitingForStatus: waitingForCode ? (waitingForStatus ?? null) : null,
         waitingForBinAt: waitingForCode ? new Date() : null,
       },
     });
@@ -53,10 +58,25 @@ export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
     });
   }
 
+  async updateWait(
+    id: string,
+    waitingForCode: string,
+    waitingForStatus: string,
+  ): Promise<void> {
+    await this.prisma.customTaskRun.update({
+      where: { id },
+      data: { waitingForCode, waitingForStatus },
+    });
+  }
+
   markDispatched(id: string) {
     return this.prisma.customTaskRun.update({
       where: { id },
-      data: { waitingForBinAt: null, waitingForCode: null },
+      data: {
+        waitingForBinAt: null,
+        waitingForCode: null,
+        waitingForStatus: null,
+      },
     });
   }
 
