@@ -322,6 +322,16 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     return result.count > 0;
   }
 
+  async findCustomTaskRunTaskPathByOrderId(
+    orderId: string,
+  ): Promise<string | null> {
+    const run = await this.prisma.customTaskRun.findUnique({
+      where: { orderId },
+      select: { taskPath: true },
+    });
+    return run?.taskPath ?? null;
+  }
+
   async updateCustomTaskRunStatusByTaskId(
     taskId: string,
     status: TaskStatus,

@@ -94,6 +94,12 @@ export interface IWebhookLogsRepository {
     status: WarehouseCartTaskStatus,
     robotId?: string,
   ): Promise<boolean>;
+  /**
+   * The route of the Custom Task behind this orderId, as the comma-joined
+   * taskPath it was dispatched with. Null when the order belongs to some
+   * other kind of task.
+   */
+  findCustomTaskRunTaskPathByOrderId(orderId: string): Promise<string | null>;
   /** Returns true if a CustomTaskRun with this orderId was found and updated. */
   updateCustomTaskRunStatusByTaskId(
     taskId: string,

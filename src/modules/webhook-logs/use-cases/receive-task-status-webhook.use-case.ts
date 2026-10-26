@@ -4,6 +4,12 @@ import { WEBHOOK_LOGS_REPOSITORY } from '../repositories/webhook-log-repository.
 import type { IWebhookLogsRepository } from '../repositories/webhook-log-repository.interface';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
 import { RealtimeService } from '../../realtime/realtime.service';
+import {
+  NODE_STATUS_EMPTY,
+  RcsStockStatusService,
+} from '../../rcs-stock-status/rcs-stock-status.service';
+import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 
 // RCS's own OrderStatus codes (see docs/apiwebhook.md and the Mainline
 // status mapping) — 8 is the only success code, 3/5/7 are terminal
@@ -11,6 +17,11 @@ import { RealtimeService } from '../../realtime/realtime.service';
 // recognize yet) is treated as still in progress.
 const RCS_COMPLETED_CODE = '8';
 const RCS_FAILED_CODES = ['3', '5', '7'];
+
+// 21 = Picked: the moment the rack leaves the node it was collected from.
+// Not 20 (Picking, still lifting) and not 22/23, which are about putting
+// it down somewhere else.
+const RCS_PICKED_CODE = '21';
 
 function normalizeStatus(rawStatus: string): TaskStatus {
   if (rawStatus === TaskStatus.COMPLETED || rawStatus === RCS_COMPLETED_CODE) {
@@ -32,7 +43,56 @@ export class ReceiveTaskStatusWebhookUseCase {
     private readonly webhookLogsRepository: IWebhookLogsRepository,
     private readonly taskOrderService: TaskOrderService,
     private readonly realtime: RealtimeService,
+    private readonly rcsStockStatusService: RcsStockStatusService,
+    @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
+    private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
   ) {}
+
+  /**
+   * Marks a Custom Task's pickup node empty once the AGV has lifted its
+   * rack off it.
+   *
+   * RCS does not clear the node by itself, so without this the slot stays
+   * recorded as full long after the rack has gone — which then blocks the
+   * next task that wants to drop there, and makes Checking Area disagree
+   * with the floor.
+   *
+   * Only the first leg, and only when it is a Warehouse Location: those
+   * are the nodes whose occupancy is tracked at all.
+   */
+  private async clearPickupNode(orderId: string): Promise<void> {
+    const taskPath =
+      await this.webhookLogsRepository.findCustomTaskRunTaskPathByOrderId(
+        orderId,
+      );
+    if (!taskPath) return;
+
+    const pickup = taskPath.split(',')[0]?.trim();
+    if (!pickup) return;
+
+    const { items } = await this.warehouseLocationsRepository.findAll({
+      page: 1,
+      limit: 1000,
+      sortBy: 'name',
+      sortOrder: 'asc',
+    });
+    const isWarehouseNode = items.some(
+      (location) =>
+        location.isActive &&
+        !location.deletedAt &&
+        location.iRaypleLocationCode === pickup,
+    );
+    if (!isWarehouseNode) return;
+
+    // updateStockStatus, not setStockStatus: a failed call here must not
+    // break webhook processing, and RCS retries the webhook on anything
+    // but a 1000 ack.
+    await this.rcsStockStatusService.updateStockStatus(
+      pickup,
+      NODE_STATUS_EMPTY,
+    );
+    this.realtime.publish('stock');
+  }
 
   async execute(body: Record<string, unknown>) {
     // Always ack 1000 — RCS retries indefinitely (per its own retry policy)
@@ -72,11 +132,18 @@ export class ReceiveTaskStatusWebhookUseCase {
             // A Custom Task released from the scan page owns this orderId
             // too — same fall-through chain, so All Tasks > Custom Tasks
             // shows a live status instead of a row stuck on PENDING.
-            await this.webhookLogsRepository.updateCustomTaskRunStatusByTaskId(
-              orderId,
-              status,
-              robotId,
-            );
+            const matchedCustomTask =
+              await this.webhookLogsRepository.updateCustomTaskRunStatusByTaskId(
+                orderId,
+                status,
+                robotId,
+              );
+
+            // The rack has just been lifted, so the node it came from is
+            // now empty whatever RCS still has recorded for it.
+            if (matchedCustomTask && rawStatus === RCS_PICKED_CODE) {
+              await this.clearPickupNode(orderId);
+            }
             const matchedTrolleyActivity =
               await this.webhookLogsRepository.updateTrolleyActivityStatusByTaskId(
                 orderId,
