@@ -12,6 +12,8 @@ export interface CustomTaskPreview {
   controlTaskId: string;
   code: string;
   name: string;
+  /** The line that owns this task — what warehouse notices name as asking. */
+  groupName: string | null;
   route: string[];
   taskPath: string;
   modelProcessCode: string;
@@ -61,6 +63,7 @@ export async function resolveCustomTask(
       controlTaskId: controlTask.id,
       code: controlTask.code,
       name: controlTask.name,
+      groupName: controlTask.groupName,
       route: controlTask.route,
       taskPath: controlTask.route.join(','),
       modelProcessCode: modelCodeProcess.name,

@@ -100,6 +100,16 @@ export interface IWebhookLogsRepository {
    * other kind of task.
    */
   findCustomTaskRunTaskPathByOrderId(orderId: string): Promise<string | null>;
+  /**
+   * What a warehouse notice needs about the Custom Task behind this order:
+   * its route, and the line that owns it. Null when the order belongs to
+   * some other kind of task.
+   */
+  findCustomTaskRunNoticeContext(orderId: string): Promise<{
+    taskPath: string;
+    requester: string | null;
+    robotName: string | null;
+  } | null>;
   /** Returns true if a CustomTaskRun with this orderId was found and updated. */
   updateCustomTaskRunStatusByTaskId(
     taskId: string,

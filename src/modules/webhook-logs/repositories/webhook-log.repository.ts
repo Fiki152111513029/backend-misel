@@ -332,6 +332,23 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     return run?.taskPath ?? null;
   }
 
+  async findCustomTaskRunNoticeContext(orderId: string) {
+    const run = await this.prisma.customTaskRun.findUnique({
+      where: { orderId },
+      select: {
+        taskPath: true,
+        controlTask: { select: { groupName: true } },
+        robot: { select: { name: true } },
+      },
+    });
+    if (!run) return null;
+    return {
+      taskPath: run.taskPath,
+      requester: run.controlTask?.groupName ?? null,
+      robotName: run.robot?.name ?? null,
+    };
+  }
+
   async updateCustomTaskRunStatusByTaskId(
     taskId: string,
     status: TaskStatus,

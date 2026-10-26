@@ -89,7 +89,8 @@ function build(
   const taskOrderService = { addTask };
 
   const publish = jest.fn();
-  const realtime = { publish };
+  const publishWarehouseNotice = jest.fn();
+  const realtime = { publish, publishWarehouseNotice };
 
   const useCase = new ReleaseCustomTaskUseCase(
     controlTasksRepository as never,
@@ -101,7 +102,14 @@ function build(
     realtime as never,
   );
 
-  return { useCase, create, addTask, publish, customTaskRunsRepository };
+  return {
+    useCase,
+    create,
+    addTask,
+    publish,
+    publishWarehouseNotice,
+    customTaskRunsRepository,
+  };
 }
 
 describe('ReleaseCustomTaskUseCase', () => {

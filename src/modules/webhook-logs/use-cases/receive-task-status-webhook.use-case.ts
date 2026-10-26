@@ -60,6 +60,58 @@ export class ReceiveTaskStatusWebhookUseCase {
    * Only the first leg, and only when it is a Warehouse Location: those
    * are the nodes whose occupancy is tracked at all.
    */
+  /** Active Warehouse Location codes — which nodes are tracked at all. */
+  private async warehouseCodes(): Promise<Set<string>> {
+    const { items } = await this.warehouseLocationsRepository.findAll({
+      page: 1,
+      limit: 1000,
+      sortBy: 'name',
+      sortOrder: 'asc',
+    });
+    return new Set(
+      items
+        .filter((location) => location.isActive && !location.deletedAt)
+        .map((location) => location.iRaypleLocationCode),
+    );
+  }
+
+  /**
+   * Tells the warehouse an AMR is on its way, and what for.
+   *
+   * Sent from here rather than at dispatch because this is the first point
+   * the robot is known — RCS assigns one itself, after accepting the order.
+   * It fires on every update for the task; the page ignores repeats of a
+   * notice it has already shown, which keeps any "already told them" state
+   * out of the database.
+   */
+  private async notifyWarehouseRunning(orderId: string): Promise<void> {
+    const context =
+      await this.webhookLogsRepository.findCustomTaskRunNoticeContext(orderId);
+    if (!context?.robotName) return;
+
+    const route = context.taskPath.split(',').map((leg) => leg.trim());
+    const pickup = route[0];
+    const drop = route[route.length - 1];
+    const codes = await this.warehouseCodes();
+
+    // Collecting from the warehouse is the more urgent errand, so it wins
+    // when a route both starts and ends there.
+    const kind = codes.has(pickup)
+      ? ('pickup-running' as const)
+      : codes.has(drop)
+        ? ('drop-running' as const)
+        : null;
+    if (!kind) return;
+
+    this.realtime.publishWarehouseNotice({
+      kind,
+      requester: context.requester,
+      nodeCode: kind === 'pickup-running' ? pickup : drop,
+      robotName: context.robotName,
+      orderId,
+    });
+  }
+
   private async clearPickupNode(orderId: string): Promise<void> {
     const taskPath =
       await this.webhookLogsRepository.findCustomTaskRunTaskPathByOrderId(
@@ -141,8 +193,11 @@ export class ReceiveTaskStatusWebhookUseCase {
 
             // The rack has just been lifted, so the node it came from is
             // now empty whatever RCS still has recorded for it.
-            if (matchedCustomTask && rawStatus === RCS_PICKED_CODE) {
-              await this.clearPickupNode(orderId);
+            if (matchedCustomTask) {
+              await this.notifyWarehouseRunning(orderId);
+              if (rawStatus === RCS_PICKED_CODE) {
+                await this.clearPickupNode(orderId);
+              }
             }
             const matchedTrolleyActivity =
               await this.webhookLogsRepository.updateTrolleyActivityStatusByTaskId(

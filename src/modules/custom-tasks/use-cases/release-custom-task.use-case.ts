@@ -101,6 +101,17 @@ export class ReleaseCustomTaskUseCase {
 
       this.realtime.publish('custom-tasks');
 
+      // Tells the warehouse what to go and do about it. Without this the
+      // task sits parked and the only person who knows is the operator who
+      // sent it — who cannot fix the bin from where they are.
+      this.realtime.publishWarehouseNotice({
+        kind: routeBins.role === 'drop' ? 'drop-held' : 'pickup-held',
+        requester: preview.groupName,
+        nodeCode: routeBins.code,
+        robotName: null,
+        orderId,
+      });
+
       return {
         ...preview,
         orderId,

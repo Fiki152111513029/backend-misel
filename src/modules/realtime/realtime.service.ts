@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RealtimeGateway } from './realtime.gateway';
-import type { RobotPosition } from './realtime.gateway';
+import type { RobotPosition, WarehouseNotice } from './realtime.gateway';
 import type { RealtimeTopic } from './realtime.topics';
 
 /**
@@ -36,6 +36,18 @@ export class RealtimeService {
       this.gateway.broadcastRobotPositions(robots);
     } catch (error) {
       this.logger.warn(`Failed to push robot positions: ${error}`);
+    }
+  }
+
+  /** A Custom Task needs something of the warehouse — see WarehouseNotice. */
+  publishWarehouseNotice(notice: Omit<WarehouseNotice, 'at'>): void {
+    try {
+      this.gateway.broadcastWarehouseNotice({
+        ...notice,
+        at: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to push warehouse notice: ${error}`);
     }
   }
 }

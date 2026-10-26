@@ -34,6 +34,9 @@ function build(options: {
       .mockResolvedValue(
         options.taskPath === undefined ? `${WRL12},${PT2A}` : options.taskPath,
       ),
+    // The running notice reads from here; these tests are about clearing
+    // the node, so it is stubbed to report no robot and stay quiet.
+    findCustomTaskRunNoticeContext: jest.fn().mockResolvedValue(null),
   };
 
   const warehouseLocationsRepository = {
@@ -47,11 +50,12 @@ function build(options: {
   const rcsStockStatusService = { updateStockStatus };
 
   const publish = jest.fn();
+  const publishWarehouseNotice = jest.fn();
 
   const useCase = new ReceiveTaskStatusWebhookUseCase(
     webhookLogsRepository as never,
     { getTaskOrderStatus: jest.fn() } as never,
-    { publish } as never,
+    { publish, publishWarehouseNotice } as never,
     rcsStockStatusService as never,
     warehouseLocationsRepository as never,
   );
