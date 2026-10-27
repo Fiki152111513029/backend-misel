@@ -36,7 +36,20 @@ function build(options: {
       ),
     // The running notice reads from here; these tests are about clearing
     // the node, so it is stubbed to report no robot and stay quiet.
-    findCustomTaskRunNoticeContext: jest.fn().mockResolvedValue(null),
+    findCustomTaskRunNoticeContext: jest.fn().mockResolvedValue(
+      options.taskPath === null
+        ? null
+        : {
+            taskPath:
+              options.taskPath === undefined
+                ? `${WRL12},${PT2A}`
+                : options.taskPath,
+            requester: 'WRL23L',
+            // No robot yet, so the "on its way" notice stays quiet and
+            // these tests only see the ones they are about.
+            robotName: null,
+          },
+    ),
   };
 
   const warehouseLocationsRepository = {
@@ -60,12 +73,58 @@ function build(options: {
     warehouseLocationsRepository as never,
   );
 
-  return { useCase, updateStockStatus, publish, webhookLogsRepository };
+  return {
+    useCase,
+    updateStockStatus,
+    publish,
+    publishWarehouseNotice,
+    webhookLogsRepository,
+  };
 }
 
 function payload(status: string) {
   return { orderId: ORDER_ID, deviceCode: 'AMR0001', status };
 }
+
+const PLACED = '23';
+const PLACING = '22';
+
+describe('ReceiveTaskStatusWebhookUseCase — the drop node', () => {
+  it('marks it full once the rack is placed', async () => {
+    const { useCase, updateStockStatus } = build({
+      taskPath: `${PT2A},${WRL12}`,
+    });
+    await useCase.execute(payload(PLACED));
+    expect(updateStockStatus).toHaveBeenCalledWith(WRL12, '2');
+  });
+
+  it('announces the arrival to the warehouse', async () => {
+    const { useCase, publishWarehouseNotice } = build({
+      taskPath: `${PT2A},${WRL12}`,
+    });
+    await useCase.execute(payload(PLACED));
+    expect(publishWarehouseNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'drop-done', nodeCode: WRL12 }),
+    );
+  });
+
+  it('leaves a production drop alone — its occupancy is not tracked', async () => {
+    const { useCase, updateStockStatus, publishWarehouseNotice } = build({
+      taskPath: `${WRL12},${PT2A}`,
+    });
+    await useCase.execute(payload(PLACED));
+    expect(updateStockStatus).not.toHaveBeenCalled();
+    expect(publishWarehouseNotice).not.toHaveBeenCalled();
+  });
+
+  it('does nothing while the rack is still being placed', async () => {
+    const { useCase, updateStockStatus } = build({
+      taskPath: `${PT2A},${WRL12}`,
+    });
+    await useCase.execute(payload(PLACING));
+    expect(updateStockStatus).not.toHaveBeenCalled();
+  });
+});
 
 describe('ReceiveTaskStatusWebhookUseCase — clearing the pickup node', () => {
   it('marks the pickup node empty once the rack is picked', async () => {

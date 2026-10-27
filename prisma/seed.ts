@@ -622,6 +622,12 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Correct Bin Status',
     description: 'Mark a bin empty or full in RCS to match the floor',
   },
+  // App Settings — admin-editable wording (see app-setting.keys.ts)
+  {
+    code: 'setting.update',
+    name: 'Update Settings',
+    description: 'Change system wording and configuration',
+  },
   // AGV Logs — raw device reports RCS pushes to /agv-logs
   {
     code: 'agv-log.read',

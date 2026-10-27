@@ -23,6 +23,8 @@ export const REALTIME_TOPICS = [
   'stock',
   /** RCS pushed a new AGV report to /agv-logs. */
   'agv-logs',
+  /** An admin changed wording or configuration in App Settings. */
+  'settings',
 ] as const;
 
 export type RealtimeTopic = (typeof REALTIME_TOPICS)[number];

@@ -48,7 +48,13 @@ export interface WarehouseNotice {
    * drop-* concerns one delivering finished goods TO it. `-held` means it
    * is parked waiting on that bin, `-running` that it is on its way.
    */
-  kind: 'pickup-held' | 'drop-held' | 'pickup-running' | 'drop-running';
+  kind:
+    | 'pickup-held'
+    | 'drop-held'
+    | 'pickup-running'
+    | 'drop-running'
+    /** The AMR has put a finish-good rack down at this warehouse node. */
+    | 'drop-done';
   /** Which line asked for it — the Control Task's group, e.g. "WRL23L". */
   requester: string | null;
   /** The warehouse node the notice is about. */

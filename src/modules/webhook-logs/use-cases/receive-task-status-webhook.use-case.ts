@@ -6,6 +6,7 @@ import { TaskOrderService } from '../../tasks/services/task-order.service';
 import { RealtimeService } from '../../realtime/realtime.service';
 import {
   NODE_STATUS_EMPTY,
+  NODE_STATUS_FULL,
   RcsStockStatusService,
 } from '../../rcs-stock-status/rcs-stock-status.service';
 import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
@@ -22,6 +23,10 @@ const RCS_FAILED_CODES = ['3', '5', '7'];
 // Not 20 (Picking, still lifting) and not 22/23, which are about putting
 // it down somewhere else.
 const RCS_PICKED_CODE = '21';
+
+// 23 = Placed: the rack is down at its destination. The counterpart of
+// Picked — one empties the node it left, the other fills the one it reached.
+const RCS_PLACED_CODE = '23';
 
 function normalizeStatus(rawStatus: string): TaskStatus {
   if (rawStatus === TaskStatus.COMPLETED || rawStatus === RCS_COMPLETED_CODE) {
@@ -112,6 +117,39 @@ export class ReceiveTaskStatusWebhookUseCase {
     });
   }
 
+  /**
+   * Marks a Custom Task's drop node full once the AMR has set its rack
+   * down there, and tells the warehouse the goods have arrived.
+   *
+   * The mirror of clearPickupNode. Without it RCS keeps the slot recorded
+   * as free, which then lets the next task be dispatched into a node that
+   * is physically occupied — and nobody in the warehouse is told there is
+   * something waiting to be collected.
+   */
+  private async fillDropNode(orderId: string): Promise<void> {
+    const context =
+      await this.webhookLogsRepository.findCustomTaskRunNoticeContext(orderId);
+    if (!context) return;
+
+    const route = context.taskPath.split(',').map((leg) => leg.trim());
+    const drop = route[route.length - 1];
+    if (!drop) return;
+
+    const codes = await this.warehouseCodes();
+    if (!codes.has(drop)) return;
+
+    await this.rcsStockStatusService.updateStockStatus(drop, NODE_STATUS_FULL);
+    this.realtime.publish('stock');
+
+    this.realtime.publishWarehouseNotice({
+      kind: 'drop-done',
+      requester: context.requester,
+      nodeCode: drop,
+      robotName: context.robotName,
+      orderId,
+    });
+  }
+
   private async clearPickupNode(orderId: string): Promise<void> {
     const taskPath =
       await this.webhookLogsRepository.findCustomTaskRunTaskPathByOrderId(
@@ -197,6 +235,9 @@ export class ReceiveTaskStatusWebhookUseCase {
               await this.notifyWarehouseRunning(orderId);
               if (rawStatus === RCS_PICKED_CODE) {
                 await this.clearPickupNode(orderId);
+              }
+              if (rawStatus === RCS_PLACED_CODE) {
+                await this.fillDropNode(orderId);
               }
             }
             const matchedTrolleyActivity =

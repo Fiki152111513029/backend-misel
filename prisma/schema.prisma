@@ -918,6 +918,20 @@ model ControlTaskUser {
   @@map("control_task_users")
 }
 
+/// Small pieces of wording and configuration an admin can change without a
+/// deploy.
+///
+/// Key-value rather than a column per setting: these are display strings
+/// the floor keeps wanting reworded, and adding a migration for each one
+/// would mean a release every time someone changes their mind about a label.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
 /// Raw AGV reports pushed in by RCS, stored exactly as received.
 ///
 /// Separate table from WebhookLog on purpose: that one is the task-status
