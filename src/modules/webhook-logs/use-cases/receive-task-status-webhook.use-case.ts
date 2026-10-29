@@ -1,12 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { TaskStatus } from '@prisma/client';
+import { TaskStatus, WarehouseBinContent } from '@prisma/client';
 import { WEBHOOK_LOGS_REPOSITORY } from '../repositories/webhook-log-repository.interface';
 import type { IWebhookLogsRepository } from '../repositories/webhook-log-repository.interface';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
 import { RealtimeService } from '../../realtime/realtime.service';
 import {
   NODE_STATUS_EMPTY,
-  NODE_STATUS_FULL,
   RcsStockStatusService,
 } from '../../rcs-stock-status/rcs-stock-status.service';
 import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
@@ -135,10 +134,19 @@ export class ReceiveTaskStatusWebhookUseCase {
     const drop = route[route.length - 1];
     if (!drop) return;
 
-    const codes = await this.warehouseCodes();
-    if (!codes.has(drop)) return;
+    const location =
+      await this.warehouseLocationsRepository.findActiveByLocationCode(drop);
+    if (!location) return;
 
-    await this.rcsStockStatusService.updateStockStatus(drop, NODE_STATUS_FULL);
+    // RCS is told EMPTY, not FULL. Its node status 2 means specifically
+    // "an empty rack is here to collect", so marking a finished-goods node
+    // 2 would offer it up to the next task asking for an empty rack — the
+    // AMR would drive off with the finished goods. What is actually
+    // standing there is recorded on our own row instead.
+    await this.rcsStockStatusService.updateStockStatus(drop, NODE_STATUS_EMPTY);
+    await this.warehouseLocationsRepository.update(location.id, {
+      binContent: WarehouseBinContent.FINISH_GOOD,
+    });
     this.realtime.publish('stock');
 
     this.realtime.publishWarehouseNotice({
@@ -166,13 +174,13 @@ export class ReceiveTaskStatusWebhookUseCase {
       sortBy: 'name',
       sortOrder: 'asc',
     });
-    const isWarehouseNode = items.some(
-      (location) =>
-        location.isActive &&
-        !location.deletedAt &&
-        location.iRaypleLocationCode === pickup,
+    const location = items.find(
+      (candidate) =>
+        candidate.isActive &&
+        !candidate.deletedAt &&
+        candidate.iRaypleLocationCode === pickup,
     );
-    if (!isWarehouseNode) return;
+    if (!location) return;
 
     // updateStockStatus, not setStockStatus: a failed call here must not
     // break webhook processing, and RCS retries the webhook on anything
@@ -181,6 +189,11 @@ export class ReceiveTaskStatusWebhookUseCase {
       pickup,
       NODE_STATUS_EMPTY,
     );
+    // Whatever was standing here has gone with the AMR, so the node is
+    // plainly empty now — not holding finished goods either.
+    await this.warehouseLocationsRepository.update(location.id, {
+      binContent: null,
+    });
     this.realtime.publish('stock');
   }
 

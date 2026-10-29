@@ -22,6 +22,14 @@ export interface CheckingAreaRow {
    * is exactly what this page exists to correct.
    */
   stockStatus: BinStatus | null;
+  /**
+   * True when an AMR has delivered finished goods here.
+   *
+   * RCS still reports this node as empty, because its "full" means an
+   * empty rack is waiting to be collected and these are not that. So this
+   * is the only thing that tells the two apart on screen.
+   */
+  hasFinishGood: boolean;
 }
 
 @Injectable()
@@ -67,6 +75,7 @@ export class GetCheckingAreaUseCase {
         stockStatus: toBinStatus(
           statusByCode.get(location.iRaypleLocationCode),
         ),
+        hasFinishGood: location.binContent === 'FINISH_GOOD',
       }));
   }
 

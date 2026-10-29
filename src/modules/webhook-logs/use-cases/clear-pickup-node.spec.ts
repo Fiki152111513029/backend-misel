@@ -52,11 +52,24 @@ function build(options: {
     ),
   };
 
+  const updateLocation = jest.fn().mockResolvedValue(undefined);
   const warehouseLocationsRepository = {
     findAll: jest.fn().mockResolvedValue({
-      items: [{ iRaypleLocationCode: WRL12, isActive: true, deletedAt: null }],
+      items: [
+        { id: 'loc-1', iRaypleLocationCode: WRL12, isActive: true, deletedAt: null },
+      ],
       total: 1,
     }),
+    findActiveByLocationCode: jest
+      .fn()
+      .mockImplementation((code: string) =>
+        Promise.resolve(
+          code === WRL12
+            ? { id: 'loc-1', iRaypleLocationCode: WRL12 }
+            : null,
+        ),
+      ),
+    update: updateLocation,
   };
 
   const updateStockStatus = jest.fn().mockResolvedValue(undefined);
@@ -76,6 +89,7 @@ function build(options: {
   return {
     useCase,
     updateStockStatus,
+    updateLocation,
     publish,
     publishWarehouseNotice,
     webhookLogsRepository,
@@ -90,12 +104,25 @@ const PLACED = '23';
 const PLACING = '22';
 
 describe('ReceiveTaskStatusWebhookUseCase — the drop node', () => {
-  it('marks it full once the rack is placed', async () => {
+  // RCS node status 2 means "empty rack ready to collect". Finished goods
+  // are not that, so they must leave RCS reading 0 or an AMR fetching an
+  // empty rack would take them instead.
+  it('leaves RCS reading empty once the rack is placed', async () => {
     const { useCase, updateStockStatus } = build({
       taskPath: `${PT2A},${WRL12}`,
     });
     await useCase.execute(payload(PLACED));
-    expect(updateStockStatus).toHaveBeenCalledWith(WRL12, '2');
+    expect(updateStockStatus).toHaveBeenCalledWith(WRL12, '0');
+  });
+
+  it('records the finished goods on our own row instead', async () => {
+    const { useCase, updateLocation } = build({
+      taskPath: `${PT2A},${WRL12}`,
+    });
+    await useCase.execute(payload(PLACED));
+    expect(updateLocation).toHaveBeenCalledWith('loc-1', {
+      binContent: 'FINISH_GOOD',
+    });
   });
 
   it('announces the arrival to the warehouse', async () => {
@@ -137,6 +164,12 @@ describe('ReceiveTaskStatusWebhookUseCase — clearing the pickup node', () => {
     const { useCase, publish } = build();
     await useCase.execute(payload(PICKED));
     expect(publish).toHaveBeenCalledWith('stock');
+  });
+
+  it('clears whatever was recorded as standing there', async () => {
+    const { useCase, updateLocation } = build();
+    await useCase.execute(payload(PICKED));
+    expect(updateLocation).toHaveBeenCalledWith('loc-1', { binContent: null });
   });
 
   it('does nothing while the rack is still being lifted', async () => {

@@ -44,6 +44,15 @@ export interface RouteBinContext {
   warehouseCodes: Set<string>;
   /** Latest nodeStatus per location code, as RCS reported it. */
   byCode: Map<string, string | number>;
+  /**
+   * Codes holding finished goods.
+   *
+   * RCS reports these as 0 on purpose — its 2 means "empty rack ready to
+   * collect", which finished goods are not. But the node is physically
+   * occupied, so a drop must still wait: without this, a task would be
+   * sent to put a second rack where one already stands.
+   */
+  finishGoodCodes: Set<string>;
 }
 
 /**
@@ -68,7 +77,7 @@ export interface EvaluateOptions {
 
 export function evaluateRouteBins(
   route: string[],
-  { warehouseCodes, byCode }: RouteBinContext,
+  { warehouseCodes, byCode, finishGoodCodes }: RouteBinContext,
   { requireKnown = false }: EvaluateOptions = {},
 ): RouteBinVerdict {
   if (route.length === 0) return { ready: true };
@@ -101,7 +110,11 @@ export function evaluateRouteBins(
   if (drop !== pickup && warehouseCodes.has(drop)) {
     const status = byCode.get(drop);
     const blocked =
-      status === undefined ? requireKnown : String(status) === NODE_STATUS_FULL;
+      // Finished goods make it occupied whatever RCS says.
+      finishGoodCodes.has(drop) ||
+      (status === undefined
+        ? requireKnown
+        : String(status) === NODE_STATUS_FULL);
     if (blocked) {
       return {
         ready: false,
@@ -121,19 +134,30 @@ interface BinDeps {
   rcsStockStatusService: RcsStockStatusService;
 }
 
-/** Active Warehouse Location codes — a local lookup, no RCS involved. */
-async function loadWarehouseCodes(deps: BinDeps): Promise<Set<string>> {
+/** Active Warehouse Location codes and what they hold — no RCS involved. */
+async function loadWarehouseCodes(deps: BinDeps): Promise<{
+  warehouseCodes: Set<string>;
+  finishGoodCodes: Set<string>;
+}> {
   const { items } = await deps.warehouseLocationsRepository.findAll({
     page: 1,
     limit: 1000,
     sortBy: 'name',
     sortOrder: 'asc',
   });
-  return new Set(
-    items
-      .filter((location) => location.isActive && !location.deletedAt)
-      .map((location) => location.iRaypleLocationCode),
+  const active = items.filter(
+    (location) => location.isActive && !location.deletedAt,
   );
+  return {
+    warehouseCodes: new Set(
+      active.map((location) => location.iRaypleLocationCode),
+    ),
+    finishGoodCodes: new Set(
+      active
+        .filter((location) => location.binContent === 'FINISH_GOOD')
+        .map((location) => location.iRaypleLocationCode),
+    ),
+  };
 }
 
 async function loadStockStatus(
@@ -160,8 +184,12 @@ async function loadStockStatus(
 export async function loadRouteBinContext(
   deps: BinDeps,
 ): Promise<RouteBinContext> {
-  const warehouseCodes = await loadWarehouseCodes(deps);
-  return { warehouseCodes, byCode: await loadStockStatus(deps) };
+  const { warehouseCodes, finishGoodCodes } = await loadWarehouseCodes(deps);
+  return {
+    warehouseCodes,
+    finishGoodCodes,
+    byCode: await loadStockStatus(deps),
+  };
 }
 
 export async function checkRouteBins(
@@ -170,7 +198,7 @@ export async function checkRouteBins(
 ): Promise<RouteBinVerdict> {
   if (route.length === 0) return { ready: true };
 
-  const warehouseCodes = await loadWarehouseCodes(deps);
+  const { warehouseCodes, finishGoodCodes } = await loadWarehouseCodes(deps);
   const pickup = route[0];
   const drop = route[route.length - 1];
 
@@ -182,6 +210,7 @@ export async function checkRouteBins(
 
   return evaluateRouteBins(route, {
     warehouseCodes,
+    finishGoodCodes,
     byCode: await loadStockStatus(deps),
   });
 }

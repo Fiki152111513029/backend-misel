@@ -33,7 +33,11 @@ const PT2A = 'PT2A'; // a Production Location — never checked
 const FULL = 2;
 const EMPTY = 0;
 
-function deps(stock: Record<string, number>) {
+function deps(
+  stock: Record<string, number>,
+  /** Codes physically holding finished goods — RCS still reports them 0. */
+  finishGoods: string[] = [],
+) {
   const warehouseLocationsRepository = {
     findAll: jest.fn().mockResolvedValue({
       items: [WRL12, WRL13].map((code, index) => ({
@@ -42,6 +46,7 @@ function deps(stock: Record<string, number>) {
         iRaypleLocationCode: code,
         isActive: true,
         deletedAt: null,
+        binContent: finishGoods.includes(code) ? 'FINISH_GOOD' : null,
       })),
       total: 2,
     }),
@@ -168,6 +173,30 @@ describe('checkRouteBins', () => {
           PT2A,
           WRL12,
         ]),
+      ).resolves.toEqual(needFull(WRL12));
+    });
+  });
+
+  describe('a drop node holding finished goods', () => {
+    // RCS reports these as 0 because its 2 means "empty rack ready to
+    // collect". The node is still physically taken, so a drop has to wait.
+    it('holds the task even though RCS says the slot is empty', async () => {
+      await expect(
+        checkRouteBins(deps({ [WRL12]: EMPTY }, [WRL12]), [PT2A, WRL12]),
+      ).resolves.toEqual(needEmpty(WRL12));
+    });
+
+    it('allows the drop once the goods have been collected', async () => {
+      await expect(
+        checkRouteBins(deps({ [WRL12]: EMPTY }, []), [PT2A, WRL12]),
+      ).resolves.toEqual(READY);
+    });
+
+    // The pickup rule is untouched: finished goods leave RCS at 0, and a
+    // pickup needs 2, so they can never be collected as an empty rack.
+    it('is never offered up as an empty rack to collect', async () => {
+      await expect(
+        checkRouteBins(deps({ [WRL12]: EMPTY }, [WRL12]), [WRL12, PT2A]),
       ).resolves.toEqual(needFull(WRL12));
     });
   });

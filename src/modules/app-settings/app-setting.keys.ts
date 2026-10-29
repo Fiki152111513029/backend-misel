@@ -14,8 +14,15 @@ export const APP_SETTING_DEFAULTS = {
    * translation reads as the opposite of what it means.
    */
   'bin.label.full': 'Rak Kosong Ready',
-  /** A bin with no rack on it (nodeStatus 0). */
+  /** A bin with no rack on it (nodeStatus 0, nothing recorded on it). */
   'bin.label.empty': 'Rak Kosong Belum Ready',
+  /**
+   * A bin an AMR has delivered finished goods to.
+   *
+   * RCS reports it as 0 like an empty one, so this label is the only thing
+   * separating them on screen — see WarehouseBinContent in the schema.
+   */
+  'bin.label.finishGood': 'Finish Good Ready',
 } as const;
 
 export type AppSettingKey = keyof typeof APP_SETTING_DEFAULTS;

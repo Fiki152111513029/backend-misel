@@ -41,6 +41,10 @@ export class SetBinStatusUseCase {
         status === 'FULL'
           ? WarehouseLocationStatus.FULL
           : WarehouseLocationStatus.EMPTY,
+      // Either correction settles what is standing here, so the finished
+      // goods flag goes with it: marking the node empty means they were
+      // collected, and marking it full means an empty rack is there now.
+      binContent: null,
     });
 
     // Another operator may be looking at the same bin on Checking Area,

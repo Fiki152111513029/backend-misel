@@ -1,4 +1,8 @@
-import { WarehouseLocation, WarehouseLocationStatus } from '@prisma/client';
+import {
+  WarehouseBinContent,
+  WarehouseLocation,
+  WarehouseLocationStatus,
+} from '@prisma/client';
 
 export interface CreateWarehouseLocationData {
   name: string;
@@ -11,6 +15,8 @@ export interface UpdateWarehouseLocationData {
   iRaypleLocationCode?: string;
   isActive?: boolean;
   status?: WarehouseLocationStatus;
+  /** null clears it — the finished goods were collected. */
+  binContent?: WarehouseBinContent | null;
 }
 
 export type WarehouseLocationSortBy = 'name' | 'createdAt';

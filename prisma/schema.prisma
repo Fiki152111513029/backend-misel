@@ -625,6 +625,11 @@ model WarehouseLocation {
   // picks up from this same location (Warehouse->Production direction), see
   // CreateTrolleyActivityUseCase.
   status              WarehouseLocationStatus?
+  /// Set when an AMR delivers finished goods here, cleared when they are
+  /// collected. Deliberately its own column rather than another value on
+  /// `status` above: that one drives Trolley Task's destination picking,
+  /// and teaching it a third meaning would change that flow too.
+  binContent          WarehouseBinContent?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   deletedAt           DateTime?
@@ -670,6 +675,24 @@ enum TrolleyStatus {
 enum WarehouseLocationStatus {
   FULL
   EMPTY
+}
+
+/// What is physically standing on a warehouse node, where RCS cannot say.
+///
+/// RCS has only two node states, 0 and 2, and 2 means specifically "an
+/// empty rack is here to be collected" — that is what its pickup logic
+/// keys on. A rack of finished goods must therefore leave RCS reading 0,
+/// or an AMR sent to fetch an empty rack would drive off with the finished
+/// goods instead.
+///
+/// That leaves 0 covering two different situations, so the one RCS cannot
+/// express is recorded here:
+///
+///   nothing on the node        -> RCS 0, binContent null
+///   empty rack ready to take   -> RCS 2, binContent null (implied by the 2)
+///   finished goods delivered   -> RCS 0, binContent FINISH_GOOD
+enum WarehouseBinContent {
+  FINISH_GOOD
 }
 
 enum ProductionLocationStatus {
