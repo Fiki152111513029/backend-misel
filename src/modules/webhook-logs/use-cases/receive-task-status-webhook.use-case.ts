@@ -120,10 +120,14 @@ export class ReceiveTaskStatusWebhookUseCase {
    * Marks a Custom Task's drop node full once the AMR has set its rack
    * down there, and tells the warehouse the goods have arrived.
    *
-   * The mirror of clearPickupNode. Without it RCS keeps the slot recorded
-   * as free, which then lets the next task be dispatched into a node that
-   * is physically occupied — and nobody in the warehouse is told there is
-   * something waiting to be collected.
+   * Deliberately does not touch RCS. Finished goods are ours to track:
+   * RCS only knows "empty" and "an empty rack is here to collect", and the
+   * node is already sitting at the first of those — the drop guard will
+   * not release a task onto a node RCS reports as anything else. Every
+   * value we could send would therefore either be a no-op or a lie that
+   * offers the finished goods up to the next AMR wanting an empty rack.
+   * What is standing there is recorded on our own row instead, and the
+   * drop guard reads that row.
    */
   private async fillDropNode(orderId: string): Promise<void> {
     const context =
@@ -138,12 +142,6 @@ export class ReceiveTaskStatusWebhookUseCase {
       await this.warehouseLocationsRepository.findActiveByLocationCode(drop);
     if (!location) return;
 
-    // RCS is told EMPTY, not FULL. Its node status 2 means specifically
-    // "an empty rack is here to collect", so marking a finished-goods node
-    // 2 would offer it up to the next task asking for an empty rack — the
-    // AMR would drive off with the finished goods. What is actually
-    // standing there is recorded on our own row instead.
-    await this.rcsStockStatusService.updateStockStatus(drop, NODE_STATUS_EMPTY);
     await this.warehouseLocationsRepository.update(location.id, {
       binContent: WarehouseBinContent.FINISH_GOOD,
     });

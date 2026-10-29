@@ -104,15 +104,15 @@ const PLACED = '23';
 const PLACING = '22';
 
 describe('ReceiveTaskStatusWebhookUseCase — the drop node', () => {
-  // RCS node status 2 means "empty rack ready to collect". Finished goods
-  // are not that, so they must leave RCS reading 0 or an AMR fetching an
-  // empty rack would take them instead.
-  it('leaves RCS reading empty once the rack is placed', async () => {
+  // RCS has no value that means "finished goods": 0 is empty and 2 is
+  // "empty rack ready to collect", which would hand the goods to the next
+  // AMR sent for an empty rack. So RCS is left out of it entirely.
+  it('does not touch RCS at all', async () => {
     const { useCase, updateStockStatus } = build({
       taskPath: `${PT2A},${WRL12}`,
     });
     await useCase.execute(payload(PLACED));
-    expect(updateStockStatus).toHaveBeenCalledWith(WRL12, '0');
+    expect(updateStockStatus).not.toHaveBeenCalled();
   });
 
   it('records the finished goods on our own row instead', async () => {
@@ -136,20 +136,22 @@ describe('ReceiveTaskStatusWebhookUseCase — the drop node', () => {
   });
 
   it('leaves a production drop alone — its occupancy is not tracked', async () => {
-    const { useCase, updateStockStatus, publishWarehouseNotice } = build({
+    // Asserted on updateLocation rather than the RCS call, which this path
+    // no longer makes for any drop and so could never catch a regression.
+    const { useCase, updateLocation, publishWarehouseNotice } = build({
       taskPath: `${WRL12},${PT2A}`,
     });
     await useCase.execute(payload(PLACED));
-    expect(updateStockStatus).not.toHaveBeenCalled();
+    expect(updateLocation).not.toHaveBeenCalled();
     expect(publishWarehouseNotice).not.toHaveBeenCalled();
   });
 
   it('does nothing while the rack is still being placed', async () => {
-    const { useCase, updateStockStatus } = build({
+    const { useCase, updateLocation } = build({
       taskPath: `${PT2A},${WRL12}`,
     });
     await useCase.execute(payload(PLACING));
-    expect(updateStockStatus).not.toHaveBeenCalled();
+    expect(updateLocation).not.toHaveBeenCalled();
   });
 });
 
