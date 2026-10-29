@@ -40,6 +40,13 @@ export class CreateControlTaskDto {
   @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'colorCode must be a #RRGGBB hex colour' })
   colorCode?: string;
 
+  // Colours the group heading rather than this task's own button. Same
+  // validation and the same reason for it — it reaches a style attribute.
+  @ApiPropertyOptional({ example: '#F97316' })
+  @IsOptional()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'groupColor must be a #RRGGBB hex colour' })
+  groupColor?: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   modelCodeProcessId!: string;

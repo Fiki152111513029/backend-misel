@@ -1009,6 +1009,12 @@ model ControlTask {
   /// tasks without one use the page's default blue, so existing rows keep
   /// looking exactly as they do now.
   colorCode          String?
+  /// Colour of the group *heading* this task sits under, as #RRGGBB.
+  /// Held per task rather than in a groups table because `groupName` is
+  /// itself just free text repeated on each row — there is no group row to
+  /// hang it off. The picker takes the first non-null one in the group, so
+  /// setting it on any single member colours the whole heading.
+  groupColor         String?
   modelCodeProcessId String
   // The iRayple location codes to visit, in the order the operator chose.
   // Stored as an ordered list rather than a set: a route may legitimately

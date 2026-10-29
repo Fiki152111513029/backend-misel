@@ -16,6 +16,8 @@ export interface CreateControlTaskData {
   groupName?: string | null;
   /** Button colour as #RRGGBB; null uses the page default. */
   colorCode?: string | null;
+  /** Colour of the group heading as #RRGGBB; null uses the page default. */
+  groupColor?: string | null;
   modelCodeProcessId: string;
   route: string[];
   isActive?: boolean;
@@ -28,6 +30,7 @@ export interface UpdateControlTaskData {
   name?: string;
   groupName?: string | null;
   colorCode?: string | null;
+  groupColor?: string | null;
   modelCodeProcessId?: string;
   route?: string[];
   isActive?: boolean;

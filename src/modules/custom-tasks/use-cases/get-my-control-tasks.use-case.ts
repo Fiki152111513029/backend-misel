@@ -24,6 +24,7 @@ export class GetMyControlTasksUseCase {
       name: task.name,
       groupName: task.groupName,
       colorCode: task.colorCode,
+      groupColor: task.groupColor,
       route: task.route,
       modelProcessCode: task.modelCodeProcess?.name ?? '',
     }));
