@@ -25,6 +25,8 @@ export const REALTIME_TOPICS = [
   'agv-logs',
   /** An admin changed wording or configuration in App Settings. */
   'settings',
+  /** A PLC device or tag was added, edited or removed. */
+  'plc',
 ] as const;
 
 export type RealtimeTopic = (typeof REALTIME_TOPICS)[number];

@@ -8,6 +8,11 @@ import {
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import type { RealtimeTopic } from './realtime.topics';
+// Type-only, so it is erased at compile time and creates no module cycle
+// with PlcModule (which imports RealtimeModule). The shape is defined
+// beside the cache that produces it rather than copied here, where the two
+// copies would quietly drift apart.
+import type { PlcDeviceSnapshot } from '../plc/services/plc-value-cache.service';
 
 /** The single event name clients listen on. */
 export const REALTIME_EVENT = 'changed';
@@ -41,6 +46,20 @@ const ROBOT_ROOM = 'robots';
  */
 export const WAREHOUSE_NOTICE_EVENT = 'warehouse:notice';
 const WAREHOUSE_ROOM = 'warehouse-notices';
+
+/**
+ * Live PLC values, pushed with the readings attached.
+ *
+ * The third and last data-carrying channel, for the same reason as robot
+ * positions: a value that has to arrive every second cannot be a signal,
+ * or every open screen issues its own HTTP read on every tick and the cost
+ * of watching the floor grows with the number of people doing it.
+ *
+ * Only sent when something actually changed, plus a slow heartbeat — see
+ * PlcPollerService — so a quiet factory costs almost no traffic.
+ */
+export const PLC_VALUES_EVENT = 'plc:values';
+const PLC_ROOM = 'plc';
 
 export interface WarehouseNotice {
   /**
@@ -141,6 +160,12 @@ export class RealtimeGateway implements OnGatewayConnection {
       if (payload?.permissions?.includes('checking-area.read')) {
         void client.join(WAREHOUSE_ROOM);
       }
+
+      // PLC readings describe the machines themselves, so they are gated on
+      // the same permission the REST endpoint demands.
+      if (payload?.permissions?.includes('plc.read')) {
+        void client.join(PLC_ROOM);
+      }
     } catch {
       // An expired token is the common case: the client refreshes it and
       // reconnects on its own, so this is not worth logging as an error.
@@ -160,6 +185,11 @@ export class RealtimeGateway implements OnGatewayConnection {
   broadcastWarehouseNotice(notice: WarehouseNotice): void {
     if (!this.server) return;
     this.server.to(WAREHOUSE_ROOM).emit(WAREHOUSE_NOTICE_EVENT, notice);
+  }
+
+  broadcastPlcSnapshot(snapshot: PlcDeviceSnapshot): void {
+    if (!this.server) return;
+    this.server.to(PLC_ROOM).emit(PLC_VALUES_EVENT, snapshot);
   }
 
   broadcast(topic: RealtimeTopic): void {

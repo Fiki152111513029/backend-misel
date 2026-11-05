@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RealtimeGateway } from './realtime.gateway';
 import type { RobotPosition, WarehouseNotice } from './realtime.gateway';
+import type { PlcDeviceSnapshot } from '../plc/services/plc-value-cache.service';
 import type { RealtimeTopic } from './realtime.topics';
 
 /**
@@ -36,6 +37,15 @@ export class RealtimeService {
       this.gateway.broadcastRobotPositions(robots);
     } catch (error) {
       this.logger.warn(`Failed to push robot positions: ${error}`);
+    }
+  }
+
+  /** Live PLC readings for one device — see PLC_VALUES_EVENT. */
+  publishPlcSnapshot(snapshot: PlcDeviceSnapshot): void {
+    try {
+      this.gateway.broadcastPlcSnapshot(snapshot);
+    } catch (error) {
+      this.logger.warn(`Failed to push PLC values: ${error}`);
     }
   }
 

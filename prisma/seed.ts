@@ -628,6 +628,27 @@ const PERMISSIONS: PermissionSeed[] = [
     name: 'Update Settings',
     description: 'Change system wording and configuration',
   },
+  // PLC over Modbus TCP — device/tag configuration and the live readings
+  {
+    code: 'plc.read',
+    name: 'Read PLC Data',
+    description: 'View live PLC values, devices, tags and reading history',
+  },
+  {
+    code: 'plc.create',
+    name: 'Create PLC Device',
+    description: 'Add Modbus devices and tags',
+  },
+  {
+    code: 'plc.update',
+    name: 'Update PLC Device',
+    description: 'Edit Modbus devices and tags, and test a connection',
+  },
+  {
+    code: 'plc.delete',
+    name: 'Delete PLC Device',
+    description: 'Remove Modbus devices and tags',
+  },
   // AGV Logs — raw device reports RCS pushes to /agv-logs
   {
     code: 'agv-log.read',

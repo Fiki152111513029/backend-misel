@@ -1104,3 +1104,144 @@ model CustomTaskRun {
   @@index([waitingForBinAt])
   @@map("custom_task_runs")
 }
+
+// ---------------------------------------------------------------------------
+// PLC over Modbus TCP
+//
+// Everything here is configured at runtime rather than compiled in, because
+// the register map of a PLC is site-specific: the same application points at
+// a different set of addresses in every plant, and nobody can be asked to
+// redeploy to read one more sensor. Devices and tags are therefore ordinary
+// master data, edited from the dashboard.
+//
+// Read-only on purpose. A PLC drives real actuators, and a write to the
+// wrong address can move machinery while someone has a hand in it; nothing
+// in this module can write, so no misconfiguration here is able to.
+// ---------------------------------------------------------------------------
+
+/// Which Modbus table an address lives in. The protocol keeps four separate
+/// address spaces, so address 100 means four different things depending on
+/// this — getting it wrong reads a plausible-looking but unrelated number.
+enum PlcRegisterType {
+  /// FC1 — single bit, writable on the PLC side. Outputs, flags.
+  COIL
+  /// FC2 — single bit, read-only. Physical inputs, sensors.
+  DISCRETE_INPUT
+  /// FC3 — 16-bit word, writable on the PLC side. The usual one.
+  HOLDING_REGISTER
+  /// FC4 — 16-bit word, read-only. Measured values.
+  INPUT_REGISTER
+}
+
+/// How to read the raw words. A Modbus register is always 16 bits, so the
+/// 32-bit types span two consecutive registers.
+enum PlcDataType {
+  BOOL
+  INT16
+  UINT16
+  INT32
+  UINT32
+  FLOAT32
+}
+
+/// Which of the two registers of a 32-bit value holds the high word.
+///
+/// The byte order *inside* a register is fixed by the protocol; the order of
+/// the registers themselves is not, and vendors disagree. A value that comes
+/// back wildly wrong while the connection is plainly fine is almost always
+/// this set the wrong way round, which is why it is a per-tag setting rather
+/// than an assumption.
+enum PlcWordOrder {
+  /// High word first — the common case.
+  BIG
+  /// Low word first — "word-swapped".
+  LITTLE
+}
+
+/// One Modbus TCP endpoint: a PLC, or a gateway speaking for one.
+model PlcDevice {
+  id             String  @id @default(uuid())
+  name           String
+  host           String
+  port           Int     @default(501)
+  /// Modbus unit/slave id. 1 for a PLC answering directly; a serial device
+  /// behind a TCP gateway has its own.
+  unitId         Int     @default(1)
+  /// How often this device is read. Below ~200ms a PLC on a shared network
+  /// starts refusing connections rather than answering faster.
+  pollIntervalMs Int     @default(1000)
+  /// How long one request may take before it counts as failed.
+  timeoutMs      Int     @default(2000)
+  description    String?
+  /// Inactive devices are never connected to at all — the way to stop
+  /// polling one without deleting its tag map.
+  isActive       Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tags PlcTag[]
+
+  // `name` uniqueness is a partial unique index (WHERE "deletedAt" IS NULL,
+  // see migration) so a deleted device's name can be reused.
+  @@index([name])
+  @@map("plc_devices")
+}
+
+/// One readable value on a device — what the automation team's tag list
+/// calls a tag, and what the dashboard shows as a row.
+model PlcTag {
+  id           String          @id @default(uuid())
+  deviceId     String
+  name         String
+  /// The protocol address, zero-based. Tag lists are often written in the
+  /// 4xxxx convention (40001 = holding register 0), so this is the number
+  /// after that offset has been taken off, not the one on the document.
+  address      Int
+  registerType PlcRegisterType
+  dataType     PlcDataType     @default(UINT16)
+  wordOrder    PlcWordOrder    @default(BIG)
+  /// Multiplier applied to the raw value. PLCs rarely store decimals, so a
+  /// temperature of 23.5 arrives as 235 with a scale of 0.1.
+  scale        Float           @default(1)
+  /// Shown after the value: "pcs", "°C", "bar".
+  unit         String?
+  description  String?
+  isActive     Boolean         @default(true)
+  /// Whether changes are written to plc_readings. Off for a value that
+  /// changes on every poll (a running counter), which would otherwise fill
+  /// the history on its own and push everything else out.
+  logEnabled   Boolean         @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  device   PlcDevice    @relation(fields: [deviceId], references: [id])
+  readings PlcReading[]
+
+  // (deviceId, name) uniqueness is a partial unique index — see migration.
+  @@index([deviceId])
+  @@index([name])
+  @@map("plc_tags")
+}
+
+/// A value change, not a poll result.
+///
+/// Written only when the number actually moved: polling a device every
+/// second and storing each answer would be ~86k rows per tag per day, nearly
+/// all of them identical. Capped as well — see PlcRepository.
+model PlcReading {
+  id        String   @id @default(uuid())
+  tagId     String
+  /// Already scaled, so the history reads in the same units as the screen.
+  value     Float
+  createdAt DateTime @default(now())
+
+  tag PlcTag @relation(fields: [tagId], references: [id])
+
+  @@index([tagId, createdAt])
+  @@index([createdAt])
+  @@map("plc_readings")
+}
