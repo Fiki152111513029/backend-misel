@@ -44,6 +44,8 @@ model User {
   customTaskRuns            CustomTaskRun[]
   /// Control Tasks this operator may dispatch from Custom Task.
   controlTasks              ControlTaskUser[]
+  /// Line announcements this operator raised from Custom Task.
+  lineStatuses              LineStatus[]
 
   @@index([roleId])
   @@index([shiftId])
@@ -1015,6 +1017,13 @@ model ControlTask {
   /// hang it off. The picker takes the first non-null one in the group, so
   /// setting it on any single member colours the whole heading.
   groupColor         String?
+  /// Whether this task's group also shows the four line-status buttons at
+  /// the foot of the group in Custom Task (Saat Ini Running LH/RH, Request
+  /// Ganti LH/RH). Held per task for the same reason as groupColor — there
+  /// is no group row to hang it off — so switching it on for any single
+  /// member turns the buttons on for the whole group. Default false: a
+  /// group that never asked for them must not grow four buttons.
+  lineStatusEnabled  Boolean     @default(false)
   modelCodeProcessId String
   // The iRayple location codes to visit, in the order the operator chose.
   // Stored as an ordered list rather than a set: a route may legitimately
@@ -1244,4 +1253,47 @@ model PlcReading {
   @@index([tagId, createdAt])
   @@index([createdAt])
   @@map("plc_readings")
+}
+
+/// What a production line can announce about itself from Custom Task.
+///
+/// RUNNING_* is a statement of fact ("we are on LH right now"); CHANGE_* is
+/// a request ("send us the other side"). Kept as one enum rather than two
+/// fields because a line is only ever saying one of these four things at a
+/// time — the newest press replaces the last one, whichever kind it was.
+enum LineStatusKind {
+  RUNNING_LH
+  RUNNING_RH
+  CHANGE_LH
+  CHANGE_RH
+}
+
+/// The latest thing one production line announced about itself.
+///
+/// One row per line, replaced on every press rather than appended to: what
+/// Checking Area needs is the current state of each line, and a log would
+/// make it derive that from the newest row of each group on every read.
+///
+/// Stored at all, rather than only pushed over the socket like a warehouse
+/// notice, because this is state and not an event: a Checking Area screen
+/// switched on at the start of a shift has to know that WRL31 is running LH
+/// without waiting for someone to press the button again.
+///
+/// Keyed by `groupName` — the Control Task group, e.g. "WRL31" — because
+/// that is the only identifier a line has in this system. There is no
+/// groups table; see ControlTask.groupName.
+model LineStatus {
+  id         String         @id @default(uuid())
+  groupName  String         @unique
+  kind       LineStatusKind
+  /// Who pressed it. Nullable so removing a user never deletes the line's
+  /// current state along with them.
+  raisedById String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  raisedBy User? @relation(fields: [raisedById], references: [id], onDelete: SetNull)
+
+  @@index([raisedById])
+  @@map("line_statuses")
 }

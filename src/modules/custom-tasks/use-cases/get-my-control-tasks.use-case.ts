@@ -25,6 +25,9 @@ export class GetMyControlTasksUseCase {
       groupName: task.groupName,
       colorCode: task.colorCode,
       groupColor: task.groupColor,
+      // Per task on the wire, but read per group by the picker: any one
+      // member switching it on shows the buttons for the whole group.
+      lineStatusEnabled: task.lineStatusEnabled,
       route: task.route,
       modelProcessCode: task.modelCodeProcess?.name ?? '',
     }));

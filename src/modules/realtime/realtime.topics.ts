@@ -27,6 +27,14 @@ export const REALTIME_TOPICS = [
   'settings',
   /** A PLC device or tag was added, edited or removed. */
   'plc',
+  /**
+   * A production line announced something about itself, or the warehouse
+   * cleared it — the four buttons at the foot of a Custom Task group.
+   *
+   * A signal rather than a data channel, unlike a warehouse notice: this
+   * one is stored, so there is an endpoint to refetch.
+   */
+  'line-status',
 ] as const;
 
 export type RealtimeTopic = (typeof REALTIME_TOPICS)[number];

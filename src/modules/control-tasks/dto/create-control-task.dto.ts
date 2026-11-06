@@ -47,6 +47,19 @@ export class CreateControlTaskDto {
   @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'groupColor must be a #RRGGBB hex colour' })
   groupColor?: string;
 
+  // Switched on per task but read per group, exactly like groupColor —
+  // there is no group row to hang it off, so any single member turning it
+  // on shows the four buttons for the whole group.
+  @ApiPropertyOptional({
+    example: false,
+    default: false,
+    description:
+      'Show the four line-status buttons (Running LH/RH, Ganti LH/RH) at the foot of this task group in Custom Task',
+  })
+  @IsOptional()
+  @IsBoolean()
+  lineStatusEnabled?: boolean;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   modelCodeProcessId!: string;

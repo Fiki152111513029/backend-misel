@@ -18,6 +18,8 @@ export interface CreateControlTaskData {
   colorCode?: string | null;
   /** Colour of the group heading as #RRGGBB; null uses the page default. */
   groupColor?: string | null;
+  /** Show the four line-status buttons at the foot of this task's group. */
+  lineStatusEnabled?: boolean;
   modelCodeProcessId: string;
   route: string[];
   isActive?: boolean;
@@ -31,6 +33,7 @@ export interface UpdateControlTaskData {
   groupName?: string | null;
   colorCode?: string | null;
   groupColor?: string | null;
+  lineStatusEnabled?: boolean;
   modelCodeProcessId?: string;
   route?: string[];
   isActive?: boolean;

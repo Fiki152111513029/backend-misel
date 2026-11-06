@@ -35,6 +35,7 @@ import { ChargerAreasModule } from './modules/charger-areas/charger-areas.module
 import { ControlTasksModule } from './modules/control-tasks/control-tasks.module';
 import { CustomTasksModule } from './modules/custom-tasks/custom-tasks.module';
 import { CheckingAreasModule } from './modules/checking-areas/checking-areas.module';
+import { LineStatusesModule } from './modules/line-statuses/line-statuses.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { ParkingAreasModule } from './modules/parking-areas/parking-areas.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
@@ -91,6 +92,7 @@ import { RcsStockStatusModule } from './modules/rcs-stock-status/rcs-stock-statu
     ControlTasksModule,
     CustomTasksModule,
     CheckingAreasModule,
+    LineStatusesModule,
     RealtimeModule,
     ParkingAreasModule,
     ShiftsModule,
