@@ -118,6 +118,28 @@ function findStockStatusArray(
   return null;
 }
 
+/**
+ * RCS's verdict, when the body carries one that is not success.
+ *
+ * Returns null when the call was accepted, the body is unparseable, or it
+ * carries no `code` at all — a non-JSON 2xx has always meant "accepted" for
+ * this endpoint and must not be reported as a refusal.
+ */
+function describeRefusal(raw: string): string | null {
+  const RCS_SUCCESS_CODE = 1000;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || !('code' in parsed)) return null;
+  const { code } = parsed as { code: unknown };
+  if (typeof code !== 'number' || code === RCS_SUCCESS_CODE) return null;
+  const desc = 'desc' in parsed ? String((parsed as { desc: unknown }).desc) : '';
+  return `code ${code}${desc ? `: ${desc}` : ''}`;
+}
+
 @Injectable()
 export class RcsStockStatusService {
   private readonly logger = new Logger(RcsStockStatusService.name);
@@ -144,12 +166,31 @@ export class RcsStockStatusService {
     const payload = { qrContent, nodeStatus };
     this.logger.log(`POST ${url} — payload: ${JSON.stringify(payload)}`);
 
+    let raw: string;
     try {
-      const raw = await postJson(url, payload, 5000);
-      this.logger.log(`Stock status update response for ${qrContent}: ${raw}`);
+      raw = await postJson(url, payload, 5000);
     } catch (error) {
       this.logger.error(
         `Failed to update stock status for ${qrContent}: ${error}`,
+      );
+      return;
+    }
+
+    this.logger.log(`Stock status update response for ${qrContent}: ${raw}`);
+
+    // A 200 from this endpoint does not mean it did anything — RCS answers
+    // 200 and puts its verdict in the body, success being code 1000. That
+    // was previously read as "sent, therefore done", which hid the one
+    // refusal that matters: RCS will not change a node's stock status while
+    // one of its own tasks still holds that node, so the nodeStatus=0 we
+    // send at Picked can be dropped on the floor. This still swallows the
+    // failure — a flaky call here must never break webhook processing — but
+    // it says so at error level instead of logging a refusal as if it were
+    // an acknowledgement.
+    const refusal = describeRefusal(raw);
+    if (refusal) {
+      this.logger.error(
+        `RCS refused the stock status update for ${qrContent}: ${refusal}`,
       );
     }
   }

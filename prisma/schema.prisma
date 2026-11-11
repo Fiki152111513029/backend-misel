@@ -632,6 +632,20 @@ model WarehouseLocation {
   /// `status` above: that one drives Trolley Task's destination picking,
   /// and teaching it a third meaning would change that flow too.
   binContent          WarehouseBinContent?
+  /// Stamped the moment RCS reports "21 Picked" for a task that collected
+  /// from this node, and cleared again when that same task reaches a
+  /// terminal status.
+  ///
+  /// It exists because RCS will not accept a stock-status change while a
+  /// task still holds the node: we POST nodeStatus=0 at Picked, RCS keeps
+  /// reporting 2, and a Custom Task parked on this node as its drop stays
+  /// parked until the collecting task COMPLETES — even though the rack
+  /// physically left minutes earlier. While this stamp is set, the bin
+  /// guard reads the node as empty and ignores that stale 2.
+  ///
+  /// Its own column for the same reason as binContent: `status` drives
+  /// Trolley Task's destination picking and must not learn a third meaning.
+  pickedEmptyAt       DateTime?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   deletedAt           DateTime?

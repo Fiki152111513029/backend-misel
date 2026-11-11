@@ -17,6 +17,11 @@ export interface UpdateWarehouseLocationData {
   status?: WarehouseLocationStatus;
   /** null clears it — the finished goods were collected. */
   binContent?: WarehouseBinContent | null;
+  /**
+   * When an AMR last lifted a rack off this node. null hands authority over
+   * the node's emptiness back to RCS — see the schema comment.
+   */
+  pickedEmptyAt?: Date | null;
 }
 
 export type WarehouseLocationSortBy = 'name' | 'createdAt';

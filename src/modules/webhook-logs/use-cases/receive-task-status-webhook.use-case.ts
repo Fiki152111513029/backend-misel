@@ -144,6 +144,9 @@ export class ReceiveTaskStatusWebhookUseCase {
 
     await this.warehouseLocationsRepository.update(location.id, {
       binContent: WarehouseBinContent.FINISH_GOOD,
+      // A rack is standing here again, so the "just emptied" stamp is over
+      // whether or not the task that set it has finished.
+      pickedEmptyAt: null,
     });
     this.realtime.publish('stock');
 
@@ -189,8 +192,46 @@ export class ReceiveTaskStatusWebhookUseCase {
     );
     // Whatever was standing here has gone with the AMR, so the node is
     // plainly empty now — not holding finished goods either.
+    //
+    // pickedEmptyAt is the part RCS cannot be trusted for: it will not
+    // accept a stock-status change on a node one of its own running tasks
+    // still holds, so the call above can be refused and the node keeps
+    // reporting 2 until this task completes. A Custom Task parked on this
+    // node as its drop would then sit through the whole trip that emptied
+    // it. The stamp lets the bin guard read what we just watched happen,
+    // and clearPickupStamp below hands authority back once the task ends.
     await this.warehouseLocationsRepository.update(location.id, {
       binContent: null,
+      pickedEmptyAt: new Date(),
+    });
+    this.realtime.publish('stock');
+  }
+
+  /**
+   * Hands the node's emptiness back to RCS once the task that collected
+   * from it has finished.
+   *
+   * By then RCS has released its own hold and reports the node correctly,
+   * so keeping our override alive any longer would mean overriding a
+   * reading that is no longer stale — and an empty rack delivered here
+   * afterwards would be invisible to the drop guard.
+   */
+  private async clearPickupStamp(orderId: string): Promise<void> {
+    const taskPath =
+      await this.webhookLogsRepository.findCustomTaskRunTaskPathByOrderId(
+        orderId,
+      );
+    if (!taskPath) return;
+
+    const pickup = taskPath.split(',')[0]?.trim();
+    if (!pickup) return;
+
+    const location =
+      await this.warehouseLocationsRepository.findActiveByLocationCode(pickup);
+    if (!location?.pickedEmptyAt) return;
+
+    await this.warehouseLocationsRepository.update(location.id, {
+      pickedEmptyAt: null,
     });
     this.realtime.publish('stock');
   }
@@ -249,6 +290,11 @@ export class ReceiveTaskStatusWebhookUseCase {
               }
               if (rawStatus === RCS_PLACED_CODE) {
                 await this.fillDropNode(orderId);
+              }
+              // Terminal either way: RCS has let go of the node, so our
+              // override of its reading has to let go with it.
+              if (status === TaskStatus.COMPLETED || status === TaskStatus.FAILED) {
+                await this.clearPickupStamp(orderId);
               }
             }
             const matchedTrolleyActivity =

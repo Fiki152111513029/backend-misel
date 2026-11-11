@@ -19,6 +19,8 @@ function build(options: {
   taskPath?: string | null;
   /** Whether the run matched a CustomTaskRun row at all. */
   matchedCustomTask?: boolean;
+  /** Whether the pickup node already carries a "just emptied" stamp. */
+  stamped?: boolean;
 } = {}) {
   const webhookLogsRepository = {
     createLog: jest.fn().mockResolvedValue(undefined),
@@ -65,7 +67,13 @@ function build(options: {
       .mockImplementation((code: string) =>
         Promise.resolve(
           code === WRL12
-            ? { id: 'loc-1', iRaypleLocationCode: WRL12 }
+            ? {
+                id: 'loc-1',
+                iRaypleLocationCode: WRL12,
+                pickedEmptyAt: options.stamped
+                  ? new Date('2026-11-10T07:00:00Z')
+                  : null,
+              }
             : null,
         ),
       ),
@@ -122,6 +130,8 @@ describe('ReceiveTaskStatusWebhookUseCase — the drop node', () => {
     await useCase.execute(payload(PLACED));
     expect(updateLocation).toHaveBeenCalledWith('loc-1', {
       binContent: 'FINISH_GOOD',
+      // A rack is standing here again, so any "just emptied" stamp is over.
+      pickedEmptyAt: null,
     });
   });
 
@@ -171,7 +181,25 @@ describe('ReceiveTaskStatusWebhookUseCase — clearing the pickup node', () => {
   it('clears whatever was recorded as standing there', async () => {
     const { useCase, updateLocation } = build();
     await useCase.execute(payload(PICKED));
-    expect(updateLocation).toHaveBeenCalledWith('loc-1', { binContent: null });
+    expect(updateLocation).toHaveBeenCalledWith('loc-1', {
+      binContent: null,
+      pickedEmptyAt: expect.any(Date),
+    });
+  });
+
+  // RCS will not change a node's stock status while one of its own tasks
+  // still holds it, so the call above can be refused and the node keeps
+  // reporting 2. The stamp is what lets the bin guard know the rack left,
+  // and it is the whole reason a finish-good drop no longer waits for this
+  // task to finish before it goes.
+  it('stamps the node as emptied, not just unrecorded', async () => {
+    const { useCase, updateLocation } = build();
+    await useCase.execute(payload(PICKED));
+    const [, data] = updateLocation.mock.calls[0] as [
+      string,
+      { pickedEmptyAt: Date | null },
+    ];
+    expect(data.pickedEmptyAt).toBeInstanceOf(Date);
   });
 
   it('does nothing while the rack is still being lifted', async () => {
@@ -215,5 +243,51 @@ describe('ReceiveTaskStatusWebhookUseCase — clearing the pickup node', () => {
     await expect(useCase.execute(payload(PICKED))).resolves.toEqual(
       expect.objectContaining({ code: 1000 }),
     );
+  });
+});
+
+// The override of RCS's reading has to end, or a node RCS later reports as
+// holding a fresh empty rack would still look free to drop onto.
+describe('ReceiveTaskStatusWebhookUseCase — handing the node back to RCS', () => {
+  const COMPLETED = '8';
+  const FAILED = '7';
+
+  it('clears the stamp once the collecting task completes', async () => {
+    const { useCase, updateLocation } = build({ stamped: true });
+    await useCase.execute(payload(COMPLETED));
+    expect(updateLocation).toHaveBeenCalledWith('loc-1', {
+      pickedEmptyAt: null,
+    });
+  });
+
+  // A task that died halfway leaves RCS free of the node just the same, and
+  // leaving the stamp behind would override RCS for good.
+  it('clears it on a failed task too', async () => {
+    const { useCase, updateLocation } = build({ stamped: true });
+    await useCase.execute(payload(FAILED));
+    expect(updateLocation).toHaveBeenCalledWith('loc-1', {
+      pickedEmptyAt: null,
+    });
+  });
+
+  it('leaves the stamp alone while the task is still running', async () => {
+    const { useCase, updateLocation } = build({ stamped: true });
+    await useCase.execute(payload(RUNNING));
+    expect(updateLocation).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing when the node was never stamped', async () => {
+    const { useCase, updateLocation } = build({ stamped: false });
+    await useCase.execute(payload(COMPLETED));
+    expect(updateLocation).not.toHaveBeenCalled();
+  });
+
+  it('leaves a production pickup alone — it is never stamped', async () => {
+    const { useCase, updateLocation } = build({
+      taskPath: `${PT2A},${WRL12}`,
+      stamped: true,
+    });
+    await useCase.execute(payload(COMPLETED));
+    expect(updateLocation).not.toHaveBeenCalled();
   });
 });

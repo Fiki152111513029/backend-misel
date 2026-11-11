@@ -53,6 +53,20 @@ export interface RouteBinContext {
    * sent to put a second rack where one already stands.
    */
   finishGoodCodes: Set<string>;
+  /**
+   * Codes an AMR has just lifted a rack off, while the task that did it is
+   * still running.
+   *
+   * RCS refuses a stock-status change on a node one of its own tasks still
+   * holds, so the nodeStatus=0 we send at "21 Picked" is ignored and the
+   * node keeps reading 2 until that task completes. Taking RCS at its word
+   * through that window is what kept a finish-good drop parked for the
+   * whole of the trip that emptied its slot.
+   *
+   * The stamp is cleared when the collecting task ends, so this only ever
+   * overrides RCS for as long as RCS is knowably behind.
+   */
+  recentlyEmptiedCodes: Set<string>;
 }
 
 /**
@@ -77,7 +91,12 @@ export interface EvaluateOptions {
 
 export function evaluateRouteBins(
   route: string[],
-  { warehouseCodes, byCode, finishGoodCodes }: RouteBinContext,
+  {
+    warehouseCodes,
+    byCode,
+    finishGoodCodes,
+    recentlyEmptiedCodes,
+  }: RouteBinContext,
   { requireKnown = false }: EvaluateOptions = {},
 ): RouteBinVerdict {
   if (route.length === 0) return { ready: true };
@@ -90,9 +109,12 @@ export function evaluateRouteBins(
   if (warehouseCodes.has(pickup)) {
     const status = byCode.get(pickup);
     const blocked =
-      status === undefined
+      // An AMR has just taken the rack away, so there is nothing to collect
+      // whatever RCS still has recorded.
+      recentlyEmptiedCodes.has(pickup) ||
+      (status === undefined
         ? requireKnown
-        : String(status) === NODE_STATUS_EMPTY;
+        : String(status) === NODE_STATUS_EMPTY);
     if (blocked) {
       return {
         ready: false,
@@ -112,9 +134,12 @@ export function evaluateRouteBins(
     const blocked =
       // Finished goods make it occupied whatever RCS says.
       finishGoodCodes.has(drop) ||
-      (status === undefined
-        ? requireKnown
-        : String(status) === NODE_STATUS_FULL);
+      // A node we watched an AMR empty is free to drop onto, even while RCS
+      // is still reporting the rack that has already gone.
+      (!recentlyEmptiedCodes.has(drop) &&
+        (status === undefined
+          ? requireKnown
+          : String(status) === NODE_STATUS_FULL));
     if (blocked) {
       return {
         ready: false,
@@ -138,6 +163,7 @@ interface BinDeps {
 async function loadWarehouseCodes(deps: BinDeps): Promise<{
   warehouseCodes: Set<string>;
   finishGoodCodes: Set<string>;
+  recentlyEmptiedCodes: Set<string>;
 }> {
   const { items } = await deps.warehouseLocationsRepository.findAll({
     page: 1,
@@ -155,6 +181,11 @@ async function loadWarehouseCodes(deps: BinDeps): Promise<{
     finishGoodCodes: new Set(
       active
         .filter((location) => location.binContent === 'FINISH_GOOD')
+        .map((location) => location.iRaypleLocationCode),
+    ),
+    recentlyEmptiedCodes: new Set(
+      active
+        .filter((location) => location.pickedEmptyAt != null)
         .map((location) => location.iRaypleLocationCode),
     ),
   };
@@ -184,10 +215,12 @@ async function loadStockStatus(
 export async function loadRouteBinContext(
   deps: BinDeps,
 ): Promise<RouteBinContext> {
-  const { warehouseCodes, finishGoodCodes } = await loadWarehouseCodes(deps);
+  const { warehouseCodes, finishGoodCodes, recentlyEmptiedCodes } =
+    await loadWarehouseCodes(deps);
   return {
     warehouseCodes,
     finishGoodCodes,
+    recentlyEmptiedCodes,
     byCode: await loadStockStatus(deps),
   };
 }
@@ -198,7 +231,8 @@ export async function checkRouteBins(
 ): Promise<RouteBinVerdict> {
   if (route.length === 0) return { ready: true };
 
-  const { warehouseCodes, finishGoodCodes } = await loadWarehouseCodes(deps);
+  const { warehouseCodes, finishGoodCodes, recentlyEmptiedCodes } =
+    await loadWarehouseCodes(deps);
   const pickup = route[0];
   const drop = route[route.length - 1];
 
@@ -211,6 +245,7 @@ export async function checkRouteBins(
   return evaluateRouteBins(route, {
     warehouseCodes,
     finishGoodCodes,
+    recentlyEmptiedCodes,
     byCode: await loadStockStatus(deps),
   });
 }

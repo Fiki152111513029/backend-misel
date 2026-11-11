@@ -45,6 +45,11 @@ export class SetBinStatusUseCase {
       // goods flag goes with it: marking the node empty means they were
       // collected, and marking it full means an empty rack is there now.
       binContent: null,
+      // The operator is standing in front of the node telling us what is
+      // there. That beats a stamp we inferred from a webhook, so the
+      // override goes too and RCS — which we just corrected — is believed
+      // again from here.
+      pickedEmptyAt: null,
     });
 
     // Another operator may be looking at the same bin on Checking Area,

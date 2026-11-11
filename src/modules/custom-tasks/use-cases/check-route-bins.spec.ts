@@ -37,6 +37,8 @@ function deps(
   stock: Record<string, number>,
   /** Codes physically holding finished goods — RCS still reports them 0. */
   finishGoods: string[] = [],
+  /** Codes an AMR has just lifted from, with its task still running. */
+  recentlyEmptied: string[] = [],
 ) {
   const warehouseLocationsRepository = {
     findAll: jest.fn().mockResolvedValue({
@@ -47,6 +49,9 @@ function deps(
         isActive: true,
         deletedAt: null,
         binContent: finishGoods.includes(code) ? 'FINISH_GOOD' : null,
+        pickedEmptyAt: recentlyEmptied.includes(code)
+          ? new Date('2026-11-10T07:00:00Z')
+          : null,
       })),
       total: 2,
     }),
@@ -198,6 +203,46 @@ describe('checkRouteBins', () => {
       await expect(
         checkRouteBins(deps({ [WRL12]: EMPTY }, [WRL12]), [WRL12, PT2A]),
       ).resolves.toEqual(needFull(WRL12));
+    });
+  });
+
+  // The bug this covers: an AMR collects the empty rack from a warehouse
+  // node, RCS refuses our nodeStatus=0 because its own task still holds that
+  // node, and a finish-good task parked on the same node as its drop sat
+  // there for the whole trip instead of going the moment the rack left.
+  describe('a node an AMR has just lifted from, while RCS still says full', () => {
+    it('lets a finish-good drop go even though RCS reports the slot full', async () => {
+      await expect(
+        checkRouteBins(deps({ [WRL13]: FULL }, [], [WRL13]), [PT2A, WRL13]),
+      ).resolves.toEqual(READY);
+    });
+
+    it('still holds the drop when finished goods are standing there', async () => {
+      // The stamp says the empty rack left; the flag says a finish-good rack
+      // arrived. Both can be true of one node, and the occupied one wins.
+      await expect(
+        checkRouteBins(deps({ [WRL13]: FULL }, [WRL13], [WRL13]), [PT2A, WRL13]),
+      ).resolves.toEqual(needEmpty(WRL13));
+    });
+
+    it('holds a pickup from it — the rack it would collect has gone', async () => {
+      await expect(
+        checkRouteBins(deps({ [WRL12]: FULL }, [], [WRL12]), [WRL12, PT2A]),
+      ).resolves.toEqual(needFull(WRL12));
+    });
+
+    it('holds a pickup from it even when RCS reports nothing', async () => {
+      // Silence normally fails open. Watching the rack leave is positive
+      // knowledge, so it outranks the absence of a reading.
+      await expect(
+        checkRouteBins(deps({}, [], [WRL12]), [WRL12, PT2A]),
+      ).resolves.toEqual(needFull(WRL12));
+    });
+
+    it('changes nothing for a node no AMR has touched', async () => {
+      await expect(
+        checkRouteBins(deps({ [WRL13]: FULL }, [], [WRL12]), [PT2A, WRL13]),
+      ).resolves.toEqual(needEmpty(WRL13));
     });
   });
 
