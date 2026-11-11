@@ -14,7 +14,8 @@ import {
 export interface UpdateFactoryMapInput {
   name?: string;
   areaNumber?: number;
-  imagePath?: string;
+  /** null clears the background image; undefined leaves it as it is. */
+  imagePath?: string | null;
   topologyPath?: string;
 }
 
@@ -68,7 +69,13 @@ export class UpdateFactoryMapUseCase {
     }
 
     // Only remove the old files once the DB update actually succeeded.
-    if (input.imagePath && input.imagePath !== existing.imagePath) {
+    //
+    // null is "clear it" and has to be tested separately: it is falsy, so
+    // the replacement check below would skip it and leave the old image on
+    // disk for good — nothing else knows the row ever pointed at it.
+    if (input.imagePath === null) {
+      deleteUploadedFile(existing.imagePath);
+    } else if (input.imagePath && input.imagePath !== existing.imagePath) {
       deleteUploadedFile(existing.imagePath);
     }
     if (input.topologyPath && input.topologyPath !== existing.topologyPath) {

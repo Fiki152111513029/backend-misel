@@ -21,6 +21,8 @@ function build(options: {
   matchedCustomTask?: boolean;
   /** Whether the pickup node already carries a "just emptied" stamp. */
   stamped?: boolean;
+  /** Make the order a Trolley Activity instead of a Custom Task. */
+  trolley?: boolean;
 } = {}) {
   const webhookLogsRepository = {
     createLog: jest.fn().mockResolvedValue(undefined),
@@ -30,7 +32,12 @@ function build(options: {
     updateCustomTaskRunStatusByTaskId: jest
       .fn()
       .mockResolvedValue(options.matchedCustomTask ?? true),
-    updateTrolleyActivityStatusByTaskId: jest.fn().mockResolvedValue(false),
+    updateTrolleyActivityStatusByTaskId: jest
+      .fn()
+      .mockResolvedValue(options.trolley ?? false),
+    findTrolleyActivityPickupByTaskId: jest
+      .fn()
+      .mockResolvedValue(options.trolley ? WRL12 : null),
     findCustomTaskRunTaskPathByOrderId: jest
       .fn()
       .mockResolvedValue(
@@ -288,6 +295,49 @@ describe('ReceiveTaskStatusWebhookUseCase — handing the node back to RCS', () 
       stamped: true,
     });
     await useCase.execute(payload(COMPLETED));
+    expect(updateLocation).not.toHaveBeenCalled();
+  });
+});
+
+// The finished-goods flag is ours alone — RCS has no value for it — so
+// whatever lifts the rack has to clear it. Until this, only a Custom Task
+// pickup did, and a rack collected by a Trolley Task left its flag behind:
+// the node then refused every later drop while the floor could plainly see
+// it was free.
+describe('ReceiveTaskStatusWebhookUseCase — a Trolley Task collecting from a warehouse node', () => {
+  it('clears what was recorded as standing there', async () => {
+    const { useCase, updateLocation } = build({
+      taskPath: null,
+      matchedCustomTask: false,
+      trolley: true,
+    });
+    await useCase.execute(payload(PICKED));
+    expect(updateLocation).toHaveBeenCalledWith('loc-1', {
+      binContent: null,
+      pickedEmptyAt: expect.any(Date),
+    });
+  });
+
+  it('does nothing while the rack is still being lifted', async () => {
+    const { useCase, updateLocation } = build({
+      taskPath: null,
+      matchedCustomTask: false,
+      trolley: true,
+    });
+    await useCase.execute(payload(PICKING));
+    expect(updateLocation).not.toHaveBeenCalled();
+  });
+
+  it('leaves a trolley pickup that is not a warehouse node alone', async () => {
+    const { useCase, updateLocation, webhookLogsRepository } = build({
+      taskPath: null,
+      matchedCustomTask: false,
+      trolley: true,
+    });
+    webhookLogsRepository.findTrolleyActivityPickupByTaskId.mockResolvedValue(
+      PT2A,
+    );
+    await useCase.execute(payload(PICKED));
     expect(updateLocation).not.toHaveBeenCalled();
   });
 });

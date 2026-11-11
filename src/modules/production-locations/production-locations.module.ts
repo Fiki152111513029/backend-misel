@@ -3,6 +3,7 @@ import { ProductionLocationController } from './controllers/production-location.
 import { PRODUCTION_LOCATIONS_REPOSITORY } from './repositories/production-location-repository.interface';
 import { ProductionLocationRepository } from './repositories/production-location.repository';
 import { CreateProductionLocationUseCase } from './use-cases/create-production-location.use-case';
+import { BulkDeleteProductionLocationsUseCase } from './use-cases/bulk-delete-production-locations.use-case';
 import { DeleteProductionLocationUseCase } from './use-cases/delete-production-location.use-case';
 import { GetProductionLocationUseCase } from './use-cases/get-production-location.use-case';
 import { GetProductionLocationsUseCase } from './use-cases/get-production-locations.use-case';
@@ -22,6 +23,7 @@ import { ImportProductionLocationsUseCase } from './use-cases/import-production-
     GetProductionLocationUseCase,
     UpdateProductionLocationUseCase,
     DeleteProductionLocationUseCase,
+    BulkDeleteProductionLocationsUseCase,
     ExportProductionLocationsUseCase,
     ImportProductionLocationsUseCase,
   ],

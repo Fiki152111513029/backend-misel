@@ -61,4 +61,13 @@ export interface IWarehouseLocationsRepository {
     data: UpdateWarehouseLocationData,
   ): Promise<WarehouseLocation>;
   softDelete(id: string): Promise<void>;
+  /**
+   * Soft-deletes several rows in one statement and reports how many it
+   * actually touched.
+   *
+   * The count matters: ids that are already deleted, or were never there,
+   * are silently not matched, so it is the only way the caller can tell a
+   * partly-stale selection from a complete one.
+   */
+  softDeleteMany(ids: string[]): Promise<number>;
 }

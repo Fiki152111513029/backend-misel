@@ -243,7 +243,7 @@ export class FactoryMapController {
   @UseInterceptors(FILE_FIELDS)
   @ApiOperation({
     summary:
-      'Update a Factory Map (multipart: name and/or replacement image/topology files, all optional)',
+      'Update a Factory Map (multipart: name, area number, replacement image/topology files, removeImage flag and rackAssignments — all optional)',
   })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -252,23 +252,59 @@ export class FactoryMapController {
   ) {
     const image = files.image?.[0];
     const topology = files.topology?.[0];
-    const imagePath = image ? toRelativePath(image) : undefined;
     const topologyPath = topology ? toRelativePath(topology) : undefined;
 
+    // Three states, not two: a replacement image, an explicit "drop it"
+    // (null), or no instruction at all (undefined, leave it alone). An
+    // uploaded file wins — asking to remove the image while supplying a new
+    // one is a contradiction, and keeping the upload is the reading that
+    // throws nothing away.
+    const imagePath = image
+      ? toRelativePath(image)
+      : dto.removeImage
+        ? null
+        : undefined;
+
     try {
+      const rackAssignments = this.parseRackAssignments(dto.rackAssignments);
       const data = await this.updateFactoryMapUseCase.execute(id, {
         name: dto.name,
         areaNumber: dto.areaNumber,
         imagePath,
         topologyPath,
       });
+
+      // A replacement topology can bring nodes the system has never seen.
+      // Importing them here is what stops an edited map from drawing racks
+      // that no Production or Warehouse Location backs — the same import
+      // create() runs, and it skips codes that already exist rather than
+      // overwriting them, so re-uploading the same file changes nothing.
+      //
+      // Reported, never thrown: the map is already saved by this point, and
+      // a failed import must not undo that.
+      let locationSync: Awaited<
+        ReturnType<SyncTopologyLocationsUseCase['execute']>
+      > | null = null;
+      if (topology) {
+        try {
+          locationSync = await this.syncTopologyLocationsUseCase.execute(
+            topology.path,
+            rackAssignments,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to import locations from replacement topology of "${data.name}": ${error}`,
+          );
+        }
+      }
+
       return {
         success: true,
         message: 'Factory Map updated successfully',
-        data: this.toEntity(data),
+        data: { ...this.toEntity(data), locationSync },
       };
     } catch (error) {
-      if (imagePath) deleteUploadedFile(imagePath);
+      if (image) deleteUploadedFile(toRelativePath(image));
       if (topologyPath) deleteUploadedFile(topologyPath);
       throw error;
     }

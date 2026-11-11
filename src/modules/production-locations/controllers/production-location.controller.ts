@@ -29,6 +29,8 @@ import { ProductionLocationQueryDto } from '../dto/production-location-query.dto
 import { CreateProductionLocationDto } from '../dto/create-production-location.dto';
 import { UpdateProductionLocationDto } from '../dto/update-production-location.dto';
 import { CreateProductionLocationUseCase } from '../use-cases/create-production-location.use-case';
+import { BulkDeleteProductionLocationsDto } from '../dto/bulk-delete-production-locations.dto';
+import { BulkDeleteProductionLocationsUseCase } from '../use-cases/bulk-delete-production-locations.use-case';
 import { DeleteProductionLocationUseCase } from '../use-cases/delete-production-location.use-case';
 import { GetProductionLocationUseCase } from '../use-cases/get-production-location.use-case';
 import { GetProductionLocationsUseCase } from '../use-cases/get-production-locations.use-case';
@@ -46,6 +48,7 @@ export class ProductionLocationController {
     private readonly getProductionLocationUseCase: GetProductionLocationUseCase,
     private readonly updateProductionLocationUseCase: UpdateProductionLocationUseCase,
     private readonly deleteProductionLocationUseCase: DeleteProductionLocationUseCase,
+    private readonly bulkDeleteProductionLocationsUseCase: BulkDeleteProductionLocationsUseCase,
     private readonly exportProductionLocationsUseCase: ExportProductionLocationsUseCase,
     private readonly importProductionLocationsUseCase: ImportProductionLocationsUseCase,
   ) {}
@@ -84,6 +87,29 @@ export class ProductionLocationController {
     }
     const data = await this.importProductionLocationsUseCase.execute(file);
     return { success: true, message: 'Import completed', data };
+  }
+
+  // POST, not DELETE: a request body on DELETE is allowed by the spec but
+  // dropped or refused by enough proxies and clients that it is not worth
+  // the surprise. Must also come before @Post() so Nest does not read
+  // "bulk-delete" as a create.
+  @Post('bulk-delete')
+  @Permissions('production-location.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Soft delete several production locations at once, by id. Reports how many were deleted and how many ids matched nothing.',
+  })
+  async bulkRemove(@Body() dto: BulkDeleteProductionLocationsDto) {
+    const data = await this.bulkDeleteProductionLocationsUseCase.execute(dto.ids);
+    return {
+      success: true,
+      message:
+        data.missing > 0
+          ? `${data.deleted} of ${data.deleted + data.missing} production locations deleted — the rest were already gone`
+          : `${data.deleted} production locations deleted successfully`,
+      data,
+    };
   }
 
   @Post()

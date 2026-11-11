@@ -116,6 +116,11 @@ export interface IWebhookLogsRepository {
     status: TaskStatus,
     robotId?: string,
   ): Promise<boolean>;
+  /**
+   * The node a Trolley Activity collected from, so the bookkeeping that
+   * follows a Custom Task pickup can follow this one too.
+   */
+  findTrolleyActivityPickupByTaskId(taskId: string): Promise<string | null>;
   /** Returns true if a TrolleyActivity with this taskId was found and updated. */
   updateTrolleyActivityStatusByTaskId(
     taskId: string,

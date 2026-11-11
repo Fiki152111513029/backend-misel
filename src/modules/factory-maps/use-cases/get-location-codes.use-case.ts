@@ -34,6 +34,14 @@ export interface LocationCodesResult {
   // Same, but for Production Location codes (a trolley's fixed dropping
   // point in the Warehouse->Production direction).
   productionLocationStatuses: { code: string; status: 'EMPTY' | 'FULL' }[];
+  // Every registered Warehouse Location code, whether or not it has ever
+  // had a status set. The two `...Statuses` lists above drop rows with a
+  // null status, so they cannot answer "is this code already registered?"
+  // — which is exactly what the Factory Map form needs in order to leave
+  // already-registered racks out of its import picker.
+  warehouseCodes: string[];
+  // Same, for Production Location.
+  productionCodes: string[];
 }
 
 @Injectable()
@@ -105,6 +113,12 @@ export class GetLocationCodesUseCase {
       parkingCodes: [...new Set(parkingCodes)],
       warehouseLocationStatuses: toStatusEntries(warehouseLocations),
       productionLocationStatuses: toStatusEntries(productionLocations),
+      warehouseCodes: [
+        ...new Set(warehouseLocations.map((row) => row.iRaypleLocationCode)),
+      ],
+      productionCodes: [
+        ...new Set(productionLocations.map((row) => row.iRaypleLocationCode)),
+      ],
     };
   }
 }

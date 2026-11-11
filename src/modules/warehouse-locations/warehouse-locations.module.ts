@@ -3,6 +3,7 @@ import { WarehouseLocationController } from './controllers/warehouse-location.co
 import { WAREHOUSE_LOCATIONS_REPOSITORY } from './repositories/warehouse-location-repository.interface';
 import { WarehouseLocationRepository } from './repositories/warehouse-location.repository';
 import { CreateWarehouseLocationUseCase } from './use-cases/create-warehouse-location.use-case';
+import { BulkDeleteWarehouseLocationsUseCase } from './use-cases/bulk-delete-warehouse-locations.use-case';
 import { DeleteWarehouseLocationUseCase } from './use-cases/delete-warehouse-location.use-case';
 import { GetWarehouseLocationUseCase } from './use-cases/get-warehouse-location.use-case';
 import { GetWarehouseLocationsUseCase } from './use-cases/get-warehouse-locations.use-case';
@@ -22,6 +23,7 @@ import { ImportWarehouseLocationsUseCase } from './use-cases/import-warehouse-lo
     GetWarehouseLocationUseCase,
     UpdateWarehouseLocationUseCase,
     DeleteWarehouseLocationUseCase,
+    BulkDeleteWarehouseLocationsUseCase,
     ExportWarehouseLocationsUseCase,
     ImportWarehouseLocationsUseCase,
   ],

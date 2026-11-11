@@ -29,6 +29,8 @@ import { WarehouseLocationQueryDto } from '../dto/warehouse-location-query.dto';
 import { CreateWarehouseLocationDto } from '../dto/create-warehouse-location.dto';
 import { UpdateWarehouseLocationDto } from '../dto/update-warehouse-location.dto';
 import { CreateWarehouseLocationUseCase } from '../use-cases/create-warehouse-location.use-case';
+import { BulkDeleteWarehouseLocationsDto } from '../dto/bulk-delete-warehouse-locations.dto';
+import { BulkDeleteWarehouseLocationsUseCase } from '../use-cases/bulk-delete-warehouse-locations.use-case';
 import { DeleteWarehouseLocationUseCase } from '../use-cases/delete-warehouse-location.use-case';
 import { GetWarehouseLocationUseCase } from '../use-cases/get-warehouse-location.use-case';
 import { GetWarehouseLocationsUseCase } from '../use-cases/get-warehouse-locations.use-case';
@@ -46,6 +48,7 @@ export class WarehouseLocationController {
     private readonly getWarehouseLocationUseCase: GetWarehouseLocationUseCase,
     private readonly updateWarehouseLocationUseCase: UpdateWarehouseLocationUseCase,
     private readonly deleteWarehouseLocationUseCase: DeleteWarehouseLocationUseCase,
+    private readonly bulkDeleteWarehouseLocationsUseCase: BulkDeleteWarehouseLocationsUseCase,
     private readonly exportWarehouseLocationsUseCase: ExportWarehouseLocationsUseCase,
     private readonly importWarehouseLocationsUseCase: ImportWarehouseLocationsUseCase,
   ) {}
@@ -84,6 +87,29 @@ export class WarehouseLocationController {
     }
     const data = await this.importWarehouseLocationsUseCase.execute(file);
     return { success: true, message: 'Import completed', data };
+  }
+
+  // POST, not DELETE: a request body on DELETE is allowed by the spec but
+  // dropped or refused by enough proxies and clients that it is not worth
+  // the surprise. Must also come before @Post() so Nest does not read
+  // "bulk-delete" as a create.
+  @Post('bulk-delete')
+  @Permissions('warehouse-location.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Soft delete several warehouse locations at once, by id. Reports how many were deleted and how many ids matched nothing.',
+  })
+  async bulkRemove(@Body() dto: BulkDeleteWarehouseLocationsDto) {
+    const data = await this.bulkDeleteWarehouseLocationsUseCase.execute(dto.ids);
+    return {
+      success: true,
+      message:
+        data.missing > 0
+          ? `${data.deleted} of ${data.deleted + data.missing} warehouse locations deleted — the rest were already gone`
+          : `${data.deleted} warehouse locations deleted successfully`,
+      data,
+    };
   }
 
   @Post()

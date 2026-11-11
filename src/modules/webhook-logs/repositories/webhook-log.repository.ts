@@ -361,6 +361,17 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     return result.count > 0;
   }
 
+  async findTrolleyActivityPickupByTaskId(
+    taskId: string,
+  ): Promise<string | null> {
+    const activity = await this.prisma.trolleyActivity.findFirst({
+      where: { taskId, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: { pickupLocationCode: true },
+    });
+    return activity?.pickupLocationCode ?? null;
+  }
+
   async updateTrolleyActivityStatusByTaskId(
     taskId: string,
     status: TaskStatus,

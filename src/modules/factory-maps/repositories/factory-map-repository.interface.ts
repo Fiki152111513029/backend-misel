@@ -10,7 +10,8 @@ export interface CreateFactoryMapData {
 export interface UpdateFactoryMapData {
   name?: string;
   areaNumber?: number;
-  imagePath?: string;
+  /** null clears the background image; undefined leaves it as it is. */
+  imagePath?: string | null;
   topologyPath?: string;
 }
 

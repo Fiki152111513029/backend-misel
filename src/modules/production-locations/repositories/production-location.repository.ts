@@ -98,4 +98,15 @@ export class ProductionLocationRepository
       data: { deletedAt: new Date() },
     });
   }
+
+  async softDeleteMany(ids: string[]): Promise<number> {
+    // deletedAt: null in the filter, so a row someone else deleted while
+    // this selection sat on screen is skipped rather than having its
+    // timestamp rewritten to now.
+    const result = await this.prisma.productionLocation.updateMany({
+      where: { id: { in: ids }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return result.count;
+  }
 }

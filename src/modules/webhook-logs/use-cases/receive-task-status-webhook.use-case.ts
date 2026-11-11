@@ -168,7 +168,22 @@ export class ReceiveTaskStatusWebhookUseCase {
 
     const pickup = taskPath.split(',')[0]?.trim();
     if (!pickup) return;
+    await this.recordRackLifted(pickup);
+  }
 
+  /**
+   * Drops whatever we had recorded as standing on a node an AMR has just
+   * collected from.
+   *
+   * Reached from every task type, not only Custom Tasks. The finished-goods
+   * flag is ours alone — RCS has no value for it — so if the rack is taken
+   * away by a Trolley Task, a Warehouse Cart Task or by hand, nothing
+   * clears it and the node stays blocked for every later drop while the
+   * floor can plainly see it is free. The only ways out used to be another
+   * Custom Task collecting from the same node, or someone pressing a button
+   * on Checking Area.
+   */
+  private async recordRackLifted(pickup: string): Promise<void> {
     const { items } = await this.warehouseLocationsRepository.findAll({
       page: 1,
       limit: 1000,
@@ -303,6 +318,19 @@ export class ReceiveTaskStatusWebhookUseCase {
                 status,
                 robotId,
               );
+
+            // Same bookkeeping as a Custom Task pickup: the rack has left
+            // the node, so nothing we recorded as standing there is true
+            // any more. Without this, a finished-goods rack collected by a
+            // Trolley Task leaves its flag behind and the node refuses
+            // every later drop.
+            if (matchedTrolleyActivity && rawStatus === RCS_PICKED_CODE) {
+              const pickup =
+                await this.webhookLogsRepository.findTrolleyActivityPickupByTaskId(
+                  orderId,
+                );
+              if (pickup) await this.recordRackLifted(pickup);
+            }
             // Production->Warehouse activities are submitted without a
             // droppingLocationCode (RCS picks its own destination and never
             // confirms it back to us) — see CreateTrolleyActivityUseCase.
