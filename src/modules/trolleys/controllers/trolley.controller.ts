@@ -28,7 +28,9 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TrolleyQueryDto } from '../dto/trolley-query.dto';
 import { CreateTrolleyDto } from '../dto/create-trolley.dto';
 import { UpdateTrolleyDto } from '../dto/update-trolley.dto';
+import { BulkDeleteTrolleysDto } from '../dto/bulk-delete-trolleys.dto';
 import { CreateTrolleyUseCase } from '../use-cases/create-trolley.use-case';
+import { BulkDeleteTrolleysUseCase } from '../use-cases/bulk-delete-trolleys.use-case';
 import { DeleteTrolleyUseCase } from '../use-cases/delete-trolley.use-case';
 import { GetTrolleyUseCase } from '../use-cases/get-trolley.use-case';
 import { GetTrolleysUseCase } from '../use-cases/get-trolleys.use-case';
@@ -46,6 +48,7 @@ export class TrolleyController {
     private readonly getTrolleyUseCase: GetTrolleyUseCase,
     private readonly updateTrolleyUseCase: UpdateTrolleyUseCase,
     private readonly deleteTrolleyUseCase: DeleteTrolleyUseCase,
+    private readonly bulkDeleteTrolleysUseCase: BulkDeleteTrolleysUseCase,
     private readonly exportTrolleysUseCase: ExportTrolleysUseCase,
     private readonly importTrolleysUseCase: ImportTrolleysUseCase,
   ) {}
@@ -84,6 +87,29 @@ export class TrolleyController {
     }
     const data = await this.importTrolleysUseCase.execute(file);
     return { success: true, message: 'Import completed', data };
+  }
+
+  // POST, not DELETE: a request body on DELETE is allowed by the spec but
+  // dropped or refused by enough proxies and clients that it is not worth
+  // the surprise. Must also come before @Post() so Nest does not read
+  // "bulk-delete" as a create.
+  @Post('bulk-delete')
+  @Permissions('trolley.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Soft delete several trolleys at once, by id. Reports how many were deleted and how many ids matched nothing.',
+  })
+  async bulkRemove(@Body() dto: BulkDeleteTrolleysDto) {
+    const data = await this.bulkDeleteTrolleysUseCase.execute(dto.ids);
+    return {
+      success: true,
+      message:
+        data.missing > 0
+          ? `${data.deleted} of ${data.deleted + data.missing} trolleys deleted - the rest were already gone`
+          : `${data.deleted} trolleys deleted successfully`,
+      data,
+    };
   }
 
   @Post()

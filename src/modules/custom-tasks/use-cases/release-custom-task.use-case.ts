@@ -70,6 +70,7 @@ export class ReleaseCustomTaskUseCase {
         warehouseLocationsRepository: this.warehouseLocationsRepository,
         factoryMapsRepository: this.factoryMapsRepository,
         rcsStockStatusService: this.rcsStockStatusService,
+        customTaskRunsRepository: this.customTaskRunsRepository,
       },
       preview.route,
     );

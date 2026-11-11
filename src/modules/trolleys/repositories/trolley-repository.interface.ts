@@ -88,4 +88,13 @@ export interface ITrolleysRepository {
   create(data: CreateTrolleyData): Promise<Trolley>;
   update(id: string, data: UpdateTrolleyData): Promise<Trolley>;
   softDelete(id: string): Promise<void>;
+  /**
+   * Soft-deletes several trolleys in one statement and reports how many it
+   * actually touched.
+   *
+   * The count matters: ids that are already deleted, or were never there,
+   * are silently not matched, so it is the only way the caller can tell a
+   * partly-stale selection from a complete one.
+   */
+  softDeleteMany(ids: string[]): Promise<number>;
 }

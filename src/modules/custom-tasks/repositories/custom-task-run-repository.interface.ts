@@ -77,6 +77,17 @@ export interface ICustomTaskRunsRepository {
    */
   findWaitingForBin(): Promise<CustomTaskRun[]>;
   /**
+   * The taskPaths of runs that are already on the floor — accepted by RCS
+   * and not yet finished or cancelled.
+   *
+   * Read for their first leg: a node an AMR is on its way to collect from
+   * is a node that is about to be free, so a second task may be sent to
+   * drop onto it in the same breath instead of queueing behind the first.
+   * Held runs are excluded on purpose — one of those is not going
+   * anywhere, so it cannot promise to empty anything.
+   */
+  findActiveDispatchedTaskPaths(): Promise<string[]>;
+  /**
    * Moves a parked run onto a different condition — used when the end that
    * blocks it changes while it waits (its pickup fills, but the drop has
    * since filled too).

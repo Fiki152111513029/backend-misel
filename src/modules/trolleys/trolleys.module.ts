@@ -8,6 +8,7 @@ import { TrolleyController } from './controllers/trolley.controller';
 import { TROLLEYS_REPOSITORY } from './repositories/trolley-repository.interface';
 import { TrolleyRepository } from './repositories/trolley.repository';
 import { CreateTrolleyUseCase } from './use-cases/create-trolley.use-case';
+import { BulkDeleteTrolleysUseCase } from './use-cases/bulk-delete-trolleys.use-case';
 import { DeleteTrolleyUseCase } from './use-cases/delete-trolley.use-case';
 import { GetTrolleyUseCase } from './use-cases/get-trolley.use-case';
 import { GetTrolleysUseCase } from './use-cases/get-trolleys.use-case';
@@ -31,6 +32,7 @@ import { ImportTrolleysUseCase } from './use-cases/import-trolleys.use-case';
     GetTrolleyUseCase,
     UpdateTrolleyUseCase,
     DeleteTrolleyUseCase,
+    BulkDeleteTrolleysUseCase,
     ExportTrolleysUseCase,
     ImportTrolleysUseCase,
   ],

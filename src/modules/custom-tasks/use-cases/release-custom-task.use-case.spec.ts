@@ -51,6 +51,9 @@ function build(
     findActiveByControlTaskId: jest
       .fn()
       .mockResolvedValue(overrides.activeRun ?? null),
+    // Nothing on the floor by default, so no node counts as about to be
+    // emptied — the bin rule behaves exactly as it did before this existed.
+    findActiveDispatchedTaskPaths: jest.fn().mockResolvedValue([]),
   };
 
   // By default no warehouse leg on the route, so the bin check
