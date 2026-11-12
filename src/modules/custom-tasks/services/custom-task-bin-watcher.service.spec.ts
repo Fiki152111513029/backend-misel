@@ -27,22 +27,16 @@ function build(options: {
   stock?: Record<string, number>;
   addTaskThrows?: boolean;
   areaNumbers?: (number | null)[];
-  /** taskPaths of runs already dispatched to RCS. */
-  dispatchedPaths?: string[];
 }) {
   const findWaitingForBin = jest
     .fn()
     .mockResolvedValue(options.waiting ?? []);
   const markDispatched = jest.fn().mockResolvedValue(undefined);
   const updateWait = jest.fn().mockResolvedValue(undefined);
-  const findActiveDispatchedTaskPaths = jest
-    .fn()
-    .mockResolvedValue(options.dispatchedPaths ?? []);
   const customTaskRunsRepository = {
     findWaitingForBin,
     markDispatched,
     updateWait,
-    findActiveDispatchedTaskPaths,
   };
 
   // Both ends of every fixture route are judged against this set, so the
@@ -205,10 +199,10 @@ describe('CustomTaskBinWatcherService', () => {
     });
   });
 
-  // The parked task does not have to wait for the collecting one to
-  // finish any more: once that task is on the floor, the slot it is going
-  // to empty counts as available.
-  describe('a drop parked on a node another running task is collecting from', () => {
+  // A drop stays parked until RCS itself reports the slot free. Nothing
+  // else releases it — not another task collecting from that node, and not
+  // our own record of the rack having been lifted.
+  describe('a drop parked on a slot RCS still reports occupied', () => {
     const dropHeld = run({
       id: 'drop-held',
       orderId: 'A1-drop',
@@ -217,26 +211,24 @@ describe('CustomTaskBinWatcherService', () => {
       waitingForStatus: '0',
     });
 
-    it('releases it even though RCS still reports the slot full', async () => {
+    it('keeps it parked while the node still reads full', async () => {
       const { service, addTask } = build({
         waiting: [dropHeld],
         stock: { WRL12: FULL },
-        dispatchedPaths: ['WRL12,PT2A'],
+      });
+      await service.poll();
+      expect(addTask).not.toHaveBeenCalled();
+    });
+
+    it('releases it the moment the node reads empty', async () => {
+      const { service, addTask } = build({
+        waiting: [dropHeld],
+        stock: { WRL12: EMPTY },
       });
       await service.poll();
       expect(addTask).toHaveBeenCalledWith(
         expect.objectContaining({ orderId: 'A1-drop' }),
       );
-    });
-
-    it('keeps it parked when nothing is collecting from there', async () => {
-      const { service, addTask } = build({
-        waiting: [dropHeld],
-        stock: { WRL12: FULL },
-        dispatchedPaths: [],
-      });
-      await service.poll();
-      expect(addTask).not.toHaveBeenCalled();
     });
   });
 

@@ -5,7 +5,6 @@ import {
 import type { RcsStockStatusService } from '../../rcs-stock-status/rcs-stock-status.service';
 import type { IFactoryMapsRepository } from '../../factory-maps/repositories/factory-map-repository.interface';
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
-import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-repository.interface';
 
 /**
  * Whether both ends of a Custom Task's route are ready for it to run.
@@ -15,10 +14,13 @@ import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-
  *   last leg  (drop)   must be EMPTY (0) — the slot has to be free to put
  *                                          the load down
  *
- * A drop is also allowed onto a slot another task already on the floor is
- * coming to collect from: that rack is leaving, so the two halves of one
- * movement can be sent together instead of the second queueing behind the
- * first.
+ * The drop rule is positive and has no exceptions: the node has to read
+ * exactly 0, the status an operator sees as "Rak Kosong Belum Ready". Any
+ * other reading holds the task — "Rak Kosong Ready" (2) because a rack is
+ * standing there, "Finish Good Ready" because finished goods are, and
+ * anything else because it is not the one status that means the slot is
+ * free. Nothing stands in for that reading, not even our own record of an
+ * AMR having just lifted the rack off it.
  *
  * Only checked when that end is a Warehouse Location. Legs in the middle
  * are pass-through points the robot drives over, and Production Locations
@@ -63,36 +65,18 @@ export interface RouteBinContext {
    * Codes an AMR has just lifted a rack off, while the task that did it is
    * still running.
    *
-   * RCS refuses a stock-status change on a node one of its own tasks still
-   * holds, so the nodeStatus=0 we send at "21 Picked" is ignored and the
-   * node keeps reading 2 until that task completes. Taking RCS at its word
-   * through that window is what kept a finish-good drop parked for the
-   * whole of the trip that emptied its slot.
+   * Used on the PICKUP end only, and only ever to block: there is nothing
+   * left to collect once the rack has gone, whatever RCS still has
+   * recorded.
    *
-   * The stamp is cleared when the collecting task ends, so this only ever
-   * overrides RCS for as long as RCS is knowably behind.
+   * It deliberately does NOT release a drop. RCS refuses a stock-status
+   * change on a node one of its own tasks still holds, so the node can
+   * keep reading 2 for a while after the rack has left — but a drop is
+   * only ever allowed on a positive reading of 0, and our own record of
+   * the lift is not that reading. Letting it stand in would send a robot
+   * to put a rack down on a slot the operator still sees as occupied.
    */
   recentlyEmptiedCodes: Set<string>;
-  /**
-   * Codes an already-dispatched task is on its way to collect from.
-   *
-   * The slot is still physically occupied, and RCS rightly reports it as
-   * such — but a robot is already driving towards it to take the rack
-   * away, so by the time a second robot arrives to put one down it will
-   * be free.
-   *
-   * Without this, two halves of the same movement cannot be sent
-   * together: release the task that collects from WRL21 and the task that
-   * drops onto WRL21 parks behind it, waiting for a rack to leave that
-   * has in fact already been claimed. The operator ends up sending the
-   * second one again by hand once the first has finished, which is the
-   * sequencing the two tasks were written to avoid.
-   *
-   * Only dispatched runs count. A parked run has sent nothing to RCS, so
-   * it cannot promise to empty anything, and reading it as if it could
-   * would let two held tasks release each other.
-   */
-  beingCollectedCodes: Set<string>;
 }
 
 /**
@@ -122,7 +106,6 @@ export function evaluateRouteBins(
     byCode,
     finishGoodCodes,
     recentlyEmptiedCodes,
-    beingCollectedCodes,
   }: RouteBinContext,
   { requireKnown = false }: EvaluateOptions = {},
 ): RouteBinVerdict {
@@ -159,23 +142,16 @@ export function evaluateRouteBins(
   if (drop !== pickup && warehouseCodes.has(drop)) {
     const status = byCode.get(drop);
     const blocked =
-      // A task already on the floor is coming to collect from this node,
-      // so whatever stands there is leaving before the drop can arrive.
-      // This outranks every reading below, the finished-goods flag
-      // included: those all describe what is on the slot now, and this
-      // describes what is about to happen to it.
-      !beingCollectedCodes.has(drop) &&
-      // Finished goods make it occupied whatever RCS says. Note this is
-      // NOT overridden by the stamp below, which only says an empty rack
-      // was lifted at some point — if a finish-good rack has since been
-      // put down, the node is taken again and the drop must wait.
-      (finishGoodCodes.has(drop) ||
-        // A node we watched an AMR empty is free to drop onto, even while
-        // RCS is still reporting the rack that has already gone.
-        (!recentlyEmptiedCodes.has(drop) &&
-          (status === undefined
-            ? requireKnown
-            : String(status) === NODE_STATUS_FULL)));
+      // Finished goods make it occupied whatever RCS says — on screen that
+      // node reads "Finish Good Ready", which is not the status a drop is
+      // allowed on.
+      finishGoodCodes.has(drop) ||
+      (status === undefined
+        ? requireKnown
+        : // Positive, not a list of exclusions: only 0 ("Rak Kosong Belum
+          // Ready") lets a drop through. Testing for 2 instead would let
+          // any other code RCS might report pass as if the slot were free.
+          String(status) !== NODE_STATUS_EMPTY);
     if (blocked) {
       return {
         ready: false,
@@ -193,28 +169,6 @@ interface BinDeps {
   warehouseLocationsRepository: IWarehouseLocationsRepository;
   factoryMapsRepository: IFactoryMapsRepository;
   rcsStockStatusService: RcsStockStatusService;
-  customTaskRunsRepository: ICustomTaskRunsRepository;
-}
-
-/**
- * The first leg of every task already on the floor — the nodes those tasks
- * are going to collect from, and therefore the nodes that are about to be
- * free.
- *
- * Only Custom Tasks are read. A Trolley or Warehouse Cart task collecting
- * from a warehouse node empties it just the same, but those are not routes
- * in this sense and are left out for now, so a drop behind one of them
- * still waits as it did before.
- */
-async function loadBeingCollectedCodes(deps: BinDeps): Promise<Set<string>> {
-  const taskPaths =
-    await deps.customTaskRunsRepository.findActiveDispatchedTaskPaths();
-  const codes = new Set<string>();
-  for (const taskPath of taskPaths) {
-    const pickup = taskPath.split(',')[0]?.trim();
-    if (pickup) codes.add(pickup);
-  }
-  return codes;
 }
 
 /** Active Warehouse Location codes and what they hold — no RCS involved. */
@@ -275,16 +229,11 @@ export async function loadRouteBinContext(
 ): Promise<RouteBinContext> {
   const { warehouseCodes, finishGoodCodes, recentlyEmptiedCodes } =
     await loadWarehouseCodes(deps);
-  const [byCode, beingCollectedCodes] = await Promise.all([
-    loadStockStatus(deps),
-    loadBeingCollectedCodes(deps),
-  ]);
   return {
     warehouseCodes,
     finishGoodCodes,
     recentlyEmptiedCodes,
-    beingCollectedCodes,
-    byCode,
+    byCode: await loadStockStatus(deps),
   };
 }
 
@@ -305,16 +254,10 @@ export async function checkRouteBins(
     return { ready: true };
   }
 
-  const [byCode, beingCollectedCodes] = await Promise.all([
-    loadStockStatus(deps),
-    loadBeingCollectedCodes(deps),
-  ]);
-
   return evaluateRouteBins(route, {
     warehouseCodes,
     finishGoodCodes,
     recentlyEmptiedCodes,
-    beingCollectedCodes,
-    byCode,
+    byCode: await loadStockStatus(deps),
   });
 }

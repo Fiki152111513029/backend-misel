@@ -58,21 +58,6 @@ export class CustomTaskRunRepository implements ICustomTaskRunsRepository {
     });
   }
 
-  async findActiveDispatchedTaskPaths(): Promise<string[]> {
-    const runs = await this.prisma.customTaskRun.findMany({
-      where: {
-        status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
-        cancelledAt: null,
-        // Dispatched only. A run still holding a wait stamp was never sent
-        // to RCS, so nothing is driving towards its pickup node and it
-        // must not be read as a promise to empty it.
-        waitingForBinAt: null,
-      },
-      select: { taskPath: true },
-    });
-    return runs.map((run) => run.taskPath);
-  }
-
   async updateWait(
     id: string,
     waitingForCode: string,

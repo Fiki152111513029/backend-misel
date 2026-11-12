@@ -2,7 +2,6 @@ import { checkRouteBins } from './check-route-bins';
 import type { RcsStockStatusService } from '../../rcs-stock-status/rcs-stock-status.service';
 import type { IFactoryMapsRepository } from '../../factory-maps/repositories/factory-map-repository.interface';
 import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
-import type { ICustomTaskRunsRepository } from '../repositories/custom-task-run-repository.interface';
 
 // The RCS instance available in development does not know these bin codes,
 // so the blocking paths cannot be exercised against the live server. These
@@ -40,11 +39,6 @@ function deps(
   finishGoods: string[] = [],
   /** Codes an AMR has just lifted from, with its task still running. */
   recentlyEmptied: string[] = [],
-  /**
-   * taskPaths of Custom Tasks already on the floor. Their first leg is a
-   * node about to be emptied.
-   */
-  dispatchedPaths: string[] = [],
 ) {
   const warehouseLocationsRepository = {
     findAll: jest.fn().mockResolvedValue({
@@ -77,17 +71,10 @@ function deps(
     getStockStatusByCode,
   } as unknown as RcsStockStatusService;
 
-  const customTaskRunsRepository = {
-    findActiveDispatchedTaskPaths: jest
-      .fn()
-      .mockResolvedValue(dispatchedPaths),
-  } as unknown as ICustomTaskRunsRepository;
-
   return {
     warehouseLocationsRepository,
     factoryMapsRepository,
     rcsStockStatusService,
-    customTaskRunsRepository,
     getStockStatusByCode,
   };
 }
@@ -219,20 +206,20 @@ describe('checkRouteBins', () => {
     });
   });
 
-  // The bug this covers: an AMR collects the empty rack from a warehouse
-  // node, RCS refuses our nodeStatus=0 because its own task still holds that
-  // node, and a finish-good task parked on the same node as its drop sat
-  // there for the whole trip instead of going the moment the rack left.
+  // The lift stamp is a pickup-side signal only. It says there is nothing
+  // left to collect; it is not a substitute for RCS reporting the slot
+  // free, which is the one thing that releases a drop.
   describe('a node an AMR has just lifted from, while RCS still says full', () => {
-    it('lets a finish-good drop go even though RCS reports the slot full', async () => {
+    it('does NOT release a drop — only a positive 0 from RCS does that', async () => {
+      // The rack has physically gone, but the operator still sees "Rak
+      // Kosong Ready" on that node, and a drop may only go onto one
+      // reading "Rak Kosong Belum Ready".
       await expect(
         checkRouteBins(deps({ [WRL13]: FULL }, [], [WRL13]), [PT2A, WRL13]),
-      ).resolves.toEqual(READY);
+      ).resolves.toEqual(needEmpty(WRL13));
     });
 
     it('still holds the drop when finished goods are standing there', async () => {
-      // The stamp says the empty rack left; the flag says a finish-good rack
-      // arrived. Both can be true of one node, and the occupied one wins.
       await expect(
         checkRouteBins(deps({ [WRL13]: FULL }, [WRL13], [WRL13]), [PT2A, WRL13]),
       ).resolves.toEqual(needEmpty(WRL13));
@@ -259,59 +246,19 @@ describe('checkRouteBins', () => {
     });
   });
 
-  // Two halves of one movement, sent together: WRL12 -> PT2A collects the
-  // rack, PT2A -> WRL12 puts another one back. The second used to park
-  // behind the first, because RCS still reports WRL12 occupied until the
-  // rack is actually lifted — which left the operator sequencing by hand
-  // the two tasks that were written to run side by side.
-  describe('a drop onto a node another running task is collecting from', () => {
-    it('lets the drop go while the collecting task is still on its way', async () => {
+  // The drop rule tests FOR 0 rather than against 2, so a reading nobody
+  // planned for holds the task instead of slipping through it.
+  describe('a drop node reporting something other than 0 or 2', () => {
+    it('holds the task on an unexpected status', async () => {
       await expect(
-        checkRouteBins(
-          deps({ [WRL12]: FULL }, [], [], [`${WRL12},${PT2A}`]),
-          [PT2A, WRL12],
-        ),
+        checkRouteBins(deps({ [WRL12]: 1 }), [PT2A, WRL12]),
+      ).resolves.toEqual(needEmpty(WRL12));
+    });
+
+    it('still allows it on a plain 0', async () => {
+      await expect(
+        checkRouteBins(deps({ [WRL12]: EMPTY }), [PT2A, WRL12]),
       ).resolves.toEqual(READY);
-    });
-
-    it('lets it go even when finished goods are standing there', async () => {
-      // The flag says the slot is taken; the running task says that rack
-      // is being collected. What is about to happen outranks what is.
-      await expect(
-        checkRouteBins(
-          deps({ [WRL12]: EMPTY }, [WRL12], [], [`${WRL12},${PT2A}`]),
-          [PT2A, WRL12],
-        ),
-      ).resolves.toEqual(READY);
-    });
-
-    it('only counts the first leg — a node merely driven through is not emptied', async () => {
-      await expect(
-        checkRouteBins(
-          deps({ [WRL13]: FULL }, [], [], [`${PT2A},${WRL13},${PT2A}`]),
-          [PT2A, WRL13],
-        ),
-      ).resolves.toEqual(needEmpty(WRL13));
-    });
-
-    it('does not count a task collecting from somewhere else', async () => {
-      await expect(
-        checkRouteBins(
-          deps({ [WRL13]: FULL }, [], [], [`${WRL12},${PT2A}`]),
-          [PT2A, WRL13],
-        ),
-      ).resolves.toEqual(needEmpty(WRL13));
-    });
-
-    // The pickup rule is untouched: a node being collected from by someone
-    // else has nothing spare to offer a second task.
-    it('does not turn it into a pickup that can be collected twice', async () => {
-      await expect(
-        checkRouteBins(
-          deps({ [WRL12]: EMPTY }, [], [], [`${WRL12},${PT2A}`]),
-          [WRL12, PT2A],
-        ),
-      ).resolves.toEqual(needFull(WRL12));
     });
   });
 

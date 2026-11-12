@@ -70,7 +70,6 @@ export class CustomTaskBinWatcherService {
       warehouseLocationsRepository: this.warehouseLocationsRepository,
       factoryMapsRepository: this.factoryMapsRepository,
       rcsStockStatusService: this.rcsStockStatusService,
-      customTaskRunsRepository: this.customTaskRunsRepository,
     });
 
     // One pallet per rack, so one task per rack per tick. findWaitingForBin
