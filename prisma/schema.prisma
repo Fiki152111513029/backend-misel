@@ -198,21 +198,33 @@ enum FromSystem {
 }
 
 model ModelCodeProcess {
-  id             String     @id @default(uuid())
-  name           String
-  fromSystem     FromSystem @default(MES)
-  isActive       Boolean    @default(true)
-  statusComment1 String     @default("")
-  statusComment2 String     @default("")
-  statusComment3 String     @default("")
-  statusComment4 String     @default("")
-  statusComment5 String     @default("")
-  statusComment6 String     @default("")
-  statusComment7 String     @default("")
-  statusComment8 String     @default("")
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  deletedAt      DateTime?
+  id                   String     @id @default(uuid())
+  name                 String
+  fromSystem           FromSystem @default(MES)
+  isActive             Boolean    @default(true)
+  statusComment1       String     @default("")
+  statusComment2       String     @default("")
+  statusComment3       String     @default("")
+  statusComment4       String     @default("")
+  statusComment5       String     @default("")
+  statusComment6       String     @default("")
+  statusComment7       String     @default("")
+  statusComment8       String     @default("")
+  /// How long to wait, in SECONDS, before a task on this Model Code
+  /// Process is continued automatically.
+  ///
+  /// Null means no timer at all, which is what every existing row starts
+  /// as: nothing is continued automatically unless an admin sets a number
+  /// here. Deliberately not `@default(0)` -- 0 would read as "continue
+  /// immediately", and there would then be no way to say "do not".
+  ///
+  /// Stored in seconds, not milliseconds, because this is a number an
+  /// admin types on the floor; PlcDevice.pollIntervalMs is in ms because
+  /// nothing human sets it.
+  continueTaskDelaySec Int?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  deletedAt            DateTime?
 
   warehouseLineLocations WarehouseLineLocation[]
   warehouseCartTasks     WarehouseCartTask[]
@@ -481,7 +493,7 @@ model Robot {
   trolleyActivities    TrolleyActivity[]
   statusDailySummaries RobotStatusDailySummary[]
 
-  customTaskRuns       CustomTaskRun[]
+  customTaskRuns CustomTaskRun[]
 
   // `name`/`amrDeviceSerialNo`/`amrDeviceNo` uniqueness is enforced by
   // partial unique indexes (WHERE "deletedAt" IS NULL, see migration) so a
@@ -1010,9 +1022,9 @@ model WebhookLog {
 // task's QR (which encodes `code`) and the RCS order is built from `route`
 // joined into a taskPath, under this task's modelCodeProcess.
 model ControlTask {
-  id                 String      @id @default(uuid())
+  id                 String    @id @default(uuid())
   // Short letter designation printed on the QR label, e.g. "A", "B1".
-  code              String
+  code               String
   name               String
   /// Heading this task sits under in the Custom Task picker, e.g. "WRL23L".
   /// Free text and set by hand: grouping by station is the operator's own
@@ -1037,7 +1049,7 @@ model ControlTask {
   /// is no group row to hang it off — so switching it on for any single
   /// member turns the buttons on for the whole group. Default false: a
   /// group that never asked for them must not grow four buttons.
-  lineStatusEnabled  Boolean     @default(false)
+  lineStatusEnabled  Boolean   @default(false)
   modelCodeProcessId String
   // The iRayple location codes to visit, in the order the operator chose.
   // Stored as an ordered list rather than a set: a route may legitimately
@@ -1045,12 +1057,12 @@ model ControlTask {
   // there is no limit on how many legs it has. Joined with "," to form the
   // RCS `taskPath` (see docs/feature.md).
   route              String[]
-  isActive           Boolean     @default(true)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   deletedAt          DateTime?
 
-  modelCodeProcess ModelCodeProcess @relation(fields: [modelCodeProcessId], references: [id])
+  modelCodeProcess ModelCodeProcess  @relation(fields: [modelCodeProcessId], references: [id])
   runs             CustomTaskRun[]
   /// Who may dispatch this task from Custom Task. Empty means nobody sees
   /// it in the picker — a task has to be handed to someone deliberately.
@@ -1078,7 +1090,7 @@ model CustomTaskRun {
   // webhook comes back on, so `status` below can be kept live.
   orderId          String     @unique
   controlTaskId    String?
-  code            String
+  code             String
   name             String
   taskPath         String
   modelProcessCode String

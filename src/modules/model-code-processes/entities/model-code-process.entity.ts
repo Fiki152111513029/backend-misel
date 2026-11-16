@@ -38,6 +38,13 @@ export class ModelCodeProcessEntity {
   @ApiProperty()
   statusComment8!: string;
 
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Seconds to wait before continuing a task on this Model Code Process; null means no timer.',
+  })
+  continueTaskDelaySec!: number | null;
+
   @ApiProperty()
   createdAt!: Date;
 

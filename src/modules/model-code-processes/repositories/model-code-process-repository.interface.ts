@@ -12,6 +12,8 @@ export interface CreateModelCodeProcessData {
   statusComment6?: string;
   statusComment7?: string;
   statusComment8?: string;
+  /** Seconds; null (or omitted) means no timer. */
+  continueTaskDelaySec?: number | null;
 }
 
 export interface UpdateModelCodeProcessData {
@@ -26,6 +28,15 @@ export interface UpdateModelCodeProcessData {
   statusComment6?: string;
   statusComment7?: string;
   statusComment8?: string;
+  /**
+   * Seconds; null clears the timer.
+   *
+   * undefined and null mean different things on an update: undefined is
+   * "leave whatever is there", null is "there is no timer any more". The
+   * repository hands this straight to Prisma, which draws the same
+   * distinction, so the two must not be collapsed on the way in.
+   */
+  continueTaskDelaySec?: number | null;
 }
 
 export type ModelCodeProcessSortBy = 'name' | 'createdAt';

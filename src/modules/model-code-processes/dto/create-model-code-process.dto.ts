@@ -3,10 +3,13 @@ import { FromSystem } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 export class CreateModelCodeProcessDto {
@@ -72,4 +75,26 @@ export class CreateModelCodeProcessDto {
   @IsString()
   @MaxLength(255)
   statusComment8?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Seconds to wait before a task on this Model Code Process is continued automatically. Null or omitted means no timer — nothing is continued on its own.',
+    minimum: 1,
+    maximum: 86400,
+    nullable: true,
+    example: 30,
+  })
+  // @IsOptional() skips both undefined and null, which is exactly what is
+  // wanted here: undefined on a PATCH means "leave it alone", null means
+  // "clear the timer", and neither should be validated as a number.
+  @IsOptional()
+  @IsInt()
+  // 1, not 0. A 0-second timer and no timer at all would be
+  // indistinguishable, and null already says "no timer".
+  @Min(1)
+  // 24 hours. Nothing on this floor legitimately waits longer, so a value
+  // above it is a typo — almost always milliseconds typed into a seconds
+  // field, which would otherwise silently become a 20-minute wait.
+  @Max(86400)
+  continueTaskDelaySec?: number | null;
 }
