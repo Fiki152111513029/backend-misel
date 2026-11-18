@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { TaskOrderService } from '../../tasks/services/task-order.service';
+import { RealtimeService } from '../../realtime/realtime.service';
 import { TROLLEY_ACTIVITIES_REPOSITORY } from '../repositories/trolley-activity-repository.interface';
 import type {
   ITrolleyActivitiesRepository,
@@ -43,6 +44,7 @@ export class TrolleyTransitContinueService {
     @Inject(TROLLEY_ACTIVITIES_REPOSITORY)
     private readonly trolleyActivitiesRepository: ITrolleyActivitiesRepository,
     private readonly taskOrderService: TaskOrderService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   @Interval(POLL_INTERVAL_MS)
@@ -104,6 +106,10 @@ export class TrolleyTransitContinueService {
       activity.id,
       new Date(),
     );
+    // The operator's Current Queue card is counting down against the
+    // arrival stamp; without this it would keep showing a finished wait
+    // until some other event happened to refresh it.
+    this.realtime.publish('trolley-activities');
     this.logger.log(
       `Trolley task ${activity.taskId} continued after waiting ${activity.continueTaskDelaySec}s at ${activity.transitLocationCode}`,
     );
@@ -138,6 +144,9 @@ export class TrolleyTransitContinueService {
 
     const at = new Date();
     await this.trolleyActivitiesRepository.markTransitArrived(activity.id, at);
+    // This is the moment the countdown can start, and nothing else tells
+    // the page it has happened.
+    this.realtime.publish('trolley-activities');
     this.logger.log(
       `Trolley task ${activity.taskId} reached its transit stop ${activity.transitLocationCode} — waiting ${activity.continueTaskDelaySec ?? '?'}s`,
     );

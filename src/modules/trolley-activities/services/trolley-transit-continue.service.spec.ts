@@ -51,9 +51,14 @@ function build(options: {
     : jest.fn().mockResolvedValue({ code: 1000 });
   const taskOrderService = { getTaskOrderStatus, continueTask };
 
+  // The Current Queue card counts down against transitArrivedAt, so every
+  // stamp this service makes has to be announced or the card goes stale.
+  const publish = jest.fn();
+
   const service = new TrolleyTransitContinueService(
     trolleyActivitiesRepository as never,
     taskOrderService as never,
+    { publish } as never,
   );
 
   return {
@@ -63,6 +68,7 @@ function build(options: {
     markContinued,
     getTaskOrderStatus,
     continueTask,
+    publish,
   };
 }
 
@@ -93,6 +99,15 @@ describe('TrolleyTransitContinueService', () => {
       await service.poll();
       expect(markTransitArrived).not.toHaveBeenCalled();
       expect(continueTask).not.toHaveBeenCalled();
+    });
+
+    it('announces the arrival so the queue card can start counting', async () => {
+      const { service, publish } = build({
+        waiting: [activity()],
+        reachedCodes: [TRANSIT],
+      });
+      await service.poll();
+      expect(publish).toHaveBeenCalledWith('trolley-activities');
     });
 
     it('stops asking RCS where it is once the arrival is stamped', async () => {
@@ -132,6 +147,14 @@ describe('TrolleyTransitContinueService', () => {
       expect(continueTask).not.toHaveBeenCalled();
     });
 
+    it('announces the continue so the card stops counting', async () => {
+      const { service, publish } = build({
+        waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(31) })],
+      });
+      await service.poll();
+      expect(publish).toHaveBeenCalledWith('trolley-activities');
+    });
+
     it('records the continue only after RCS accepts it', async () => {
       const { service, markContinued } = build({
         waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(31) })],
@@ -154,6 +177,17 @@ describe('TrolleyTransitContinueService', () => {
       });
       await service.poll();
       expect(markContinued).not.toHaveBeenCalled();
+    });
+
+    it('announces nothing when the continue failed', async () => {
+      // The card must keep showing the wait it is still in, not be told
+      // something changed when nothing did.
+      const { service, publish } = build({
+        waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(31) })],
+        continueThrows: true,
+      });
+      await service.poll();
+      expect(publish).not.toHaveBeenCalled();
     });
 
     it('keeps the task parked when it cannot tell where the AMR is', async () => {

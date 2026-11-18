@@ -38,6 +38,17 @@ export class GetMyActiveTrolleyActivitiesUseCase {
           trolleyName: activity.trolley.name,
           trolleyTypeName: activity.trolley.type.name,
           pickupSource,
+          // The transit wait, for the Current Queue card's countdown.
+          //
+          // Sent as the arrival timestamp plus the length of the wait
+          // rather than as "seconds remaining": a number of seconds is
+          // already stale by the time it is rendered, and the card has to
+          // tick down every second without asking the server again. The
+          // page does that arithmetic against its own clock.
+          transitLocationCode: activity.transitLocationCode,
+          continueTaskDelaySec: activity.continueTaskDelaySec,
+          transitArrivedAt: activity.transitArrivedAt?.toISOString() ?? null,
+          continuedAt: activity.continuedAt?.toISOString() ?? null,
         };
       }),
     );
