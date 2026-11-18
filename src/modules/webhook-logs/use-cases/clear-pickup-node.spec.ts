@@ -118,18 +118,13 @@ function build(options: {
   };
 }
 
-function payload(status: string, subTaskSeq?: string) {
-  return {
-    orderId: ORDER_ID,
-    deviceCode: 'AMR0001',
-    status,
-    ...(subTaskSeq ? { subTaskSeq } : {}),
-  };
+function payload(status: string) {
+  return { orderId: ORDER_ID, deviceCode: 'AMR0001', status };
 }
 
-// The step an order reports once it has parked at a transit stop. This is
-// what the wait is timed from — not the dispatch, and not a status code.
-const TRANSIT_SEQ = '25';
+// The status an order reports once it has parked at a transit stop and is
+// waiting to be told to carry on. This is what the wait is timed from.
+const TRANSIT_WAITING = '25';
 
 const PLACED = '23';
 const PLACING = '22';
@@ -359,29 +354,18 @@ describe('ReceiveTaskStatusWebhookUseCase — a Trolley Task collecting from a w
 });
 
 describe('ReceiveTaskStatusWebhookUseCase — the transit stop', () => {
-  it('stamps the arrival when the order reports subTaskSeq 25', async () => {
+  it('stamps the arrival when the order reports status 25', async () => {
     const { useCase, webhookLogsRepository } = build({
       trolley: true,
       transitUnstamped: true,
     });
-    await useCase.execute(payload(RUNNING, TRANSIT_SEQ));
+    await useCase.execute(payload(TRANSIT_WAITING));
     expect(
       webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId,
     ).toHaveBeenCalledWith(ORDER_ID, expect.any(Date));
   });
 
-  it('ignores every other step of the route', async () => {
-    const { useCase, webhookLogsRepository } = build({
-      trolley: true,
-      transitUnstamped: true,
-    });
-    await useCase.execute(payload(RUNNING, '24'));
-    expect(
-      webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId,
-    ).not.toHaveBeenCalled();
-  });
-
-  it('ignores a payload with no subTaskSeq at all', async () => {
+  it('ignores every other status the order reports', async () => {
     const { useCase, webhookLogsRepository } = build({
       trolley: true,
       transitUnstamped: true,
@@ -392,11 +376,24 @@ describe('ReceiveTaskStatusWebhookUseCase — the transit stop', () => {
     ).not.toHaveBeenCalled();
   });
 
+  // Parked is not finished: the order is still running, it is just not
+  // moving, so the activity must not be read as terminal.
+  it('leaves the task in progress rather than treating 25 as an ending', async () => {
+    const { useCase, webhookLogsRepository } = build({
+      trolley: true,
+      transitUnstamped: true,
+    });
+    await useCase.execute(payload(TRANSIT_WAITING));
+    expect(
+      webhookLogsRepository.updateTrolleyActivityStatusByTaskId,
+    ).toHaveBeenCalledWith(ORDER_ID, 'IN_PROGRESS', undefined);
+  });
+
   // The order belongs to a Custom Task or a plain Task, which have no
   // transit stop to arrive at.
-  it('ignores subTaskSeq 25 on an order that is not a Trolley Task', async () => {
+  it('ignores status 25 on an order that is not a Trolley Task', async () => {
     const { useCase, webhookLogsRepository } = build({ trolley: false });
-    await useCase.execute(payload(RUNNING, TRANSIT_SEQ));
+    await useCase.execute(payload(TRANSIT_WAITING));
     expect(
       webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId,
     ).not.toHaveBeenCalled();

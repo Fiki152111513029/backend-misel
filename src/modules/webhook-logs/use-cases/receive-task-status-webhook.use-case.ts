@@ -27,14 +27,17 @@ const RCS_PICKED_CODE = '21';
 // Picked — one empties the node it left, the other fills the one it reached.
 const RCS_PLACED_CODE = '23';
 
-// subTaskSeq 25 is the step an order reports once it has parked at a
-// Trolley Task's transit stop. It is the signal the transit wait starts
-// from — not the dispatch, and not any of the status codes above, which
-// say what the AMR is doing rather than which step of the route it is on.
+// 25 is the status an order reports once it has parked at a Trolley
+// Task's transit stop and is waiting to be told to carry on. It is the
+// signal the transit wait starts from — not the dispatch, which may be
+// minutes earlier.
+//
+// Not in normalizeStatus's lists above, so it normalizes to IN_PROGRESS,
+// which is right: a parked order is still running.
 //
 // Carried in the webhook rather than polled for: RCS tells us the moment
 // it happens, so nothing has to go asking where the robot is.
-const RCS_TRANSIT_SUBTASK_SEQ = '25';
+const RCS_TRANSIT_WAITING_CODE = '25';
 
 function normalizeStatus(rawStatus: string): TaskStatus {
   if (rawStatus === TaskStatus.COMPLETED || rawStatus === RCS_COMPLETED_CODE) {
@@ -274,7 +277,6 @@ export class ReceiveTaskStatusWebhookUseCase {
       const orderId = this.readString(body, ['orderId', 'ordeId']);
       const deviceCode = this.readString(body, ['deviceCode']);
       const rawStatus = this.readString(body, ['status']);
-      const subTaskSeq = this.readString(body, ['subTaskSeq']);
 
       if (orderId && rawStatus) {
         const status = normalizeStatus(rawStatus);
@@ -354,7 +356,7 @@ export class ReceiveTaskStatusWebhookUseCase {
             // announcing a change on every repeat.
             if (
               matchedTrolleyActivity &&
-              subTaskSeq === RCS_TRANSIT_SUBTASK_SEQ
+              rawStatus === RCS_TRANSIT_WAITING_CODE
             ) {
               const stamped =
                 await this.webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId(
@@ -363,7 +365,7 @@ export class ReceiveTaskStatusWebhookUseCase {
                 );
               if (stamped) {
                 this.logger.log(
-                  `Trolley task ${orderId} parked at its transit stop (subTaskSeq ${RCS_TRANSIT_SUBTASK_SEQ}) — the wait starts now`,
+                  `Trolley task ${orderId} parked at its transit stop (status ${RCS_TRANSIT_WAITING_CODE}) — the wait starts now`,
                 );
               }
             }

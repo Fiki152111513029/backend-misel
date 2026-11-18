@@ -24,7 +24,7 @@ const POLL_INTERVAL_MS = 5_000;
  *
  * It only owns the second half of the wait. The first half — noticing that
  * the AMR has arrived — belongs to ReceiveTaskStatusWebhookUseCase, which
- * stamps transitArrivedAt when RCS reports subTaskSeq 25 for the order.
+ * stamps transitArrivedAt when RCS reports status 25 for the order.
  * This service exists purely because the deadline that follows is a
  * passage of time, and nothing pushes an event when time passes.
  *
@@ -81,8 +81,8 @@ export class TrolleyTransitContinueService {
   }
 
   private async advance(activity: PendingTransitActivity): Promise<void> {
-    // Not stamped yet means RCS has not reported subTaskSeq 25 for this
-    // order, so the AMR is still on its way and there is no wait running.
+    // Not stamped yet means RCS has not reported status 25 for this order,
+    // so the AMR is still on its way and there is no wait running.
     const arrivedAt = activity.transitArrivedAt;
     if (!arrivedAt) return;
 
