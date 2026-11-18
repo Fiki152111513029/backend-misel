@@ -128,10 +128,17 @@ export class CreateTrolleyActivityUseCase {
       fromSystem = trolley.modelCodeProcess.fromSystem;
       priority = user.priority;
 
-      // A trolley with a transit stop goes out as three legs instead of
-      // two: scan, stop, dropping. The AMR parks at the middle one until
-      // something continues the order, which is what the Model Code
-      // Process timer and TrolleyTransitContinueService are for.
+      // A trolley with a transit stop goes out as FOUR legs instead of
+      // two: scan, stop, stop, dropping.
+      //
+      // The stop is named twice on purpose, because two separate things
+      // happen at that one node: the AMR puts the trolley down there and
+      // the order parks, then once it is continued it picks the same
+      // trolley up again and carries on to the dropping point. One leg
+      // would only describe arriving.
+      //
+      // What continues it is the Model Code Process timer, via
+      // TrolleyTransitContinueService — nothing else will.
       transitLocationCode = trolley.transitLocationCode ?? null;
       if (transitLocationCode) {
         continueTaskDelaySec =
@@ -151,7 +158,10 @@ export class CreateTrolleyActivityUseCase {
 
       taskPath = [
         dto.pickupLocationCode,
-        ...(transitLocationCode ? [transitLocationCode] : []),
+        // Twice — see above. Not a typo and not a de-duplication bug.
+        ...(transitLocationCode
+          ? [transitLocationCode, transitLocationCode]
+          : []),
         droppingLocationCode,
       ].join(',');
     } else {

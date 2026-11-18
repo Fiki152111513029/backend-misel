@@ -118,6 +118,12 @@ export class TrolleyTransitContinueService {
    * an order reports is not something we can predict. The same matching is
    * what LookupLocationUseCase uses to tell whether an AMR has reached a
    * node.
+   *
+   * The stop appears TWICE in the route (put down, then pick up again), so
+   * two legs can carry this code. Matching on the first one is what is
+   * wanted — that is the arrival, and the wait counts from there. The
+   * second leg only happens after the continue, by which point continuedAt
+   * is set and findPendingTransit no longer returns this task at all.
    */
   private async detectArrival(
     activity: PendingTransitActivity,

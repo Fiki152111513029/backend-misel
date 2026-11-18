@@ -804,12 +804,16 @@ model Trolley {
   /// An optional stop between the scanned pickup and droppingLocationCode,
   /// stored as an iRaypleLocationCode like the codes around it.
   ///
-  /// Set, a Warehouse Trolley Task goes out as a THREE-leg route
-  /// (scan, transit, dropping) instead of two, and the AMR waits at this
-  /// node until something continues it — which is what
+  /// Set, a Warehouse Trolley Task goes out as a FOUR-leg route
+  /// (scan, transit, transit, dropping) instead of two, and the AMR waits
+  /// at this node until something continues it — which is what
   /// ModelCodeProcess.continueTaskDelaySec and TrolleyTransitContinueService
   /// exist for. Null (the default for every existing trolley) and nothing
   /// changes: the route stays two legs and there is no wait.
+  ///
+  /// The node is named twice because two things happen there: the trolley
+  /// is put down and the order parks, then after the continue it is picked
+  /// up again and taken on to the dropping point.
   ///
   /// Only used in the Warehouse -> Production direction. The other
   /// direction sends just the pickup node and lets RCS choose its own

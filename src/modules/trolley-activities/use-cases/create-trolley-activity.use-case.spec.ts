@@ -112,12 +112,26 @@ function sentPath(addTask: jest.Mock): string {
 
 describe('CreateTrolleyActivityUseCase — the route it sends', () => {
   describe('Warehouse -> Production with a transit stop', () => {
-    it('sends three legs: scan, stop, dropping', async () => {
+    // The stop is named twice on purpose: the trolley is put down there
+    // and the order parks, then after the continue it is picked up again
+    // and taken on to the dropping point. One leg would only describe
+    // arriving, so this is the assertion that must not be "tidied".
+    it('sends four legs, naming the stop twice', async () => {
       const { useCase, dto, addTask } = build({
         transitLocationCode: TRANSIT,
       });
       await useCase.execute(dto, 'user-1');
-      expect(sentPath(addTask)).toBe(`${SCAN},${TRANSIT},${DROP}`);
+      expect(sentPath(addTask)).toBe(`${SCAN},${TRANSIT},${TRANSIT},${DROP}`);
+    });
+
+    it('names it twice even when the stop is the dropping point itself', async () => {
+      // Nothing stops an admin pointing both at the same node, and the
+      // route still has to describe put-down, wait, pick-up, deliver.
+      const { useCase, dto, addTask } = build({
+        transitLocationCode: DROP,
+      });
+      await useCase.execute(dto, 'user-1');
+      expect(sentPath(addTask)).toBe(`${SCAN},${DROP},${DROP},${DROP}`);
     });
 
     it('records the stop and the wait on the activity', async () => {
