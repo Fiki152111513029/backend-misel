@@ -372,6 +372,24 @@ export class WebhookLogRepository implements IWebhookLogsRepository {
     return activity?.pickupLocationCode ?? null;
   }
 
+  async markTrolleyActivityTransitArrivedByTaskId(
+    taskId: string,
+    at: Date,
+  ): Promise<boolean> {
+    const result = await this.prisma.trolleyActivity.updateMany({
+      where: {
+        taskId,
+        transitLocationCode: { not: null },
+        // Already stamped means the AMR got there earlier and the wait is
+        // already running. A repeat delivery must not restart it.
+        transitArrivedAt: null,
+        deletedAt: null,
+      },
+      data: { transitArrivedAt: at },
+    });
+    return result.count > 0;
+  }
+
   async updateTrolleyActivityStatusByTaskId(
     taskId: string,
     status: TaskStatus,

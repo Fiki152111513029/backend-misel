@@ -9,8 +9,8 @@ import type {
 } from '../repositories/trolley-activity-repository.interface';
 
 // Five seconds. The wait being released late is the whole cost of a slow
-// poll, and an operator standing next to a parked AMR notices a ten-second
-// overshoot. Costs nothing when no task has a stop: the query comes back
+// tick, and an operator standing next to a parked AMR notices a ten-second
+// overshoot. Costs nothing when no task is waiting: the query comes back
 // empty and RCS is never called.
 const POLL_INTERVAL_MS = 5_000;
 
@@ -19,21 +19,23 @@ const POLL_INTERVAL_MS = 5_000;
  * stop's timer has run out.
  *
  * Nothing else does this. RCS holds the order at that node indefinitely
- * and publishes no event about it, so without this the AMR waits there
- * with a trolley on it until someone cancels the task.
+ * once it has parked there, so without this the AMR waits with a trolley
+ * on it until someone cancels the task.
  *
- * Two steps per task, because RCS has to be asked both questions:
+ * It only owns the second half of the wait. The first half — noticing that
+ * the AMR has arrived — belongs to ReceiveTaskStatusWebhookUseCase, which
+ * stamps transitArrivedAt when RCS reports subTaskSeq 25 for the order.
+ * This service exists purely because the deadline that follows is a
+ * passage of time, and nothing pushes an event when time passes.
  *
- *   1. Has the AMR actually reached the stop? There is no webhook for
- *      arriving at a node, so getTaskOrderStatus is polled and the stop is
- *      considered reached once the order reports a leg at that code. The
- *      arrival is stamped, and that stamp is when the wait starts counting
- *      — not the dispatch, which may be minutes earlier.
- *   2. Has it waited long enough? If so, continueTask.
+ * So a task with no arrival stamp is simply not ready: it is skipped, with
+ * no call to RCS at all. The watcher never second-guesses where the robot
+ * is.
  *
- * Fails safe in one direction only: anything it cannot confirm leaves the
+ * Fails safe in one direction only: anything it cannot complete leaves the
  * task parked and tries again next tick. That is the right way round — a
- * continue sent too early moves an AMR that is still driving.
+ * continue that goes missing costs a retry, while one sent twice moves an
+ * AMR nobody asked to move.
  */
 @Injectable()
 export class TrolleyTransitContinueService {
@@ -79,8 +81,9 @@ export class TrolleyTransitContinueService {
   }
 
   private async advance(activity: PendingTransitActivity): Promise<void> {
-    const arrivedAt =
-      activity.transitArrivedAt ?? (await this.detectArrival(activity));
+    // Not stamped yet means RCS has not reported subTaskSeq 25 for this
+    // order, so the AMR is still on its way and there is no wait running.
+    const arrivedAt = activity.transitArrivedAt;
     if (!arrivedAt) return;
 
     // Belongs to a task sent before the timer was required, or to one
@@ -115,41 +118,4 @@ export class TrolleyTransitContinueService {
     );
   }
 
-  /**
-   * Whether the order has reached its transit stop, stamping the moment it
-   * is first seen there.
-   *
-   * Matched on the leg's own qrContent rather than a count of legs: RCS
-   * decides its own route between the nodes we name, so the number of legs
-   * an order reports is not something we can predict. The same matching is
-   * what LookupLocationUseCase uses to tell whether an AMR has reached a
-   * node.
-   *
-   * The stop appears TWICE in the route (put down, then pick up again), so
-   * two legs can carry this code. Matching on the first one is what is
-   * wanted — that is the arrival, and the wait counts from there. The
-   * second leg only happens after the continue, by which point continuedAt
-   * is set and findPendingTransit no longer returns this task at all.
-   */
-  private async detectArrival(
-    activity: PendingTransitActivity,
-  ): Promise<Date | null> {
-    const progress = await this.taskOrderService.getTaskOrderStatus(
-      activity.taskId,
-    );
-    const reached = progress.some(
-      (row) => row.qrContent === activity.transitLocationCode,
-    );
-    if (!reached) return null;
-
-    const at = new Date();
-    await this.trolleyActivitiesRepository.markTransitArrived(activity.id, at);
-    // This is the moment the countdown can start, and nothing else tells
-    // the page it has happened.
-    this.realtime.publish('trolley-activities');
-    this.logger.log(
-      `Trolley task ${activity.taskId} reached its transit stop ${activity.transitLocationCode} — waiting ${activity.continueTaskDelaySec ?? '?'}s`,
-    );
-    return at;
-  }
 }

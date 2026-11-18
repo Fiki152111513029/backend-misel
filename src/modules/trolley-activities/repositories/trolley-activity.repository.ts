@@ -94,13 +94,6 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
     );
   }
 
-  async markTransitArrived(id: string, at: Date): Promise<void> {
-    await this.prisma.trolleyActivity.update({
-      where: { id },
-      data: { transitArrivedAt: at },
-    });
-  }
-
   async markContinued(id: string, at: Date): Promise<void> {
     await this.prisma.trolleyActivity.update({
       where: { id },

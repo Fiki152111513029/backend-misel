@@ -225,8 +225,6 @@ export interface ITrolleyActivitiesRepository {
    * exist.
    */
   findPendingTransit(): Promise<PendingTransitActivity[]>;
-  /** Stamps the moment the AMR was first seen at the transit stop. */
-  markTransitArrived(id: string, at: Date): Promise<void>;
   /** Stamps the moment RCS accepted the continue for this stop. */
   markContinued(id: string, at: Date): Promise<void>;
   getDashboardStats(

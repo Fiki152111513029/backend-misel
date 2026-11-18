@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TaskStatus, WarehouseBinContent } from '@prisma/client';
 import { WEBHOOK_LOGS_REPOSITORY } from '../repositories/webhook-log-repository.interface';
 import type { IWebhookLogsRepository } from '../repositories/webhook-log-repository.interface';
@@ -27,6 +27,15 @@ const RCS_PICKED_CODE = '21';
 // Picked — one empties the node it left, the other fills the one it reached.
 const RCS_PLACED_CODE = '23';
 
+// subTaskSeq 25 is the step an order reports once it has parked at a
+// Trolley Task's transit stop. It is the signal the transit wait starts
+// from — not the dispatch, and not any of the status codes above, which
+// say what the AMR is doing rather than which step of the route it is on.
+//
+// Carried in the webhook rather than polled for: RCS tells us the moment
+// it happens, so nothing has to go asking where the robot is.
+const RCS_TRANSIT_SUBTASK_SEQ = '25';
+
 function normalizeStatus(rawStatus: string): TaskStatus {
   if (rawStatus === TaskStatus.COMPLETED || rawStatus === RCS_COMPLETED_CODE) {
     return TaskStatus.COMPLETED;
@@ -42,6 +51,8 @@ function normalizeStatus(rawStatus: string): TaskStatus {
 
 @Injectable()
 export class ReceiveTaskStatusWebhookUseCase {
+  private readonly logger = new Logger(ReceiveTaskStatusWebhookUseCase.name);
+
   constructor(
     @Inject(WEBHOOK_LOGS_REPOSITORY)
     private readonly webhookLogsRepository: IWebhookLogsRepository,
@@ -263,6 +274,7 @@ export class ReceiveTaskStatusWebhookUseCase {
       const orderId = this.readString(body, ['orderId', 'ordeId']);
       const deviceCode = this.readString(body, ['deviceCode']);
       const rawStatus = this.readString(body, ['status']);
+      const subTaskSeq = this.readString(body, ['subTaskSeq']);
 
       if (orderId && rawStatus) {
         const status = normalizeStatus(rawStatus);
@@ -330,6 +342,30 @@ export class ReceiveTaskStatusWebhookUseCase {
                   orderId,
                 );
               if (pickup) await this.recordRackLifted(pickup);
+            }
+
+            // The order has parked at its transit stop, so the wait starts
+            // now. Stamped from here rather than discovered by polling: RCS
+            // reports the step itself, which is both exact and free.
+            //
+            // The repository only stamps a task that has a stop and has not
+            // been stamped yet, so a redelivered webhook cannot push the
+            // deadline back — and the return value is what keeps this from
+            // announcing a change on every repeat.
+            if (
+              matchedTrolleyActivity &&
+              subTaskSeq === RCS_TRANSIT_SUBTASK_SEQ
+            ) {
+              const stamped =
+                await this.webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId(
+                  orderId,
+                  new Date(),
+                );
+              if (stamped) {
+                this.logger.log(
+                  `Trolley task ${orderId} parked at its transit stop (subTaskSeq ${RCS_TRANSIT_SUBTASK_SEQ}) — the wait starts now`,
+                );
+              }
             }
             // Production->Warehouse activities are submitted without a
             // droppingLocationCode (RCS picks its own destination and never

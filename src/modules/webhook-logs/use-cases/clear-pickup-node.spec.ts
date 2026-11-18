@@ -23,6 +23,8 @@ function build(options: {
   stamped?: boolean;
   /** Make the order a Trolley Activity instead of a Custom Task. */
   trolley?: boolean;
+  /** Whether the Trolley Activity has a transit stop not yet stamped. */
+  transitUnstamped?: boolean;
 } = {}) {
   const webhookLogsRepository = {
     createLog: jest.fn().mockResolvedValue(undefined),
@@ -38,6 +40,11 @@ function build(options: {
     findTrolleyActivityPickupByTaskId: jest
       .fn()
       .mockResolvedValue(options.trolley ? WRL12 : null),
+    // true when the row had a transit stop and no arrival stamp yet, which
+    // is the only case that gets stamped.
+    markTrolleyActivityTransitArrivedByTaskId: jest
+      .fn()
+      .mockResolvedValue(options.transitUnstamped ?? false),
     findCustomTaskRunTaskPathByOrderId: jest
       .fn()
       .mockResolvedValue(
@@ -111,9 +118,18 @@ function build(options: {
   };
 }
 
-function payload(status: string) {
-  return { orderId: ORDER_ID, deviceCode: 'AMR0001', status };
+function payload(status: string, subTaskSeq?: string) {
+  return {
+    orderId: ORDER_ID,
+    deviceCode: 'AMR0001',
+    status,
+    ...(subTaskSeq ? { subTaskSeq } : {}),
+  };
 }
+
+// The step an order reports once it has parked at a transit stop. This is
+// what the wait is timed from — not the dispatch, and not a status code.
+const TRANSIT_SEQ = '25';
 
 const PLACED = '23';
 const PLACING = '22';
@@ -339,5 +355,50 @@ describe('ReceiveTaskStatusWebhookUseCase — a Trolley Task collecting from a w
     );
     await useCase.execute(payload(PICKED));
     expect(updateLocation).not.toHaveBeenCalled();
+  });
+});
+
+describe('ReceiveTaskStatusWebhookUseCase — the transit stop', () => {
+  it('stamps the arrival when the order reports subTaskSeq 25', async () => {
+    const { useCase, webhookLogsRepository } = build({
+      trolley: true,
+      transitUnstamped: true,
+    });
+    await useCase.execute(payload(RUNNING, TRANSIT_SEQ));
+    expect(
+      webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId,
+    ).toHaveBeenCalledWith(ORDER_ID, expect.any(Date));
+  });
+
+  it('ignores every other step of the route', async () => {
+    const { useCase, webhookLogsRepository } = build({
+      trolley: true,
+      transitUnstamped: true,
+    });
+    await useCase.execute(payload(RUNNING, '24'));
+    expect(
+      webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('ignores a payload with no subTaskSeq at all', async () => {
+    const { useCase, webhookLogsRepository } = build({
+      trolley: true,
+      transitUnstamped: true,
+    });
+    await useCase.execute(payload(RUNNING));
+    expect(
+      webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId,
+    ).not.toHaveBeenCalled();
+  });
+
+  // The order belongs to a Custom Task or a plain Task, which have no
+  // transit stop to arrive at.
+  it('ignores subTaskSeq 25 on an order that is not a Trolley Task', async () => {
+    const { useCase, webhookLogsRepository } = build({ trolley: false });
+    await useCase.execute(payload(RUNNING, TRANSIT_SEQ));
+    expect(
+      webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId,
+    ).not.toHaveBeenCalled();
   });
 });

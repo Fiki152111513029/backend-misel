@@ -121,6 +121,19 @@ export interface IWebhookLogsRepository {
    * follows a Custom Task pickup can follow this one too.
    */
   findTrolleyActivityPickupByTaskId(taskId: string): Promise<string | null>;
+  /**
+   * Stamps a Trolley Task's arrival at its transit stop, and says whether
+   * it actually stamped anything.
+   *
+   * One statement, conditional on the task having a stop and not having
+   * been stamped already, so RCS re-delivering the same webhook cannot
+   * push the deadline back. The boolean is what keeps the caller from
+   * announcing a change on every repeat.
+   */
+  markTrolleyActivityTransitArrivedByTaskId(
+    taskId: string,
+    at: Date,
+  ): Promise<boolean>;
   /** Returns true if a TrolleyActivity with this taskId was found and updated. */
   updateTrolleyActivityStatusByTaskId(
     taskId: string,

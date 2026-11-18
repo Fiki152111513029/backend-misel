@@ -4,7 +4,11 @@ import { TrolleyTransitContinueService } from './trolley-transit-continue.servic
 // know these node codes, and it will not park an order at one. These cover
 // the part the floor is trusting — an AMR left waiting at a transit stop
 // really does get released, exactly once, and only after it has actually
-// arrived and actually waited.
+// waited the time it was given.
+//
+// Noticing the arrival is NOT this service's job: the webhook stamps
+// transitArrivedAt when RCS reports subTaskSeq 25. Everything here starts
+// from that stamp already being there, or deliberately missing.
 
 const TRANSIT = 'PH1';
 const ORDER = '20261118090000';
@@ -22,37 +26,24 @@ function activity(overrides: Record<string, unknown> = {}) {
 
 function build(options: {
   waiting?: ReturnType<typeof activity>[];
-  /** qrContent values getTaskOrderStatus reports for the order. */
-  reachedCodes?: string[];
   continueThrows?: boolean;
-  statusThrows?: boolean;
 }) {
   const findPendingTransit = jest
     .fn()
     .mockResolvedValue(options.waiting ?? []);
-  const markTransitArrived = jest.fn().mockResolvedValue(undefined);
   const markContinued = jest.fn().mockResolvedValue(undefined);
-  const trolleyActivitiesRepository = {
-    findPendingTransit,
-    markTransitArrived,
-    markContinued,
-  };
+  const trolleyActivitiesRepository = { findPendingTransit, markContinued };
 
-  const getTaskOrderStatus = options.statusThrows
-    ? jest.fn().mockRejectedValue(new Error('RCS unreachable'))
-    : jest.fn().mockResolvedValue(
-        (options.reachedCodes ?? []).map((qrContent, index) => ({
-          subTaskSeq: index + 1,
-          qrContent,
-        })),
-      );
   const continueTask = options.continueThrows
     ? jest.fn().mockRejectedValue(new Error('RCS refused'))
     : jest.fn().mockResolvedValue({ code: 1000 });
-  const taskOrderService = { getTaskOrderStatus, continueTask };
+  // Present so a stray call would be caught rather than crash the test:
+  // this service must never go asking where the robot is.
+  const getTaskOrderStatus = jest.fn().mockResolvedValue([]);
+  const taskOrderService = { continueTask, getTaskOrderStatus };
 
-  // The Current Queue card counts down against transitArrivedAt, so every
-  // stamp this service makes has to be announced or the card goes stale.
+  // The Current Queue card counts down against transitArrivedAt, so the
+  // continue has to be announced or the card keeps showing a finished wait.
   const publish = jest.fn();
 
   const service = new TrolleyTransitContinueService(
@@ -64,10 +55,9 @@ function build(options: {
   return {
     service,
     findPendingTransit,
-    markTransitArrived,
     markContinued,
-    getTaskOrderStatus,
     continueTask,
+    getTaskOrderStatus,
     publish,
   };
 }
@@ -78,47 +68,6 @@ function arrivedSecondsAgo(secondsAgo: number): Date {
 }
 
 describe('TrolleyTransitContinueService', () => {
-  describe('detecting that the AMR has reached the stop', () => {
-    it('stamps the arrival once the order reports a leg at that node', async () => {
-      const { service, markTransitArrived } = build({
-        waiting: [activity()],
-        reachedCodes: ['WRL21', TRANSIT],
-      });
-      await service.poll();
-      expect(markTransitArrived).toHaveBeenCalledWith(
-        'activity-1',
-        expect.any(Date),
-      );
-    });
-
-    it('does not stamp it while the order has only reached the pickup', async () => {
-      const { service, markTransitArrived, continueTask } = build({
-        waiting: [activity()],
-        reachedCodes: ['WRL21'],
-      });
-      await service.poll();
-      expect(markTransitArrived).not.toHaveBeenCalled();
-      expect(continueTask).not.toHaveBeenCalled();
-    });
-
-    it('announces the arrival so the queue card can start counting', async () => {
-      const { service, publish } = build({
-        waiting: [activity()],
-        reachedCodes: [TRANSIT],
-      });
-      await service.poll();
-      expect(publish).toHaveBeenCalledWith('trolley-activities');
-    });
-
-    it('stops asking RCS where it is once the arrival is stamped', async () => {
-      const { service, getTaskOrderStatus } = build({
-        waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(5) })],
-      });
-      await service.poll();
-      expect(getTaskOrderStatus).not.toHaveBeenCalled();
-    });
-  });
-
   describe('the wait itself', () => {
     it('continues the order once the timer has run out', async () => {
       const { service, continueTask } = build({
@@ -136,25 +85,6 @@ describe('TrolleyTransitContinueService', () => {
       expect(continueTask).not.toHaveBeenCalled();
     });
 
-    // The arrival is what the wait counts from, so a task that has only
-    // just got there waits its full timer however long the drive took.
-    it('counts from the arrival, not from dispatch', async () => {
-      const { service, continueTask } = build({
-        waiting: [activity()],
-        reachedCodes: [TRANSIT],
-      });
-      await service.poll();
-      expect(continueTask).not.toHaveBeenCalled();
-    });
-
-    it('announces the continue so the card stops counting', async () => {
-      const { service, publish } = build({
-        waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(31) })],
-      });
-      await service.poll();
-      expect(publish).toHaveBeenCalledWith('trolley-activities');
-    });
-
     it('records the continue only after RCS accepts it', async () => {
       const { service, markContinued } = build({
         waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(31) })],
@@ -165,9 +95,46 @@ describe('TrolleyTransitContinueService', () => {
         expect.any(Date),
       );
     });
+
+    it('announces the continue so the card stops counting', async () => {
+      const { service, publish } = build({
+        waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(31) })],
+      });
+      await service.poll();
+      expect(publish).toHaveBeenCalledWith('trolley-activities');
+    });
   });
 
-  describe('when RCS will not play along', () => {
+  // The arrival stamp is the start of the wait and it comes from the
+  // webhook. Without it the AMR is still driving, so there is nothing to
+  // release — and nothing to ask RCS about either.
+  describe('a task that has not reached its stop yet', () => {
+    it('is skipped', async () => {
+      const { service, continueTask } = build({ waiting: [activity()] });
+      await service.poll();
+      expect(continueTask).not.toHaveBeenCalled();
+    });
+
+    it('is skipped however long ago it was sent', async () => {
+      // The timer counts from arrival, never from dispatch. An order that
+      // left an hour ago and has not parked yet is still not waiting.
+      const { service, continueTask } = build({
+        waiting: [activity({ transitArrivedAt: null })],
+      });
+      await service.poll();
+      expect(continueTask).not.toHaveBeenCalled();
+    });
+
+    it('costs no RCS call at all', async () => {
+      const { service, getTaskOrderStatus } = build({
+        waiting: [activity()],
+      });
+      await service.poll();
+      expect(getTaskOrderStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('when RCS will not take the continue', () => {
     // Recording a continue that never happened would park the AMR for
     // good: findPendingTransit skips anything already continued.
     it('leaves it un-continued so the next tick retries', async () => {
@@ -179,9 +146,7 @@ describe('TrolleyTransitContinueService', () => {
       expect(markContinued).not.toHaveBeenCalled();
     });
 
-    it('announces nothing when the continue failed', async () => {
-      // The card must keep showing the wait it is still in, not be told
-      // something changed when nothing did.
+    it('announces nothing, since nothing changed', async () => {
       const { service, publish } = build({
         waiting: [activity({ transitArrivedAt: arrivedSecondsAgo(31) })],
         continueThrows: true,
@@ -190,33 +155,25 @@ describe('TrolleyTransitContinueService', () => {
       expect(publish).not.toHaveBeenCalled();
     });
 
-    it('keeps the task parked when it cannot tell where the AMR is', async () => {
-      const { service, markTransitArrived, continueTask } = build({
-        waiting: [activity()],
-        statusThrows: true,
-      });
-      await service.poll();
-      expect(markTransitArrived).not.toHaveBeenCalled();
-      expect(continueTask).not.toHaveBeenCalled();
-    });
-
     it('still serves the other tasks when one of them fails', async () => {
-      const { service, continueTask, getTaskOrderStatus } = build({
+      const { service, continueTask } = build({
         waiting: [
-          activity({ id: 'a', taskId: 'order-a' }),
+          activity({
+            id: 'a',
+            taskId: 'order-a',
+            transitArrivedAt: arrivedSecondsAgo(31),
+          }),
           activity({
             id: 'b',
             taskId: 'order-b',
             transitArrivedAt: arrivedSecondsAgo(31),
           }),
         ],
-        statusThrows: true,
+        continueThrows: true,
       });
       await service.poll();
-      // The first needs RCS to say where it is and that call throws; the
-      // second is already stamped, so it goes out regardless.
-      expect(getTaskOrderStatus).toHaveBeenCalledTimes(1);
-      expect(continueTask).toHaveBeenCalledWith({ orderId: 'order-b' });
+      // One throwing must not abandon the rest of the queue.
+      expect(continueTask).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -239,12 +196,12 @@ describe('TrolleyTransitContinueService', () => {
 
   describe('what it avoids doing', () => {
     it('never calls RCS when nothing is waiting at a stop', async () => {
-      const { service, getTaskOrderStatus, continueTask } = build({
+      const { service, continueTask, getTaskOrderStatus } = build({
         waiting: [],
       });
       await service.poll();
-      expect(getTaskOrderStatus).not.toHaveBeenCalled();
       expect(continueTask).not.toHaveBeenCalled();
+      expect(getTaskOrderStatus).not.toHaveBeenCalled();
     });
 
     it('survives the database being unreachable', async () => {
