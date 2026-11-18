@@ -354,19 +354,33 @@ export class ReceiveTaskStatusWebhookUseCase {
             // been stamped yet, so a redelivered webhook cannot push the
             // deadline back — and the return value is what keeps this from
             // announcing a change on every repeat.
-            if (
-              matchedTrolleyActivity &&
-              rawStatus === RCS_TRANSIT_WAITING_CODE
-            ) {
-              const stamped =
-                await this.webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId(
-                  orderId,
-                  new Date(),
+            if (rawStatus === RCS_TRANSIT_WAITING_CODE) {
+              // Every outcome is logged, including the ones that do
+              // nothing. A transit wait that never starts leaves an AMR
+              // parked with a trolley on it, and the only visible symptom
+              // is a countdown on the operator's card that never begins --
+              // which says nothing about why. These three lines are what
+              // tell apart "the order is not ours", "it has no stop
+              // recorded" and "it was already waiting".
+              if (!matchedTrolleyActivity) {
+                this.logger.debug(
+                  `Status ${RCS_TRANSIT_WAITING_CODE} for order ${orderId}, but it matched no Trolley Task — nothing to time`,
                 );
-              if (stamped) {
-                this.logger.log(
-                  `Trolley task ${orderId} parked at its transit stop (status ${RCS_TRANSIT_WAITING_CODE}) — the wait starts now`,
-                );
+              } else {
+                const stamped =
+                  await this.webhookLogsRepository.markTrolleyActivityTransitArrivedByTaskId(
+                    orderId,
+                    new Date(),
+                  );
+                if (stamped) {
+                  this.logger.log(
+                    `Trolley task ${orderId} parked at its transit stop (status ${RCS_TRANSIT_WAITING_CODE}) — the wait starts now`,
+                  );
+                } else {
+                  this.logger.warn(
+                    `Status ${RCS_TRANSIT_WAITING_CODE} for Trolley Task ${orderId}, but no arrival was stamped — it has no transitLocationCode recorded, or the wait was already running`,
+                  );
+                }
               }
             }
             // Production->Warehouse activities are submitted without a
