@@ -25,6 +25,16 @@ export interface CancelTaskOrderPayload {
   deviceNumber: string;
 }
 
+/**
+ * Payload RCS expects at CONTINUE_TASK (/ics/out/task/continueTask).
+ *
+ * Just the order id — RCS already knows which node of that order it is
+ * holding, so there is nothing else to tell it.
+ */
+export interface ContinueTaskOrderPayload {
+  orderId: string;
+}
+
 export interface ExternalOrderInfo {
   OrderId?: string | number;
   orderId?: string | number;
@@ -277,6 +287,56 @@ export class TaskOrderService {
     }
 
     this.assertRcsAccepted(parsed, 'Task cancel endpoint rejected the request');
+
+    return parsed;
+  }
+
+  /**
+   * Tells RCS to carry on with an order it has parked at a node.
+   *
+   * Used to end the wait at a Trolley Task's transit stop. Unlike the other
+   * calls here this one is driven by a timer rather than a person, so a
+   * failure has nobody watching it — the caller is expected to leave the
+   * order un-continued and try again rather than swallow the error.
+   */
+  async continueTask(payload: ContinueTaskOrderPayload): Promise<unknown> {
+    const url = this.configService.get<string>('taskOrder.continueUrl');
+    if (!url) {
+      throw new ServiceUnavailableException(
+        'Task continue URL is not configured',
+      );
+    }
+
+    this.logger.log(`POST ${url} — payload: ${JSON.stringify(payload)}`);
+
+    let raw: string;
+    try {
+      raw = await postJson(url, payload, 5000);
+    } catch (error) {
+      this.logger.error(`Failed to reach task continue endpoint: ${error}`);
+      throw new BadGatewayException(
+        `Failed to reach task continue endpoint: ${error}`,
+      );
+    }
+
+    this.logger.log(
+      `Task continue response for orderId ${payload.orderId}: ${raw}`,
+    );
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      this.logger.error(`Task continue endpoint returned invalid JSON: ${raw}`);
+      throw new BadGatewayException(
+        `Task continue endpoint returned invalid JSON: ${error}`,
+      );
+    }
+
+    this.assertRcsAccepted(
+      parsed,
+      'Task continue endpoint rejected the request',
+    );
 
     return parsed;
   }

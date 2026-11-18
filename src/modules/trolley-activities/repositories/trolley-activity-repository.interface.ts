@@ -21,6 +21,10 @@ export interface CreateTrolleyActivityData {
   statusEnd: TrolleyStatus;
   pickupLocationCode: string;
   droppingLocationCode?: string;
+  /** The stop this route was sent with; omitted for a two-leg route. */
+  transitLocationCode?: string | null;
+  /** Seconds to wait at that stop, snapshotted from the Model Code Process. */
+  continueTaskDelaySec?: number | null;
   queueRole: string;
   startDate: Date;
   endDate: Date;
@@ -45,8 +49,25 @@ export interface CompleteTrolleyActivityData {
   statusEnd: TrolleyStatus;
   pickupLocationCode: string;
   droppingLocationCode?: string;
+  transitLocationCode?: string | null;
+  continueTaskDelaySec?: number | null;
   endDate: Date;
   taskId: string;
+}
+
+/**
+ * A task sent with a transit stop that has not been continued yet.
+ *
+ * What TrolleyTransitContinueService works from, so it carries only what
+ * that decision needs rather than the whole activity with its relations.
+ */
+export interface PendingTransitActivity {
+  id: string;
+  /** The RCS order id — what continueTask is called with. */
+  taskId: string;
+  transitLocationCode: string;
+  continueTaskDelaySec: number | null;
+  transitArrivedAt: Date | null;
 }
 
 export interface FindAllTrolleyActivitiesParams {
@@ -195,6 +216,19 @@ export interface ITrolleyActivitiesRepository {
    * still "active" and this needs to catch them.
    */
   findActiveTaskIdByLocationCode(code: string): Promise<string | null>;
+  /**
+   * Tasks still on the floor that were sent with a transit stop and have
+   * not been continued.
+   *
+   * Excludes open (Take Trolley) rows: those have a placeholder taskId and
+   * no order at RCS, so continuing one would name an order that does not
+   * exist.
+   */
+  findPendingTransit(): Promise<PendingTransitActivity[]>;
+  /** Stamps the moment the AMR was first seen at the transit stop. */
+  markTransitArrived(id: string, at: Date): Promise<void>;
+  /** Stamps the moment RCS accepted the continue for this stop. */
+  markContinued(id: string, at: Date): Promise<void>;
   getDashboardStats(
     params: DashboardStatsParams,
   ): Promise<DashboardStatsResult>;

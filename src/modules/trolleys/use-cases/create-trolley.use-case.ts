@@ -5,6 +5,8 @@ import { TROLLEYS_REPOSITORY } from '../repositories/trolley-repository.interfac
 import type { ITrolleysRepository } from '../repositories/trolley-repository.interface';
 import { PRODUCTION_LOCATIONS_REPOSITORY } from '../../production-locations/repositories/production-location-repository.interface';
 import type { IProductionLocationsRepository } from '../../production-locations/repositories/production-location-repository.interface';
+import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 
 @Injectable()
 export class CreateTrolleyUseCase {
@@ -13,6 +15,8 @@ export class CreateTrolleyUseCase {
     private readonly trolleysRepository: ITrolleysRepository,
     @Inject(PRODUCTION_LOCATIONS_REPOSITORY)
     private readonly productionLocationsRepository: IProductionLocationsRepository,
+    @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
+    private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
   ) {}
 
   async execute(dto: CreateTrolleyDto) {
@@ -62,6 +66,27 @@ export class CreateTrolleyUseCase {
       if (!locationExists) {
         throw new BadRequestException(
           'Dropping Location Code must match an active Production Location',
+        );
+      }
+    }
+
+    if (dto.transitLocationCode) {
+      // Either kind of node. A stop on the way from the warehouse to
+      // production can be registered as a Production Location or a
+      // Warehouse one depending on how the floor was mapped, and refusing
+      // one of them would just be a guess about their map.
+      const isProduction =
+        await this.productionLocationsRepository.existsActiveByLocationCode(
+          dto.transitLocationCode,
+        );
+      const isWarehouse = isProduction
+        ? false
+        : await this.warehouseLocationsRepository.existsActiveByLocationCode(
+            dto.transitLocationCode,
+          );
+      if (!isProduction && !isWarehouse) {
+        throw new BadRequestException(
+          'Transit Location Code must match an active Production Location or Warehouse Location',
         );
       }
     }

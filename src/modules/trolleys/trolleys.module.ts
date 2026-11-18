@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ProductionLocationsModule } from '../production-locations/production-locations.module';
+import { WarehouseLocationsModule } from '../warehouse-locations/warehouse-locations.module';
 import { TrolleyTypesModule } from '../trolley-types/trolley-types.module';
 import { TrolleyCategoriesModule } from '../trolley-categories/trolley-categories.module';
 import { ModelCodeProcessesModule } from '../model-code-processes/model-code-processes.module';
@@ -19,6 +20,9 @@ import { ImportTrolleysUseCase } from './use-cases/import-trolleys.use-case';
 @Module({
   imports: [
     ProductionLocationsModule,
+    // For validating a Transit Location Code, which may be registered as
+    // either kind of node.
+    WarehouseLocationsModule,
     TrolleyTypesModule,
     TrolleyCategoriesModule,
     ModelCodeProcessesModule,

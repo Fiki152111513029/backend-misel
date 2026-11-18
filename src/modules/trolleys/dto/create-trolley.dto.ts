@@ -50,6 +50,18 @@ export class CreateTrolleyDto {
 
   @ApiPropertyOptional({
     description:
+      'Transit Location Code — an optional stop between the scanned pickup and the Dropping Location, making a Warehouse Trolley Task a three-leg route. The AMR waits here until the Model Code Process timer continues it.',
+  })
+  // @IsOptional() skips both undefined and null, which is what is wanted:
+  // undefined on a PATCH means "leave the stop alone", null means "remove
+  // it". Typed to match, since that is the only way the form can turn a
+  // three-leg route back into a two-leg one.
+  @IsOptional()
+  @IsString()
+  transitLocationCode?: string | null;
+
+  @ApiPropertyOptional({
+    description:
       'Model Code Process id — used to build the RCS task-order payload when a Trolley Activity is submitted for this trolley',
   })
   @IsOptional()

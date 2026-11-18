@@ -140,6 +140,13 @@ export class ImportTrolleysUseCase {
       const droppingLocationCode =
         values['Dropping Location Code']?.trim() || undefined;
 
+      // null, not undefined, so a blank cell on an update clears an
+      // existing stop instead of silently keeping it. A file exported
+      // before this column existed has no such cell at all, which reads as
+      // blank and clears it -- the same thing the column being blank means.
+      const transitLocationCode =
+        values['Transit Location Code']?.trim() || null;
+
       const modelCodeProcessName = values['Model Code Process']?.trim();
       let modelCodeProcessId: string | undefined;
       if (modelCodeProcessName) {
@@ -178,6 +185,7 @@ export class ImportTrolleysUseCase {
           trolleyTypeId: trolleyType.id,
           trolleyCategoryId,
           droppingLocationCode,
+          transitLocationCode,
           modelCodeProcessId,
           customerId,
         });
@@ -190,6 +198,7 @@ export class ImportTrolleysUseCase {
         trolleyTypeId: trolleyType.id,
         trolleyCategoryId,
         droppingLocationCode,
+        transitLocationCode,
         modelCodeProcessId,
         customerId,
       });

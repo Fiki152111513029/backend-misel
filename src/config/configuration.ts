@@ -62,6 +62,15 @@ export default () => ({
     cancelUrl:
       process.env.TASK_CANCEL_ORDER_URL ??
       'http://172.18.101.10:7000/ics/out/task/cancelTask',
+    // Releases an order RCS has parked at a node and is waiting on — what
+    // ends the pause at a Trolley Task's transit stop. Payload: { orderId }.
+    //
+    // .trim() because the value in .env carries a trailing space, which
+    // new URL() keeps and the request then sends as part of the path.
+    continueUrl: (
+      process.env.CONTINUE_TASK ??
+      'http://172.18.101.10:7000/ics/out/task/continueTask'
+    ).trim(),
   },
   // RCS's own stock/bin tracking for Warehouse/Production Location nodes —
   // separate from our own DB (see Trolley.currentLocationCode) since RCS is

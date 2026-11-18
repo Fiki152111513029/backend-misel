@@ -8,9 +8,19 @@ export interface TrolleyWithRelations extends Trolley {
     // Used to build the RCS task-order payload for the Operator Trolley
     // Task direction (Production->Warehouse) — see
     // CreateTrolleyActivityUseCase.
-    modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
+    modelCodeProcess: {
+      id: string;
+      name: string;
+      fromSystem: string;
+      continueTaskDelaySec: number | null;
+    } | null;
   } | null;
-  modelCodeProcess: { id: string; name: string; fromSystem: string } | null;
+  modelCodeProcess: {
+    id: string;
+    name: string;
+    fromSystem: string;
+    continueTaskDelaySec: number | null;
+  } | null;
   customer: { id: string; name: string } | null;
 }
 
@@ -21,6 +31,8 @@ export interface CreateTrolleyData {
   trolleyTypeId: string;
   trolleyCategoryId?: string;
   droppingLocationCode?: string;
+  /** Optional stop before the dropping point; see Trolley in schema.prisma. */
+  transitLocationCode?: string | null;
   modelCodeProcessId?: string;
   customerId?: string;
 }
@@ -32,6 +44,14 @@ export interface UpdateTrolleyData {
   trolleyTypeId?: string;
   trolleyCategoryId?: string;
   droppingLocationCode?: string;
+  /**
+   * Optional stop before the dropping point.
+   *
+   * null clears it, undefined leaves it — the form sends null when the
+   * select is put back to None, which is the only way to turn a
+   * three-leg route back into a two-leg one.
+   */
+  transitLocationCode?: string | null;
   modelCodeProcessId?: string;
   customerId?: string;
   // Only ever set by ReceiveTaskStatusWebhookUseCase (on a "Placed" event)

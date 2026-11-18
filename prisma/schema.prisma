@@ -801,6 +801,20 @@ model Trolley {
   // validate-by-code convention as WarehouseLineLocation's dropping/picking
   // codes, checked server-side against active Production Locations.
   droppingLocationCode String?
+  /// An optional stop between the scanned pickup and droppingLocationCode,
+  /// stored as an iRaypleLocationCode like the codes around it.
+  ///
+  /// Set, a Warehouse Trolley Task goes out as a THREE-leg route
+  /// (scan, transit, dropping) instead of two, and the AMR waits at this
+  /// node until something continues it — which is what
+  /// ModelCodeProcess.continueTaskDelaySec and TrolleyTransitContinueService
+  /// exist for. Null (the default for every existing trolley) and nothing
+  /// changes: the route stays two legs and there is no wait.
+  ///
+  /// Only used in the Warehouse -> Production direction. The other
+  /// direction sends just the pickup node and lets RCS choose its own
+  /// destination, so there is no route here to insert a stop into.
+  transitLocationCode  String?
   // Where this trolley physically is right now — an iRaypleLocationCode,
   // same convention as droppingLocationCode. Null until the first Trolley
   // Task involving it is actually placed by the robot (see the "Placed"
@@ -835,6 +849,7 @@ model Trolley {
   @@index([trolleyTypeId])
   @@index([trolleyCategoryId])
   @@index([droppingLocationCode])
+  @@index([transitLocationCode])
   @@index([modelCodeProcessId])
   @@index([customerId])
   @@map("trolleys")
@@ -871,6 +886,29 @@ model TrolleyActivity {
   statusEnd            TrolleyStatus?
   pickupLocationCode   String
   droppingLocationCode String?
+  /// The transit stop this task was sent with, copied from
+  /// Trolley.transitLocationCode at submit time. Null for a task with no
+  /// stop, which is every task sent before this existed.
+  ///
+  /// Snapshotted rather than read back off the Trolley because the trolley
+  /// can be reconfigured while its task is still on the floor, and this
+  /// row has to keep describing the route that was actually sent.
+  transitLocationCode  String?
+  /// Seconds to wait at transitLocationCode before continuing, copied from
+  /// the Model Code Process at submit time — same snapshot reasoning as
+  /// above: an admin editing the timer must not change the wait of a task
+  /// already parked at its stop.
+  continueTaskDelaySec Int?
+  /// When the AMR was first seen to have reached transitLocationCode, which
+  /// is when the wait starts counting. Null until it gets there.
+  ///
+  /// RCS publishes no event for arriving at a node, so this is stamped by
+  /// TrolleyTransitContinueService from getTaskOrderStatus.
+  transitArrivedAt     DateTime?
+  /// When continueTask was accepted by RCS for this order. Set once and
+  /// never cleared — it is what stops the watcher sending a second
+  /// continue for the same stop.
+  continuedAt          DateTime?
   // Which page ("Warehouse" or "Operator" Trolley Task) the operator was
   // actually on when they submitted this — purely for routing the Current
   // Queue card back to the right page after a reload. Deliberately NOT the
@@ -900,6 +938,9 @@ model TrolleyActivity {
   @@index([trolleyId])
   @@index([taskId])
   @@index([robotId])
+  // The transit watcher polls for tasks still waiting at a stop, so that
+  // query must not be a table scan.
+  @@index([transitLocationCode])
   @@map("trolley_activities")
 }
 

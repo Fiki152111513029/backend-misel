@@ -11,6 +11,7 @@ import {
   FindAllTrolleyActivitiesParams,
   FindAllTrolleyActivitiesResult,
   ITrolleyActivitiesRepository,
+  PendingTransitActivity,
   ShiftActivityRow,
 } from './trolley-activity-repository.interface';
 
@@ -59,6 +60,51 @@ export class TrolleyActivityRepository implements ITrolleyActivitiesRepository {
       where: { id },
       data,
       include: RELATIONS_INCLUDE,
+    });
+  }
+
+  async findPendingTransit(): Promise<PendingTransitActivity[]> {
+    const rows = await this.prisma.trolleyActivity.findMany({
+      where: {
+        transitLocationCode: { not: null },
+        continuedAt: null,
+        status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
+        // An open row is a Take Trolley with no order at RCS yet.
+        statusEnd: { not: null },
+        ...NOT_DELETED,
+      },
+      select: {
+        id: true,
+        taskId: true,
+        transitLocationCode: true,
+        continueTaskDelaySec: true,
+        transitArrivedAt: true,
+      },
+      // Oldest first: if several are waiting, the one that has been there
+      // longest is the one most worth getting moving.
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // transitLocationCode is filtered non-null above, but Prisma still
+    // types it as nullable — narrowed here rather than asserted.
+    return rows.flatMap((row) =>
+      row.transitLocationCode
+        ? [{ ...row, transitLocationCode: row.transitLocationCode }]
+        : [],
+    );
+  }
+
+  async markTransitArrived(id: string, at: Date): Promise<void> {
+    await this.prisma.trolleyActivity.update({
+      where: { id },
+      data: { transitArrivedAt: at },
+    });
+  }
+
+  async markContinued(id: string, at: Date): Promise<void> {
+    await this.prisma.trolleyActivity.update({
+      where: { id },
+      data: { continuedAt: at },
     });
   }
 

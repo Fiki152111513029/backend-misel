@@ -102,6 +102,10 @@ export class CreateTrolleyActivityUseCase {
     let fromSystem: string;
     let priority: number;
     let taskPath: string;
+    // Only the Warehouse -> Production direction has a route to put a stop
+    // in; the other direction sends one node and lets RCS pick the rest.
+    let transitLocationCode: string | null = null;
+    let continueTaskDelaySec: number | null = null;
 
     if (pickupWarehouseLocation) {
       if (!trolley.droppingLocationCode) {
@@ -123,7 +127,33 @@ export class CreateTrolleyActivityUseCase {
       modelProcessCode = trolley.modelCodeProcess.name;
       fromSystem = trolley.modelCodeProcess.fromSystem;
       priority = user.priority;
-      taskPath = [dto.pickupLocationCode, droppingLocationCode].join(',');
+
+      // A trolley with a transit stop goes out as three legs instead of
+      // two: scan, stop, dropping. The AMR parks at the middle one until
+      // something continues the order, which is what the Model Code
+      // Process timer and TrolleyTransitContinueService are for.
+      transitLocationCode = trolley.transitLocationCode ?? null;
+      if (transitLocationCode) {
+        continueTaskDelaySec =
+          trolley.modelCodeProcess.continueTaskDelaySec ?? null;
+        // Refused at submit rather than discovered on the floor. With a
+        // stop and no timer, nothing would ever continue the order: the
+        // AMR would sit at the transit node holding a trolley, blocking
+        // whatever lane it is in, with no button anywhere to release it
+        // and nothing in the UI saying why. A 400 here names the one
+        // setting that fixes it.
+        if (continueTaskDelaySec == null) {
+          throw new BadRequestException(
+            `Trolley "${trolley.name}" has a Transit Location Code but its Model Code Process "${trolley.modelCodeProcess.name}" has no Continue Task Timer — set the timer on the Model Code Process, or clear the Transit Location Code on the Trolley`,
+          );
+        }
+      }
+
+      taskPath = [
+        dto.pickupLocationCode,
+        ...(transitLocationCode ? [transitLocationCode] : []),
+        droppingLocationCode,
+      ].join(',');
     } else {
       const pickupProductionLocation =
         await this.productionLocationsRepository.findActiveByLocationCode(
@@ -211,6 +241,10 @@ export class CreateTrolleyActivityUseCase {
     // rather than risk recording a location the task never really reached.
     const isOperatorDirection = !pickupWarehouseLocation;
 
+    // Both snapshotted, not read back off the trolley later: the trolley
+    // and its Model Code Process can be edited while this task is still on
+    // the floor, and the watcher has to keep honouring the route and the
+    // wait that were actually sent.
     const activity = openActivity
       ? await this.trolleyActivitiesRepository.completeById(openActivity.id, {
           statusEnd,
@@ -218,6 +252,8 @@ export class CreateTrolleyActivityUseCase {
           droppingLocationCode: isOperatorDirection
             ? undefined
             : droppingLocationCode,
+          transitLocationCode,
+          continueTaskDelaySec,
           endDate,
           taskId: orderId,
         })
@@ -230,6 +266,8 @@ export class CreateTrolleyActivityUseCase {
           droppingLocationCode: isOperatorDirection
             ? undefined
             : droppingLocationCode,
+          transitLocationCode,
+          continueTaskDelaySec,
           queueRole: dto.queueRole,
           startDate,
           endDate,

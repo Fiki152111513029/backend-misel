@@ -16,6 +16,7 @@ interface ExportRow {
   trolleyType: string;
   trolleyCategory: string;
   droppingLocationCode: string;
+  transitLocationCode: string;
   modelCodeProcess: string;
   customer: string;
 }
@@ -27,6 +28,7 @@ const COLUMNS: ExportColumn<ExportRow>[] = [
   { header: 'Trolley Type', key: 'trolleyType' },
   { header: 'Trolley Category', key: 'trolleyCategory' },
   { header: 'Dropping Location Code', key: 'droppingLocationCode' },
+  { header: 'Transit Location Code', key: 'transitLocationCode' },
   { header: 'Model Code Process', key: 'modelCodeProcess' },
   { header: 'Customer', key: 'customer' },
 ];
@@ -54,6 +56,7 @@ export class ExportTrolleysUseCase {
       trolleyType: item.type.name,
       trolleyCategory: item.category?.name ?? '',
       droppingLocationCode: item.droppingLocationCode ?? '',
+      transitLocationCode: item.transitLocationCode ?? '',
       modelCodeProcess: item.modelCodeProcess?.name ?? '',
       customer: item.customer?.name ?? '',
     }));

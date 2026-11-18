@@ -16,10 +16,26 @@ const RELATIONS_INCLUDE = {
     select: {
       id: true,
       name: true,
-      modelCodeProcess: { select: { id: true, name: true, fromSystem: true } },
+      // continueTaskDelaySec rides along so a Trolley Activity can
+      // snapshot the transit wait without a second query.
+      modelCodeProcess: {
+        select: {
+          id: true,
+          name: true,
+          fromSystem: true,
+          continueTaskDelaySec: true,
+        },
+      },
     },
   },
-  modelCodeProcess: { select: { id: true, name: true, fromSystem: true } },
+  modelCodeProcess: {
+    select: {
+      id: true,
+      name: true,
+      fromSystem: true,
+      continueTaskDelaySec: true,
+    },
+  },
   customer: { select: { id: true, name: true } },
 } as const;
 

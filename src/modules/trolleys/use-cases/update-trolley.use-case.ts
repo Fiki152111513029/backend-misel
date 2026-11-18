@@ -10,6 +10,8 @@ import { TROLLEYS_REPOSITORY } from '../repositories/trolley-repository.interfac
 import type { ITrolleysRepository } from '../repositories/trolley-repository.interface';
 import { PRODUCTION_LOCATIONS_REPOSITORY } from '../../production-locations/repositories/production-location-repository.interface';
 import type { IProductionLocationsRepository } from '../../production-locations/repositories/production-location-repository.interface';
+import { WAREHOUSE_LOCATIONS_REPOSITORY } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
+import type { IWarehouseLocationsRepository } from '../../warehouse-locations/repositories/warehouse-location-repository.interface';
 
 @Injectable()
 export class UpdateTrolleyUseCase {
@@ -18,6 +20,8 @@ export class UpdateTrolleyUseCase {
     private readonly trolleysRepository: ITrolleysRepository,
     @Inject(PRODUCTION_LOCATIONS_REPOSITORY)
     private readonly productionLocationsRepository: IProductionLocationsRepository,
+    @Inject(WAREHOUSE_LOCATIONS_REPOSITORY)
+    private readonly warehouseLocationsRepository: IWarehouseLocationsRepository,
   ) {}
 
   async execute(id: string, dto: UpdateTrolleyDto) {
@@ -96,6 +100,29 @@ export class UpdateTrolleyUseCase {
       if (!locationExists) {
         throw new BadRequestException(
           'Dropping Location Code must match an active Production Location',
+        );
+      }
+    }
+
+    // Truthy, so clearing it (null from the form's "None" option) skips
+    // the check and goes straight through — there is nothing to verify
+    // about removing a stop.
+    if (
+      dto.transitLocationCode &&
+      dto.transitLocationCode !== existing.transitLocationCode
+    ) {
+      const isProduction =
+        await this.productionLocationsRepository.existsActiveByLocationCode(
+          dto.transitLocationCode,
+        );
+      const isWarehouse = isProduction
+        ? false
+        : await this.warehouseLocationsRepository.existsActiveByLocationCode(
+            dto.transitLocationCode,
+          );
+      if (!isProduction && !isWarehouse) {
+        throw new BadRequestException(
+          'Transit Location Code must match an active Production Location or Warehouse Location',
         );
       }
     }

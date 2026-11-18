@@ -62,6 +62,10 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  CONTINUE_TASK?: string;
+
+  @IsOptional()
+  @IsString()
   TASK_ORDER_AREA_ID?: string;
 
   @IsOptional()
